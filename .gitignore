@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.vscode/
+.idea/
+.DS_Store
+
+.env
+.env.*
+!.env.example
+
+.contextforge/cache/
+.contextforge/output/
+.contextforge/tmp/
+
+CLAUDE.local.md
+.claude/settings.local.json

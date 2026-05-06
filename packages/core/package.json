@@ -1,0 +1,16 @@
+{
+  "name": "@contextforge/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/scanner.js",
+  "types": "dist/scanner.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/scanner.d.ts",
+      "default": "./dist/scanner.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

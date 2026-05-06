@@ -1,0 +1,21 @@
+{
+  "root": ".",
+  "folders": [
+    {
+      "name": "packages",
+      "children": [
+        { "name": "core", "type": "package" },
+        { "name": "cli", "type": "package" },
+        { "name": "agents", "type": "package" },
+        { "name": "integrations", "type": "package" }
+      ]
+    },
+    {
+      "name": ".contextforge",
+      "children": [
+        { "name": "templates", "type": "folder" },
+        { "name": "structure", "type": "folder" }
+      ]
+    }
+  ]
+}
