@@ -1,0 +1,16 @@
+{
+  "name": "@contextforge/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "forge": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@contextforge/core": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

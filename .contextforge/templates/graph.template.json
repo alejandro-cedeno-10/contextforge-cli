@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "0.1.0",
+  "project": {
+    "name": "contextforge-cli-ts",
+    "root": "."
+  },
+  "nodes": [
+    {
+      "id": "file:packages/core/src/scanner.ts",
+      "type": "file",
+      "label": "scanner.ts",
+      "path": "packages/core/src/scanner.ts"
+    }
+  ],
+  "edges": []
+}

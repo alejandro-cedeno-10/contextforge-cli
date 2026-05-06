@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "0.1.0",
+  "task": "example-task",
+  "budget": {
+    "maxInputTokens": 12000,
+    "estimatedTokens": 4200
+  },
+  "files": [
+    {
+      "path": "packages/core/src/scanner.ts",
+      "reason": "directly_relevant",
+      "mode": "full",
+      "hash": "sha256:..."
+    },
+    {
+      "path": "packages/cli/src/index.ts",
+      "reason": "entrypoint",
+      "mode": "excerpt",
+      "hash": "sha256:...",
+      "excerpt": "..."
+    }
+  ]
+}
