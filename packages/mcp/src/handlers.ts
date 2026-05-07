@@ -3,12 +3,15 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import {
+  getDomain,
   selectContext,
   validateGuardrails,
   type ScanResult,
   type GraphNode,
   type GraphEdge
 } from "@alejandro-cedeno-10/contextforge-core";
+
+export { getDomain };
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -38,13 +41,6 @@ interface PlanArtifact {
 type ToolResult = { content: [{ type: "text"; text: string }] };
 
 // ─── pure helpers ─────────────────────────────────────────────────────────────
-
-export function getDomain(filePath: string): string {
-  const parts = filePath.split("/");
-  if (parts[0] === "packages" && parts.length > 1)
-    return `packages/${parts[1]}`;
-  return parts[0] ?? "root";
-}
 
 export function formatFileList(
   files: Array<{ path: string; reason: string; mode: string; score?: number }>,

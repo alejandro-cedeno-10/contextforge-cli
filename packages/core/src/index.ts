@@ -69,3 +69,19 @@ export {
   type DiataxisFile,
   type DiataxisResult
 } from "./docs/scaffolder.js";
+
+export { getDomain } from "./graph/domain.js";
+
+export {
+  buildSyncReport,
+  type SyncInput,
+  type SyncReport
+} from "./sync/syncReport.js";
+
+export {
+  buildHealthReport,
+  type HealthInput,
+  type HealthReport,
+  type ArtifactStatus,
+  type SkillCoverage
+} from "./impact/healthCheck.js";

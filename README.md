@@ -53,17 +53,19 @@ pnpm forge docs
 
 ## Comandos
 
-| Comando                   | Descripción                                                                                  | LLM requerido |
-| ------------------------- | -------------------------------------------------------------------------------------------- | ------------- |
-| `forge init`              | Inicializa `.contextforge/` con directorios y plantillas                                     | No            |
-| `forge scan`              | Indexa archivos con hashes BLAKE3, detecta lenguaje y tipo                                   | No            |
-| `forge graph`             | Construye grafo de dependencias (nodos file/symbol, 5 edge types)                            | No            |
-| `forge context "<tarea>"` | Selecciona archivos relevantes via PageRank + BFS + presupuesto                              | No            |
-| `forge spec <id>`         | Genera spec en formato OpenSpec (`changes/<id>/`) con evidencia del grafo                    | No            |
-| `forge implement <id>`    | Produce plan con guardrails derivados del context-pack                                       | No            |
-| `forge implement --check` | Valida cambios del agente contra guardrails                                                  | No            |
-| `forge viz`               | Genera visualización HTML interactiva del grafo                                              | No            |
-| `forge docs [--force]`    | Scaffold de documentación Diátaxis (tutorials/how-to/reference/explanation/adr/architecture) | No            |
+| Comando                              | Descripción                                                                                  | LLM requerido |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- | ------------- |
+| `forge init`                         | Inicializa `.contextforge/` con directorios y plantillas                                     | No            |
+| `forge scan`                         | Indexa archivos con hashes BLAKE3, detecta lenguaje y tipo                                   | No            |
+| `forge graph`                        | Construye grafo de dependencias (nodos file/symbol, 5 edge types)                            | No            |
+| `forge context "<tarea>"`            | Selecciona archivos relevantes via PageRank + BFS + presupuesto                              | No            |
+| `forge spec <id>`                    | Genera spec en formato OpenSpec (`changes/<id>/`) con evidencia del grafo                    | No            |
+| `forge implement <id>`               | Produce plan con guardrails derivados del context-pack                                       | No            |
+| `forge implement --check`            | Valida cambios del agente contra guardrails                                                  | No            |
+| `forge viz`                          | Genera visualización HTML interactiva del grafo                                              | No            |
+| `forge docs [--force]`               | Scaffold de documentación Diátaxis (tutorials/how-to/reference/explanation/adr/architecture) | No            |
+| `forge sync [--since X] [--rebuild]` | Reporta delta desde un ref de git (por defecto `HEAD~1`) y dominios afectados                | No            |
+| `forge impact`                       | Health check de artifacts + cobertura de skills por dominio                                  | No            |
 
 ---
 

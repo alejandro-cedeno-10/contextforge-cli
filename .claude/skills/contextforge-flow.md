@@ -1,6 +1,7 @@
 ---
 name: contextforge-flow
-description: Pipeline completo de ContextForge para ahorrar tokens — scan, graph, context, spec, implement
+description: Pipeline completo de ContextForge para ahorrar tokens — scan, graph, context, spec, implement, sync, impact
+tags: [pipeline, all-domains]
 ---
 
 # ContextForge — Flujo completo
@@ -31,3 +32,4 @@ pnpm forge implement --check  # Valida que el agente respetó guardrails
 - **Spec accionable**: `spec <change-id>` → OpenSpec format
 - **Antes de editar**: `implement <id>` → guardrails
 - **Antes de commitear**: `implement --check` → valida diff vs guardrails
+- **Mantenimiento**: `sync` (delta desde último commit) y `impact` (health check de artifacts + skills coverage)

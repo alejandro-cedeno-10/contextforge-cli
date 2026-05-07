@@ -8,7 +8,10 @@ import {
   blake3Hex,
   buildDiataxisScaffold,
   buildGraph,
+  buildHealthReport,
   buildOpenSpec,
+  buildSyncReport,
+  getDomain,
   renderSDD,
   selectContext,
   validateGuardrails,
@@ -553,6 +556,261 @@ async function cmdViz(): Promise<void> {
   console.log(`Abre en navegador: ${outPath}`);
 }
 
+async function gitChangedFiles(since: string): Promise<string[]> {
+  try {
+    const raw = execSync(`git diff --name-only ${since} HEAD`, {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    return raw
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function cmdSync(args: string[] = []): Promise<void> {
+  const { flags } = parseFlags(args);
+  const since =
+    typeof flags["since"] === "string" ? (flags["since"] as string) : "HEAD~1";
+  const rebuild = flags["rebuild"] === true;
+
+  const changedFiles = await gitChangedFiles(since);
+
+  type GraphFile = {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    scanRef?: { scanHash?: string };
+  };
+  type PackFile = { path: string; reason?: string; mode?: string };
+  type ContextPack = { task?: string; files?: PackFile[] };
+
+  const graph = await tryReadJson<GraphFile>(outputPath("graph.json"));
+  const pack = await tryReadJson<ContextPack>(outputPath("context-pack.json"));
+
+  let scanFileHash: string | undefined;
+  try {
+    const scanRaw = await fs.readFile(outputPath("scan.json"), "utf8");
+    scanFileHash = blake3Hex(scanRaw);
+  } catch {
+    scanFileHash = undefined;
+  }
+
+  const report = buildSyncReport({
+    changedFiles,
+    graphScanHash: graph?.scanRef?.scanHash,
+    scanFileHash,
+    contextPackPaths: pack?.files?.map((f) => f.path) ?? [],
+    contextPackTask: pack?.task
+  });
+
+  console.log(
+    `[sync] ${report.changedFiles.length} archivos cambiados desde ${since}`
+  );
+  for (const file of report.changedFiles) {
+    console.log(`  ${file}`);
+  }
+
+  console.log("");
+  console.log(`[sync] ${report.affectedDomains.size} dominios afectados:`);
+  for (const [domain, count] of report.affectedDomains) {
+    console.log(`  ${domain} (${count} archivo${count === 1 ? "" : "s"})`);
+  }
+
+  console.log("");
+  if (report.graphStale) {
+    console.log("[sync] graph.json hash: STALE → rebuild recomendado");
+  } else if (typeof scanFileHash === "string" && graph) {
+    console.log("[sync] graph.json hash: matches → no rebuild needed");
+  } else {
+    console.log("[sync] graph.json hash: no comparable (artifacts faltan)");
+  }
+
+  if (report.contextPackAffected) {
+    console.log(
+      "[sync] context-pack toca archivos cambiados → potencialmente stale"
+    );
+  }
+
+  if (report.recommendations.length > 0) {
+    console.log("");
+    console.log("[sync] Recomendaciones:");
+    for (const rec of report.recommendations) {
+      console.log(`  - ${rec}`);
+    }
+  }
+
+  if (rebuild) {
+    console.log("");
+    console.log("[sync] --rebuild: ejecutando scan + graph...");
+    await cmdScan();
+    await cmdGraph();
+  }
+}
+
+async function readSkillTags(): Promise<string[][]> {
+  const skillsDir = path.join(process.cwd(), ".claude", "skills");
+  let entries: string[] = [];
+  try {
+    entries = await fs.readdir(skillsDir);
+  } catch {
+    return [];
+  }
+
+  const tagsPerSkill: string[][] = [];
+  for (const entry of entries) {
+    if (!entry.endsWith(".md")) continue;
+    try {
+      const raw = await fs.readFile(path.join(skillsDir, entry), "utf8");
+      const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---/);
+      if (!fmMatch) {
+        tagsPerSkill.push([]);
+        continue;
+      }
+      const block = fmMatch[1];
+      const tagLine = block.match(/^tags:\s*(.+)$/m);
+      if (!tagLine) {
+        tagsPerSkill.push([]);
+        continue;
+      }
+      const value = tagLine[1].trim();
+      let tags: string[] = [];
+      if (value.startsWith("[") && value.endsWith("]")) {
+        tags = value
+          .slice(1, -1)
+          .split(",")
+          .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+          .filter(Boolean);
+      } else {
+        tags = value
+          .split(",")
+          .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+          .filter(Boolean);
+      }
+      tagsPerSkill.push(tags);
+    } catch {
+      tagsPerSkill.push([]);
+    }
+  }
+  return tagsPerSkill;
+}
+
+async function cmdImpact(): Promise<void> {
+  const checks: Array<{ name: string }> = [
+    { name: "scan.json" },
+    { name: "graph.json" },
+    { name: "context-pack.json" },
+    { name: "implement-plan.json" },
+    { name: "token-ledger.json" }
+  ];
+
+  const artifacts: Array<{
+    name: string;
+    exists: boolean;
+    mtimeMs?: number;
+    parsed?: Record<string, unknown> | null;
+  }> = [];
+
+  for (const c of checks) {
+    const filePath = outputPath(c.name);
+    try {
+      const stat = await fs.stat(filePath);
+      const parsed = await tryReadJson<Record<string, unknown>>(filePath);
+      artifacts.push({
+        name: c.name,
+        exists: true,
+        mtimeMs: stat.mtimeMs,
+        parsed
+      });
+    } catch {
+      artifacts.push({ name: c.name, exists: false });
+    }
+  }
+
+  const graphArtifact = artifacts.find((a) => a.name === "graph.json");
+  const graphParsed = graphArtifact?.parsed as
+    | { nodes?: GraphNode[]; scanRef?: { scanHash?: string } }
+    | undefined;
+  const graphScanHash = graphParsed?.scanRef?.scanHash;
+
+  let scanFileHash: string | undefined;
+  if (artifacts.find((a) => a.name === "scan.json")?.exists) {
+    try {
+      const scanRaw = await fs.readFile(outputPath("scan.json"), "utf8");
+      scanFileHash = blake3Hex(scanRaw);
+    } catch {
+      scanFileHash = undefined;
+    }
+  }
+
+  const graphDomains = new Set<string>();
+  for (const node of graphParsed?.nodes ?? []) {
+    if (node.type !== "file" || !node.path) continue;
+    graphDomains.add(getDomain(node.path));
+  }
+
+  const skillTags = await readSkillTags();
+
+  const ctxArtifact = artifacts.find((a) => a.name === "context-pack.json");
+  const ctxParsed = ctxArtifact?.parsed as
+    | { budget?: { maxInputTokens?: number; estimatedTokens?: number } }
+    | undefined;
+  const contextPackTokens = ctxParsed?.budget?.estimatedTokens;
+  const contextPackBudget = ctxParsed?.budget?.maxInputTokens;
+
+  const report = buildHealthReport({
+    artifacts,
+    graphScanHash,
+    scanFileHash,
+    contextPackTokens,
+    contextPackBudget,
+    graphDomains: Array.from(graphDomains),
+    skillTags
+  });
+
+  console.log(`[impact] Health check de ContextForge`);
+  console.log("");
+  console.log("Artifacts (.contextforge/):");
+  for (const a of report.artifacts) {
+    if (!a.exists) {
+      console.log(`  [missing] ${a.name}`);
+      continue;
+    }
+    const ageStr =
+      typeof a.ageMinutes === "number" ? ` _(${a.ageMinutes}m ago)_` : "";
+    const detailStr = a.detail ? ` — ${a.detail}` : "";
+    const warnStr = a.warning ? `  WARN: ${a.warning}` : "";
+    console.log(`  [ok] ${a.name}${detailStr}${ageStr}${warnStr}`);
+  }
+
+  if (typeof report.budgetUsedPct === "number") {
+    console.log("");
+    console.log(`[impact] context-pack budget: ${report.budgetUsedPct}%`);
+  }
+  if (typeof report.savingsPct === "number") {
+    console.log(`[impact] token savings: ${report.savingsPct}%`);
+  }
+
+  console.log("");
+  console.log(
+    `Skills coverage (.claude/skills/): ${report.coverage.totalSkills} skills · ${report.coverage.coveredDomains.length} dominios cubiertos · ${report.coverage.uncoveredDomains.length} sin skill`
+  );
+  if (report.coverage.uncoveredDomains.length > 0) {
+    console.log(`  Uncovered: ${report.coverage.uncoveredDomains.join(", ")}`);
+  }
+
+  if (report.warnings.length > 0) {
+    console.log("");
+    console.log("Suggestions:");
+    for (const w of report.warnings) {
+      console.log(`  - ${w}`);
+    }
+  }
+}
+
 function printUsage(): void {
   console.log(`Uso:
   pnpm forge init
@@ -564,7 +822,9 @@ function printUsage(): void {
   pnpm forge implement --check
   pnpm forge implement --approve
   pnpm forge docs [--force]
-  pnpm forge viz`);
+  pnpm forge viz
+  pnpm forge sync [--since HEAD~1] [--rebuild]
+  pnpm forge impact`);
 }
 
 export async function runCommand(
@@ -595,6 +855,12 @@ export async function runCommand(
       break;
     case "docs":
       await cmdDocs(args);
+      break;
+    case "sync":
+      await cmdSync(args.slice(0));
+      break;
+    case "impact":
+      await cmdImpact();
       break;
     default:
       printUsage();

@@ -1,6 +1,7 @@
 ---
 name: contextforge-docs
 description: Scaffold de documentación Diátaxis (tutorials/how-to/reference/explanation/adr/architecture)
+tags: [diataxis, docs]
 ---
 
 # ContextForge — Docs Diátaxis

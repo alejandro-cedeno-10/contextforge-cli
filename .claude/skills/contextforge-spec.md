@@ -1,6 +1,7 @@
 ---
 name: contextforge-spec
 description: Generar spec OpenSpec a partir del grafo de dependencias del proyecto
+tags: [openspec, packages/core]
 ---
 
 # ContextForge — Spec OpenSpec desde grafo

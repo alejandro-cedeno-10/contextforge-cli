@@ -4,21 +4,21 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 
 ## Estado actual (2026-05-07)
 
-| Sprint | Foco                                      | Estado        |
-| ------ | ----------------------------------------- | ------------- |
-| S1     | Schemas + validacion JSON                 | ✅ Completado |
-| S2     | Cache + BLAKE3                            | ✅ Completado |
-| S3     | Grafo tree-sitter                         | ✅ Completado |
-| S4     | Context selector PageRank                 | ✅ Completado |
-| S5     | Spec OpenSpec (default)                   | ✅ Completado |
-| S6     | Implement-plan guardrails                 | ✅ Completado |
-| S7     | Grafo visual interactivo                  | ✅ Completado |
-| S8     | MCP Server                                | ✅ Completado |
-| S9     | Diátaxis docs scaffolder + Claude skills  | ✅ Completado |
-| S10    | GitHub Packages publish workflow          | ✅ Completado |
-| —      | Cursor adapter, packages/agents/ decision | Backlog       |
+| Sprint | Foco                                       | Estado        |
+| ------ | ------------------------------------------ | ------------- |
+| S1     | Schemas + validacion JSON                  | ✅ Completado |
+| S2     | Cache + BLAKE3                             | ✅ Completado |
+| S3     | Grafo tree-sitter                          | ✅ Completado |
+| S4     | Context selector PageRank                  | ✅ Completado |
+| S5     | Spec OpenSpec (default)                    | ✅ Completado |
+| S6     | Implement-plan guardrails                  | ✅ Completado |
+| S7     | Grafo visual interactivo                   | ✅ Completado |
+| S8     | MCP Server                                 | ✅ Completado |
+| S9     | Diátaxis docs scaffolder + Claude skills   | ✅ Completado |
+| S10    | GitHub Packages publish workflow           | ✅ Completado |
+| S11    | forge sync + forge impact (Aspens-inspired)| ✅ Completado |
 
-**Suite de tests**: 130/130 pasando. **Coverage**: 88.67 % stmts / 82.03 % branches / 100 % funcs / 88.67 % lines.
+**Suite de tests**: 147/147 pasando. **Coverage**: 89.54 % stmts / 82.53 % branches / 100 % funcs / 89.54 % lines.
 **Ahorro tokens verificado**: 90.3 % (11 700 / 121 000).
 
 **Convenciones**:
@@ -512,6 +512,47 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 - **Criterios**:
   - [x] Tag `v0.1.0` creado y empujado.
   - [x] Workflow ejecutable manualmente con `workflow_dispatch`.
+
+---
+
+## Sprint 11 - forge sync + forge impact ✅ COMPLETADO
+
+**Objetivo**: Cerrar el ciclo de mantenimiento con dos comandos deterministas: `forge sync` para delta basado en git + grafo, y `forge impact` para health check de artifacts + skill coverage.
+
+### S11.T1 - `forge sync` reporte incremental
+
+- **Archivos creados**: `packages/core/src/sync/syncReport.ts`, `packages/core/__tests__/syncReport.unit.test.ts`.
+- **Archivos tocados**: `packages/cli/src/index.ts` (cmdSync + case en runCommand), `packages/core/src/index.ts` (export).
+- **Implementacion**:
+  - Pure logic: `buildSyncReport({ changedFiles, graphScanHash, scanFileHash, contextPackPaths, contextPackTask })`.
+  - CLI: `git diff --name-only <since> HEAD` (default `HEAD~1`, configurable con `--since`).
+  - Mapea archivos -> dominios via `getDomain()` extraido a core.
+  - Detecta `graphStale` por hash mismatch y `contextPackAffected` por interseccion de paths.
+  - `--rebuild` corre `cmdScan + cmdGraph` despues del reporte.
+- **Criterios**:
+  - [x] 8 tests unitarios cubren empty input, multi-domain grouping, hash mismatch, pack interseccion, recomendaciones.
+  - [x] `pnpm forge sync` imprime archivos cambiados, dominios y recomendaciones.
+
+### S11.T2 - `forge impact` health check
+
+- **Archivos creados**: `packages/core/src/impact/healthCheck.ts`, `packages/core/__tests__/healthCheck.unit.test.ts`.
+- **Archivos tocados**: `packages/cli/src/index.ts` (cmdImpact + case en runCommand), `packages/core/src/index.ts` (export), 3 skills en `.claude/skills/*.md` (frontmatter `tags:`).
+- **Implementacion**:
+  - Pure logic: `buildHealthReport({ artifacts, graphScanHash, scanFileHash, contextPackTokens/Budget, graphDomains, skillTags })`.
+  - Artifacts: existencia + ageMinutes + warning si > 60 min en scan/graph/context-pack.
+  - Coverage: matching tag <-> dominio (incluye `core` -> `packages/core`, `all-domains` -> universal).
+  - Budget: warning si > 90 % del budget.
+  - CLI: parsea frontmatter de `.claude/skills/*.md` con regex tolerante (array `[a, b]` o csv).
+- **Criterios**:
+  - [x] 9 tests unitarios cubren missing artifact, freshness, hash mismatch, budget, coverage, savings, stale.
+  - [x] `pnpm forge impact` imprime artifacts + coverage + suggestions.
+
+### S11.T3 - Refactor: `getDomain` en core
+
+- **Archivos creados**: `packages/core/src/graph/domain.ts`.
+- **Archivos tocados**: `packages/core/src/index.ts` (export), `packages/mcp/src/handlers.ts` (importa desde core, re-exporta para preservar API).
+- **Criterios**:
+  - [x] Tests del MCP siguen pasando con la importacion via core.
 
 ---
 
