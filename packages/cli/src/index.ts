@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   blake3Hex,
+  buildAgentManifest,
   buildDiataxisScaffold,
   buildDomainSkills,
   buildGraph,
@@ -13,6 +14,9 @@ import {
   buildOpenSpec,
   buildSyncReport,
   getDomain,
+  renderClaude,
+  renderCursor,
+  renderOpenCode,
   renderSDD,
   selectContext,
   validateGuardrails,
@@ -23,6 +27,8 @@ import {
   type GraphEdge,
   type GraphNode,
   type ScanResult,
+  type SkillEntry,
+  type RuleEntry,
   validateOrThrow
 } from "@alejandro-cedeno-10/contextforge-core";
 
@@ -175,7 +181,14 @@ async function cmdGraph(): Promise<void> {
   console.log("Escrito .contextforge/graph.json");
 }
 
-async function cmdContext(task = "Describe la tarea aqui"): Promise<void> {
+async function cmdContext(
+  task = "Describe la tarea aqui",
+  args: string[] = []
+): Promise<void> {
+  const { flags } = parseFlags(args);
+  const skipManifest = flags["no-manifest"] === true;
+  const manifestForce = flags["force"] === true;
+
   const graphRaw = await readRequiredJson<{
     nodes: Array<{
       id: string;
@@ -286,6 +299,15 @@ async function cmdContext(task = "Describe la tarea aqui"): Promise<void> {
   await writeJson(outputPath("token-ledger.json"), ledger);
   console.log("Escrito .contextforge/context-pack.json");
   console.log("Escrito .contextforge/token-ledger.json");
+
+  if (!skipManifest) {
+    console.log("");
+    await generateAgentManifest({
+      task,
+      packedFiles: pack.files.map((f) => ({ path: f.path })),
+      force: manifestForce
+    });
+  }
 }
 
 function isOpenSpecCliAvailable(): boolean {
@@ -603,6 +625,171 @@ async function cmdSkills(args: string[] = []): Promise<void> {
   }
 }
 
+function parseFrontmatterFields(content: string): {
+  name?: string;
+  domains?: string[];
+  alwaysApply?: boolean;
+} {
+  const match = /^---\n([\s\S]*?)\n---/.exec(content);
+  if (!match) return {};
+  const block = match[1];
+  const result: { name?: string; domains?: string[]; alwaysApply?: boolean } =
+    {};
+  const nameLine = /^name:\s*(.+)$/m.exec(block);
+  if (nameLine) result.name = nameLine[1].trim();
+  const alwaysLine = /^alwaysApply:\s*(true|false)$/m.exec(block);
+  if (alwaysLine) result.alwaysApply = alwaysLine[1] === "true";
+  const domainsLine = /^domains:\s*\[([^\]]*)\]$/m.exec(block);
+  if (domainsLine) {
+    result.domains = domainsLine[1]
+      .split(",")
+      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean);
+  }
+  return result;
+}
+
+async function loadSkillsFromDir(dir: string): Promise<SkillEntry[]> {
+  const result: SkillEntry[] = [];
+  try {
+    const entries = await fs.readdir(dir);
+    for (const entry of entries) {
+      if (!entry.endsWith(".md")) continue;
+      const fullPath = path.join(dir, entry);
+      const relPath = `.claude/skills/${entry}`;
+      try {
+        const content = await fs.readFile(fullPath, "utf8");
+        const fm = parseFrontmatterFields(content);
+        result.push({
+          path: relPath,
+          name: fm.name ?? entry.replace(".md", ""),
+          domains: fm.domains ?? [],
+          alwaysApply: fm.alwaysApply
+        });
+      } catch {
+        result.push({
+          path: relPath,
+          name: entry.replace(".md", ""),
+          domains: []
+        });
+      }
+    }
+  } catch {
+    // dir doesn't exist
+  }
+  return result;
+}
+
+async function loadRulesFromDir(dir: string): Promise<RuleEntry[]> {
+  const result: RuleEntry[] = [];
+  try {
+    const entries = await fs.readdir(dir);
+    for (const entry of entries) {
+      if (!entry.endsWith(".mdc") && !entry.endsWith(".md")) continue;
+      const fullPath = path.join(dir, entry);
+      const relPath = `.cursor/rules/${entry}`;
+      try {
+        const content = await fs.readFile(fullPath, "utf8");
+        const fm = parseFrontmatterFields(content);
+        result.push({
+          path: relPath,
+          domains: fm.domains ?? [],
+          alwaysApply: fm.alwaysApply
+        });
+      } catch {
+        result.push({ path: relPath, domains: [] });
+      }
+    }
+  } catch {
+    // dir doesn't exist
+  }
+  return result;
+}
+
+interface GenerateManifestOptions {
+  task: string;
+  packedFiles: { path: string }[];
+  agents?: string[];
+  force?: boolean;
+}
+
+async function generateAgentManifest(
+  options: GenerateManifestOptions
+): Promise<void> {
+  const agents = options.agents ?? ["claude", "cursor", "opencode"];
+  const force = options.force ?? false;
+
+  const skillsDir = path.join(process.cwd(), ".claude", "skills");
+  const rulesDir = path.join(process.cwd(), ".cursor", "rules");
+  const [skills, rules] = await Promise.all([
+    loadSkillsFromDir(skillsDir),
+    loadRulesFromDir(rulesDir)
+  ]);
+
+  const manifest = buildAgentManifest({
+    task: options.task,
+    packedFiles: options.packedFiles,
+    skills,
+    rules
+  });
+  validateOrThrow("agent-manifest", manifest);
+
+  await writeJson(outputPath("agent-manifest.json"), manifest);
+  console.log("Escrito .contextforge/agent-manifest.json");
+
+  const allFiles: Array<{ path: string; content: string }> = [];
+  if (agents.includes("claude")) allFiles.push(...renderClaude(manifest));
+  if (agents.includes("cursor")) allFiles.push(...renderCursor(manifest));
+  if (agents.includes("opencode")) allFiles.push(...renderOpenCode(manifest));
+
+  for (const file of allFiles) {
+    const fullPath = path.join(process.cwd(), file.path);
+    let exists = false;
+    try {
+      await fs.access(fullPath);
+      exists = true;
+    } catch {
+      exists = false;
+    }
+    if (exists && !force) {
+      console.log(
+        `[skip] ${file.path} already exists (use --force to overwrite)`
+      );
+      continue;
+    }
+    await writeText(fullPath, file.content);
+    console.log(`Escrito ${file.path}`);
+  }
+
+  console.log(
+    `[manifest] ${manifest.skills.length} skills activas, ${manifest.skipped.skills.length} omitidas · dominios: ${manifest.domainsTouched.join(", ") || "(ninguno)"}`
+  );
+}
+
+async function cmdManifest(args: string[] = []): Promise<void> {
+  const { flags } = parseFlags(args);
+  const force = flags["force"] === true;
+  const agentsRaw =
+    typeof flags["agents"] === "string"
+      ? flags["agents"]
+      : "claude,cursor,opencode";
+  const agents = agentsRaw.split(",").map((a) => a.trim());
+
+  type PackFile = { path: string };
+  type ContextPackMin = { task?: string; files?: PackFile[] };
+  const pack = await readRequiredJson<ContextPackMin>(
+    outputPath("context-pack.json"),
+    'Ejecuta primero: pnpm forge context "<tarea>"'
+  );
+
+  await generateAgentManifest({
+    task: pack.task ?? "tarea sin descripcion",
+    packedFiles: (pack.files ?? []).map((f) => ({ path: f.path })),
+    agents,
+    force
+  });
+}
+
 async function cmdViz(): Promise<void> {
   type GraphFile = {
     nodes: VizNode[];
@@ -894,13 +1081,14 @@ function printUsage(): void {
   pnpm forge init
   pnpm forge scan
   pnpm forge graph
-  pnpm forge context [task]
+  pnpm forge context [task] [--no-manifest] [--force]
   pnpm forge spec [change-id]
   pnpm forge implement [change-id]
   pnpm forge implement --check
   pnpm forge implement --approve
   pnpm forge docs [--force]
   pnpm forge skills [--force]
+  pnpm forge manifest [--agents=claude,cursor,opencode] [--force]
   pnpm forge viz
   pnpm forge sync [--since HEAD~1] [--rebuild]
   pnpm forge impact`);
@@ -921,7 +1109,7 @@ export async function runCommand(
       await cmdGraph();
       break;
     case "context":
-      await cmdContext(args[0]);
+      await cmdContext(args[0], args.slice(1));
       break;
     case "spec":
       await cmdSpec(args[0]);
@@ -937,6 +1125,9 @@ export async function runCommand(
       break;
     case "skills":
       await cmdSkills(args);
+      break;
+    case "manifest":
+      await cmdManifest(args);
       break;
     case "sync":
       await cmdSync(args.slice(0));

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextforge.dev/schemas/agent-manifest.schema.json",
+  "title": "AgentManifest",
+  "description": "Skills y rules relevantes para la tarea actual. Producto de `forge manifest` o la tool MCP `selectAgentContext`.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "task",
+    "domainsTouched",
+    "skills",
+    "rules",
+    "skipped"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Descripcion textual de la tarea para la cual se computo el manifiesto."
+    },
+    "domainsTouched": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Dominios derivados de los archivos del context-pack, ordenados y deduplicados."
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "name", "reason", "matchType"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "name": { "type": "string" },
+          "reason": { "type": "string" },
+          "matchType": {
+            "type": "string",
+            "enum": ["domain", "alwaysApply", "explicit"]
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason", "matchType"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "reason": { "type": "string" },
+          "matchType": {
+            "type": "string",
+            "enum": ["domain", "alwaysApply", "explicit"]
+          },
+          "suggestedGlobs": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "skipped": {
+      "type": "object",
+      "required": ["skills", "rules"],
+      "additionalProperties": false,
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

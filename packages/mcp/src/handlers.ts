@@ -3,15 +3,120 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import {
+  buildAgentManifest,
   getDomain,
   selectContext,
   validateGuardrails,
+  type AgentManifestResult,
   type ScanResult,
   type GraphNode,
   type GraphEdge
 } from "@alejandro-cedeno-10/contextforge-core";
 
 export { getDomain };
+
+// ─── frontmatter helpers (shared) ─────────────────────────────────────────────
+
+interface FrontmatterFields {
+  name?: string;
+  domains?: string[];
+  alwaysApply?: boolean;
+}
+
+function parseFrontmatter(content: string): FrontmatterFields {
+  const match = /^---\n([\s\S]*?)\n---/.exec(content);
+  if (!match) return {};
+  const block = match[1];
+  const fields: FrontmatterFields = {};
+
+  const nameLine = /^name:\s*(.+)$/m.exec(block);
+  if (nameLine) fields.name = nameLine[1].trim();
+
+  const alwaysLine = /^alwaysApply:\s*(true|false)$/m.exec(block);
+  if (alwaysLine) fields.alwaysApply = alwaysLine[1] === "true";
+
+  const domainsLine = /^domains:\s*\[([^\]]*)\]$/m.exec(block);
+  if (domainsLine) {
+    fields.domains = domainsLine[1]
+      .split(",")
+      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean);
+  }
+
+  return fields;
+}
+
+async function loadSkillEntries(dir: string): Promise<
+  Array<{
+    path: string;
+    name: string;
+    domains: string[];
+    alwaysApply?: boolean;
+  }>
+> {
+  try {
+    const entries = await fs.readdir(dir);
+    const result = [];
+    for (const entry of entries) {
+      if (!entry.endsWith(".md")) continue;
+      const fullPath = path.join(dir, entry);
+      const relPath = `.claude/skills/${entry}`;
+      try {
+        const content = await fs.readFile(fullPath, "utf8");
+        const fm = parseFrontmatter(content);
+        result.push({
+          path: relPath,
+          name: fm.name ?? entry.replace(".md", ""),
+          domains: fm.domains ?? [],
+          alwaysApply: fm.alwaysApply
+        });
+      } catch {
+        result.push({
+          path: relPath,
+          name: entry.replace(".md", ""),
+          domains: []
+        });
+      }
+    }
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+async function loadRuleEntries(dir: string): Promise<
+  Array<{
+    path: string;
+    description?: string;
+    domains: string[];
+    alwaysApply?: boolean;
+  }>
+> {
+  try {
+    const entries = await fs.readdir(dir);
+    const result = [];
+    for (const entry of entries) {
+      if (!entry.endsWith(".mdc") && !entry.endsWith(".md")) continue;
+      const fullPath = path.join(dir, entry);
+      const relPath = `.cursor/rules/${entry}`;
+      try {
+        const content = await fs.readFile(fullPath, "utf8");
+        const fm = parseFrontmatter(content);
+        result.push({
+          path: relPath,
+          description: undefined,
+          domains: fm.domains ?? [],
+          alwaysApply: fm.alwaysApply
+        });
+      } catch {
+        result.push({ path: relPath, domains: [] });
+      }
+    }
+    return result;
+  } catch {
+    return [];
+  }
+}
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -65,23 +170,35 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
   const execSyncFn = deps.execSync ?? nodeExecSync;
 
   let _graph: GraphArtifact | null = null;
+  let _graphMtime = 0;
   let _scan: ScanArtifact | null = null;
+  let _scanMtime = 0;
 
   function artifactPath(...parts: string[]): string {
     return path.join(root, ".contextforge", ...parts);
   }
 
   async function loadGraph(): Promise<GraphArtifact> {
-    if (_graph) return _graph;
+    const mtime = await fs
+      .stat(artifactPath("graph.json"))
+      .then((s) => s.mtimeMs)
+      .catch(() => 0);
+    if (_graph && mtime === _graphMtime) return _graph;
     const raw = await fs.readFile(artifactPath("graph.json"), "utf8");
     _graph = JSON.parse(raw) as GraphArtifact;
+    _graphMtime = mtime;
     return _graph;
   }
 
   async function loadScan(): Promise<ScanArtifact> {
-    if (_scan) return _scan;
+    const mtime = await fs
+      .stat(artifactPath("scan.json"))
+      .then((s) => s.mtimeMs)
+      .catch(() => 0);
+    if (_scan && mtime === _scanMtime) return _scan;
     const raw = await fs.readFile(artifactPath("scan.json"), "utf8");
     _scan = JSON.parse(raw) as ScanArtifact;
+    _scanMtime = mtime;
     return _scan;
   }
 
@@ -484,11 +601,90 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     return { content: [{ type: "text", text: lines.join("\n") }] };
   }
 
+  // ── getAgentManifest ─────────────────────────────────────────────────────────
+
+  async function getAgentManifest(): Promise<ToolResult> {
+    try {
+      const raw = await fs.readFile(
+        artifactPath("agent-manifest.json"),
+        "utf8"
+      );
+      const manifest = JSON.parse(raw) as AgentManifestResult;
+      return {
+        content: [{ type: "text", text: JSON.stringify(manifest, null, 2) }]
+      };
+    } catch {
+      return {
+        content: [{ type: "text", text: "Run 'forge manifest' first." }]
+      };
+    }
+  }
+
+  // ── selectAgentContext ────────────────────────────────────────────────────────
+
+  async function selectAgentContext({
+    task,
+    agents: _agents = ["claude", "cursor", "opencode"]
+  }: {
+    task: string;
+    agents?: string[];
+  }): Promise<ToolResult> {
+    let graph: GraphArtifact;
+    let scanData: ScanArtifact;
+
+    try {
+      [graph, scanData] = await Promise.all([loadGraph(), loadScan()]);
+    } catch {
+      const degraded: AgentManifestResult = {
+        schemaVersion: "1.0.0",
+        task,
+        domainsTouched: [],
+        skills: [],
+        rules: [],
+        skipped: { skills: [], rules: [] }
+      };
+      const text = JSON.stringify(
+        {
+          ...degraded,
+          notes: ["scan/graph missing — run forge scan && forge graph"]
+        },
+        null,
+        2
+      );
+      return { content: [{ type: "text", text }] };
+    }
+
+    const selectedFiles = selectContext({
+      nodes: graph.nodes as Parameters<typeof selectContext>[0]["nodes"],
+      edges: graph.edges as Parameters<typeof selectContext>[0]["edges"],
+      scanFiles: scanData.files,
+      seeds: []
+    }).files.map((f) => ({ path: f.path }));
+
+    const skillsDir = path.join(root, ".claude", "skills");
+    const rulesDir = path.join(root, ".cursor", "rules");
+
+    const skills = await loadSkillEntries(skillsDir);
+    const rules = await loadRuleEntries(rulesDir);
+
+    const manifest = buildAgentManifest({
+      task,
+      packedFiles: selectedFiles,
+      skills,
+      rules
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(manifest, null, 2) }]
+    };
+  }
+
   return {
     forgeContext,
     forgeNeighbors,
     forgeDomainMap,
     forgeCheck,
-    forgeStatus
+    forgeStatus,
+    getAgentManifest,
+    selectAgentContext
   };
 }

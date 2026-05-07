@@ -94,3 +94,21 @@ export {
   type DomainSkillsResult,
   type DomainSkillFile
 } from "./skills/skillBuilder.js";
+
+export {
+  buildAgentManifest,
+  type AgentManifestOptions,
+  type AgentManifestResult,
+  type ManifestSkill,
+  type ManifestRule,
+  type MatchType,
+  type SkillEntry,
+  type RuleEntry
+} from "./manifest/agentManifest.js";
+
+export {
+  renderClaude,
+  renderCursor,
+  renderOpenCode,
+  type RenderedFile
+} from "./manifest/index.js";

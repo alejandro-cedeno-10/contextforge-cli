@@ -22,7 +22,8 @@ export type SchemaName =
   | "graph"
   | "context-pack"
   | "implement-plan"
-  | "token-ledger";
+  | "token-ledger"
+  | "agent-manifest";
 
 export interface ValidationResult {
   valid: boolean;
@@ -53,7 +54,8 @@ const SCHEMA_FILES: Readonly<Record<SchemaName, string>> = {
   graph: "graph.schema.json",
   "context-pack": "context-pack.schema.json",
   "implement-plan": "implement-plan.schema.json",
-  "token-ledger": "token-ledger.schema.json"
+  "token-ledger": "token-ledger.schema.json",
+  "agent-manifest": "agent-manifest.schema.json"
 };
 
 function defaultSchemaDir(): string {
