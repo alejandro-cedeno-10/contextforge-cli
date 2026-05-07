@@ -27,7 +27,8 @@ const FOLDERS = [
 
 function getDomain(filePath: string): string {
   const parts = filePath.split("/");
-  if (parts[0] === "packages" && parts.length > 1) return `packages/${parts[1]}`;
+  if (parts[0] === "packages" && parts.length > 1)
+    return `packages/${parts[1]}`;
   return parts[0] ?? "root";
 }
 
@@ -164,10 +165,10 @@ interface CrossDomainEdge {
   tests: number;
 }
 
-function aggregateDomains(graph: {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-}): { domains: Map<string, DomainStats>; cross: CrossDomainEdge[] } {
+function aggregateDomains(graph: { nodes: GraphNode[]; edges: GraphEdge[] }): {
+  domains: Map<string, DomainStats>;
+  cross: CrossDomainEdge[];
+} {
   const domains = new Map<string, DomainStats>();
   const fileNodes = new Map<string, GraphNode>();
 
@@ -237,9 +238,7 @@ function buildModuleRelationships(
               ? a.to.localeCompare(b.to)
               : a.from.localeCompare(b.from)
           )
-          .map(
-            (c) => `| ${c.from} | ${c.to} | ${c.imports} | ${c.tests} |`
-          )
+          .map((c) => `| ${c.from} | ${c.to} | ${c.imports} | ${c.tests} |`)
           .join("\n")}`
       : "_Sin dependencias cruzadas detectadas._";
 

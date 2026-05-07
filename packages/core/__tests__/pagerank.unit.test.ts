@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildPRGraph,
-  personalizedPageRank
-} from "../src/selector/pagerank";
+import { buildPRGraph, personalizedPageRank } from "../src/selector/pagerank";
 
 describe("buildPRGraph", () => {
   it("indexes nodes and edges correctly", () => {
@@ -52,12 +49,7 @@ describe("personalizedPageRank", () => {
   it("node with most in-edges scores highest with uniform personalization", () => {
     // a -> hub, b -> hub, c -> hub, hub -> a (cycle keeps probability in system)
     // hub has 3 in-edges and 1 out-edge → high centrality
-    const nodes = [
-      { id: "hub" },
-      { id: "a" },
-      { id: "b" },
-      { id: "c" }
-    ];
+    const nodes = [{ id: "hub" }, { id: "a" }, { id: "b" }, { id: "c" }];
     const edges = [
       { from: "a", to: "hub", weight: 1 },
       { from: "b", to: "hub", weight: 1 },

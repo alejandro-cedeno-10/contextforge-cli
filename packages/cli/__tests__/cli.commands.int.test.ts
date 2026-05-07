@@ -230,10 +230,9 @@ describe("forge commands", () => {
 
     vi.resetModules();
     vi.doMock("@alejandro-cedeno-10/contextforge-core", async () => {
-      const actual =
-        await vi.importActual<typeof import("@alejandro-cedeno-10/contextforge-core")>(
-          "@alejandro-cedeno-10/contextforge-core"
-        );
+      const actual = await vi.importActual<
+        typeof import("@alejandro-cedeno-10/contextforge-core")
+      >("@alejandro-cedeno-10/contextforge-core");
 
       return {
         ...actual,

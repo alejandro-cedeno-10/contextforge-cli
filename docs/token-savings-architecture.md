@@ -22,11 +22,11 @@ Resultado: `.contextforge/` con `scan.json`, `graph.json`, `context-pack.json`.
 
 ## Capa 2 — Cada sesión del agente (context pack fijo)
 
-| Estrategia          | Tokens por sesión | Costo estimado | Ahorro |
-|---------------------|:-----------------:|:--------------:|:------:|
-| Sin ContextForge    | ~121 000          | ~$0.36         | —      |
-| Con `context-pack`  | ~11 700           | ~$0.035        | 90 %   |
-| Con MCP on-demand   | ~2 000–4 000      | ~$0.01         | 97 %   |
+| Estrategia         | Tokens por sesión | Costo estimado | Ahorro |
+| ------------------ | :---------------: | :------------: | :----: |
+| Sin ContextForge   |     ~121 000      |     ~$0.36     |   —    |
+| Con `context-pack` |      ~11 700      |    ~$0.035     |  90 %  |
+| Con MCP on-demand  |   ~2 000–4 000    |     ~$0.01     |  97 %  |
 
 El agente carga el pack al inicio de la sesión en lugar del repo completo.
 
@@ -36,13 +36,13 @@ El agente carga el pack al inicio de la sesión en lugar del repo completo.
 
 En lugar de cargar todo el pack al inicio, el agente hace llamadas selectivas:
 
-| Momento                   | Tool MCP                          | Tokens | Para qué                              |
-|---------------------------|-----------------------------------|:------:|---------------------------------------|
-| Inicio de sesión          | `forge_status`                    | ~400   | "¿qué artifacts tengo ready?"         |
-| Entender estructura       | `forge_domain_map`                | ~600   | "¿cómo está organizado el repo?"      |
-| Antes de tocar un archivo | `forge_neighbors("auth.ts")`      | ~300   | "¿qué depende de esto?"               |
-| Decidir qué implementar   | `forge_context("fix auth bug")`   | ~2 000 | Solo los archivos relevantes          |
-| Antes de commitear        | `forge_check`                     | ~200   | Validar guardrails                    |
+| Momento                   | Tool MCP                        | Tokens | Para qué                         |
+| ------------------------- | ------------------------------- | :----: | -------------------------------- |
+| Inicio de sesión          | `forge_status`                  |  ~400  | "¿qué artifacts tengo ready?"    |
+| Entender estructura       | `forge_domain_map`              |  ~600  | "¿cómo está organizado el repo?" |
+| Antes de tocar un archivo | `forge_neighbors("auth.ts")`    |  ~300  | "¿qué depende de esto?"          |
+| Decidir qué implementar   | `forge_context("fix auth bug")` | ~2 000 | Solo los archivos relevantes     |
+| Antes de commitear        | `forge_check`                   |  ~200  | Validar guardrails               |
 
 ---
 

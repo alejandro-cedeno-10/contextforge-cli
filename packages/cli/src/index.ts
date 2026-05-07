@@ -512,7 +512,9 @@ async function cmdDocs(args: string[] = []): Promise<void> {
       exists = false;
     }
     if (exists && !force) {
-      console.log(`[skip] ${file.path} ya existe (usa --force para sobrescribir)`);
+      console.log(
+        `[skip] ${file.path} ya existe (usa --force para sobrescribir)`
+      );
       continue;
     }
     await writeText(fullPath, file.content);

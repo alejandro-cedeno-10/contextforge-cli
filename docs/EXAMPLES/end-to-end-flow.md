@@ -128,12 +128,12 @@ pnpm forge implement --check
 
 Violaciones posibles:
 
-| Regla | Causa |
-|---|---|
-| `forbiddenPath` | Archivo modificado matchea `forbiddenPaths` |
-| `outsideAllowedFiles` | Archivo modificado no esta en `allowedFiles` |
-| `maxLocDelta` | LOC (added+removed) excede el limite |
-| `maxFilesChanged` | Numero de archivos modificados excede el limite |
+| Regla                 | Causa                                           |
+| --------------------- | ----------------------------------------------- |
+| `forbiddenPath`       | Archivo modificado matchea `forbiddenPaths`     |
+| `outsideAllowedFiles` | Archivo modificado no esta en `allowedFiles`    |
+| `maxLocDelta`         | LOC (added+removed) excede el limite            |
+| `maxFilesChanged`     | Numero de archivos modificados excede el limite |
 
 ## 9. Aprobar para edicion (flujo con agente externo)
 
@@ -147,14 +147,14 @@ pnpm forge implement --approve
 
 ## Artefactos generados
 
-| Archivo | Schema | Descripcion |
-|---|---|---|
-| `.contextforge/scan.json` | `scan.schema.json` | Lista de archivos con hashes BLAKE3 |
-| `.contextforge/graph.json` | `graph.schema.json` | Grafo de simbolos y dependencias |
-| `.contextforge/context-pack.json` | `context-pack.schema.json` | Archivos seleccionados por PageRank + BFS |
-| `.contextforge/token-ledger.json` | `token-ledger.schema.json` | Metricas de ahorro de tokens |
-| `.contextforge/spec.sdd.md` | (markdown) | Spec SDD con evidencia del context-pack |
-| `.contextforge/implement-plan.json` | `implement-plan.schema.json` | Plan con guardrails + estado |
-| `openspec/changes/<id>/` | (OpenSpec) | Estructura OpenSpec con delta specs |
+| Archivo                             | Schema                       | Descripcion                               |
+| ----------------------------------- | ---------------------------- | ----------------------------------------- |
+| `.contextforge/scan.json`           | `scan.schema.json`           | Lista de archivos con hashes BLAKE3       |
+| `.contextforge/graph.json`          | `graph.schema.json`          | Grafo de simbolos y dependencias          |
+| `.contextforge/context-pack.json`   | `context-pack.schema.json`   | Archivos seleccionados por PageRank + BFS |
+| `.contextforge/token-ledger.json`   | `token-ledger.schema.json`   | Metricas de ahorro de tokens              |
+| `.contextforge/spec.sdd.md`         | (markdown)                   | Spec SDD con evidencia del context-pack   |
+| `.contextforge/implement-plan.json` | `implement-plan.schema.json` | Plan con guardrails + estado              |
+| `openspec/changes/<id>/`            | (OpenSpec)                   | Estructura OpenSpec con delta specs       |
 
 Todos los JSON son validados contra JSON Schema 2020-12 antes de escribirse.

@@ -32,6 +32,7 @@ The system MUST <comportamiento esperado>.
 ## Dominio inferido
 
 `spec` infiere el `<domain>` del path más tocado en el context-pack:
+
 - `packages/<pkg>/src/<domain>/...` → `<domain>`
 - `src/<domain>/...` → `<domain>`
 - Default: `core`

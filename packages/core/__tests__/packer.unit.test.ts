@@ -21,10 +21,7 @@ describe("packFiles", () => {
   });
 
   it("keeps all files at full mode when within budget", () => {
-    const candidates = [
-      makeFile("a.ts", 0.9, 100),
-      makeFile("b.ts", 0.5, 200)
-    ];
+    const candidates = [makeFile("a.ts", 0.9, 100), makeFile("b.ts", 0.5, 200)];
 
     const result = packFiles(candidates, 5000);
 
@@ -79,8 +76,19 @@ describe("packFiles", () => {
 
   it("marks seed files with seed reason", () => {
     const candidates: ScoredFile[] = [
-      { filePath: "seed.ts", score: 0.9, kind: "code", estimatedFullTokens: 100, isSeed: true },
-      { filePath: "other.ts", score: 0.5, kind: "code", estimatedFullTokens: 100 }
+      {
+        filePath: "seed.ts",
+        score: 0.9,
+        kind: "code",
+        estimatedFullTokens: 100,
+        isSeed: true
+      },
+      {
+        filePath: "other.ts",
+        score: 0.5,
+        kind: "code",
+        estimatedFullTokens: 100
+      }
     ];
 
     const result = packFiles(candidates, 5000);

@@ -131,10 +131,10 @@ describe("buildDiataxisScaffold", () => {
     const arch = result.files.find((f) =>
       f.path.endsWith("module-relationships.md")
     )!;
-    expect(arch.content).toMatch(/\| packages\/core \| 3 \|.*2 code.*1 test.*\|/);
-    expect(arch.content).toContain(
-      "_Sin dependencias cruzadas detectadas._"
+    expect(arch.content).toMatch(
+      /\| packages\/core \| 3 \|.*2 code.*1 test.*\|/
     );
+    expect(arch.content).toContain("_Sin dependencias cruzadas detectadas._");
   });
 
   it("module-relationships frontmatter has architecture type metadata", () => {
@@ -181,8 +181,6 @@ describe("buildDiataxisScaffold", () => {
       f.path.endsWith("module-relationships.md")
     )!;
     expect(arch.content).toContain("| packages/core | 1 |");
-    expect(arch.content).toContain(
-      "_Sin dependencias cruzadas detectadas._"
-    );
+    expect(arch.content).toContain("_Sin dependencias cruzadas detectadas._");
   });
 });

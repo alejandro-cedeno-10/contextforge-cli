@@ -41,7 +41,8 @@ type ToolResult = { content: [{ type: "text"; text: string }] };
 
 export function getDomain(filePath: string): string {
   const parts = filePath.split("/");
-  if (parts[0] === "packages" && parts.length > 1) return `packages/${parts[1]}`;
+  if (parts[0] === "packages" && parts.length > 1)
+    return `packages/${parts[1]}`;
   return parts[0] ?? "root";
 }
 
@@ -51,7 +52,8 @@ export function formatFileList(
 ): string {
   return files
     .map((f) => {
-      const scoreStr = includeScore && f.score != null ? ` [score=${f.score.toFixed(4)}]` : "";
+      const scoreStr =
+        includeScore && f.score != null ? ` [score=${f.score.toFixed(4)}]` : "";
       return `- ${f.path} (${f.mode}, ${f.reason})${scoreStr}`;
     })
     .join("\n");
@@ -89,7 +91,10 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
 
   async function tryReadPlan(): Promise<PlanArtifact | null> {
     try {
-      const raw = await fs.readFile(artifactPath("implement-plan.json"), "utf8");
+      const raw = await fs.readFile(
+        artifactPath("implement-plan.json"),
+        "utf8"
+      );
       return JSON.parse(raw) as PlanArtifact;
     } catch {
       return null;
@@ -132,9 +137,14 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
 
     lines.push("## Files\n");
     for (const f of result.files) {
-      const estTokens = Math.max(20, Math.ceil((sizeByPath.get(f.path) ?? 500) / 4));
+      const estTokens = Math.max(
+        20,
+        Math.ceil((sizeByPath.get(f.path) ?? 500) / 4)
+      );
       lines.push(`### ${f.path}`);
-      lines.push(`- mode: **${f.mode}** | reason: ${f.reason} | ~${estTokens} tokens`);
+      lines.push(
+        `- mode: **${f.mode}** | reason: ${f.reason} | ~${estTokens} tokens`
+      );
       if (include_content) {
         try {
           const content = await fs.readFile(path.join(root, f.path), "utf8");
@@ -142,7 +152,8 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
             f.mode === "full"
               ? content
               : f.mode === "excerpt"
-                ? content.split("\n").slice(0, 50).join("\n") + "\n// ... (excerpt)"
+                ? content.split("\n").slice(0, 50).join("\n") +
+                  "\n// ... (excerpt)"
                 : `// Summary: ${f.path} — ${f.reason}`;
           lines.push("```", preview, "```");
         } catch {
@@ -177,7 +188,10 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
 
     if (!node) {
       const similar = graph.nodes
-        .filter((n) => n.type === "file" && n.path?.includes(file_path.split("/").pop()!))
+        .filter(
+          (n) =>
+            n.type === "file" && n.path?.includes(file_path.split("/").pop()!)
+        )
         .slice(0, 5)
         .map((n) => n.path);
       return {
@@ -192,13 +206,20 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
 
     const visited = new Set<string>([nodeId]);
     const frontier = new Set<string>([nodeId]);
-    const edgeMap: Record<string, Array<{ to: string; type: string; dir: "out" | "in" }>> = {};
+    const edgeMap: Record<
+      string,
+      Array<{ to: string; type: string; dir: "out" | "in" }>
+    > = {};
 
     for (let d = 0; d < depth; d++) {
       const nextFrontier = new Set<string>();
       for (const fid of frontier) {
-        const outEdges = graph.edges.filter((e) => e.from === fid && !visited.has(e.to));
-        const inEdges = graph.edges.filter((e) => e.to === fid && !visited.has(e.from));
+        const outEdges = graph.edges.filter(
+          (e) => e.from === fid && !visited.has(e.to)
+        );
+        const inEdges = graph.edges.filter(
+          (e) => e.to === fid && !visited.has(e.from)
+        );
         if (!edgeMap[fid]) edgeMap[fid] = [];
         for (const e of outEdges) {
           edgeMap[fid].push({ to: e.to, type: e.type, dir: "out" });
@@ -231,16 +252,23 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
 
     for (const rel of edgeMap[nodeId] ?? []) {
       const label = getLabel(rel.to);
-      if (rel.type === "imports" && rel.dir === "out") sections.imports!.push(label);
-      else if (rel.type === "imports" && rel.dir === "in") sections.imported_by!.push(label);
-      else if (rel.type === "tests" && rel.dir === "out") sections.tests!.push(label);
-      else if (rel.type === "tests" && rel.dir === "in") sections.tested_by!.push(label);
+      if (rel.type === "imports" && rel.dir === "out")
+        sections.imports!.push(label);
+      else if (rel.type === "imports" && rel.dir === "in")
+        sections.imported_by!.push(label);
+      else if (rel.type === "tests" && rel.dir === "out")
+        sections.tests!.push(label);
+      else if (rel.type === "tests" && rel.dir === "in")
+        sections.tested_by!.push(label);
       else if (rel.type === "defines") sections.defines!.push(label);
       else sections.other!.push(`[${rel.type}] ${label}`);
     }
 
     const lines = [`# Graph neighbors: ${file_path}`, ``];
-    lines.push(`**Kind**: ${node.kind ?? "unknown"} | **Lang**: ${node.lang ?? "unknown"}`, ``);
+    lines.push(
+      `**Kind**: ${node.kind ?? "unknown"} | **Lang**: ${node.lang ?? "unknown"}`,
+      ``
+    );
 
     for (const [key, items] of Object.entries(sections)) {
       if (!items.length) continue;
@@ -427,7 +455,9 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
           detail = `${files} files indexed`;
         } else if (file === "context-pack.json") {
           const pfiles = (parsed.files as unknown[]).length;
-          const tokens = (parsed.budget as { estimatedTokens?: number }).estimatedTokens ?? 0;
+          const tokens =
+            (parsed.budget as { estimatedTokens?: number }).estimatedTokens ??
+            0;
           detail = `${pfiles} files, ~${tokens} tokens`;
         } else if (file === "implement-plan.json") {
           detail = `status: ${parsed.status as string}`;
@@ -458,5 +488,11 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     return { content: [{ type: "text", text: lines.join("\n") }] };
   }
 
-  return { forgeContext, forgeNeighbors, forgeDomainMap, forgeCheck, forgeStatus };
+  return {
+    forgeContext,
+    forgeNeighbors,
+    forgeDomainMap,
+    forgeCheck,
+    forgeStatus
+  };
 }

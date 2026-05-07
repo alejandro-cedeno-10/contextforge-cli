@@ -4,19 +4,19 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 
 ## Estado actual (2026-05-07)
 
-| Sprint | Foco | Estado |
-|---|---|---|
-| S1 | Schemas + validacion JSON | ✅ Completado |
-| S2 | Cache + BLAKE3 | ✅ Completado |
-| S3 | Grafo tree-sitter | ✅ Completado |
-| S4 | Context selector PageRank | ✅ Completado |
-| S5 | Spec OpenSpec (default) | ✅ Completado |
-| S6 | Implement-plan guardrails | ✅ Completado |
-| S7 | Grafo visual interactivo | ✅ Completado |
-| S8 | MCP Server | ✅ Completado |
-| S9 | Diátaxis docs scaffolder + Claude skills | ✅ Completado |
-| S10 | GitHub Packages publish workflow | ✅ Completado |
-| — | Cursor adapter, packages/agents/ decision | Backlog |
+| Sprint | Foco                                      | Estado        |
+| ------ | ----------------------------------------- | ------------- |
+| S1     | Schemas + validacion JSON                 | ✅ Completado |
+| S2     | Cache + BLAKE3                            | ✅ Completado |
+| S3     | Grafo tree-sitter                         | ✅ Completado |
+| S4     | Context selector PageRank                 | ✅ Completado |
+| S5     | Spec OpenSpec (default)                   | ✅ Completado |
+| S6     | Implement-plan guardrails                 | ✅ Completado |
+| S7     | Grafo visual interactivo                  | ✅ Completado |
+| S8     | MCP Server                                | ✅ Completado |
+| S9     | Diátaxis docs scaffolder + Claude skills  | ✅ Completado |
+| S10    | GitHub Packages publish workflow          | ✅ Completado |
+| —      | Cursor adapter, packages/agents/ decision | Backlog       |
 
 **Suite de tests**: 130/130 pasando. **Coverage**: 88.67 % stmts / 82.03 % branches / 100 % funcs / 88.67 % lines.
 **Ahorro tokens verificado**: 90.3 % (11 700 / 121 000).
@@ -517,29 +517,29 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 
 ## Backlog post-MVP
 
-| ID | Item | Esfuerzo | Valor | Estado |
-|----|------|----------|-------|--------|
-| B1 | Tests del MCP server | Medio | Alto | ✅ Completado en S8.T2 |
-| B2 | `packages/agents/` — vacio | Bajo | Bajo | ✅ Eliminado (skills viven en `.claude/skills/`) |
-| B3 | Adaptador Cursor (`.cursor/rules/`) | Bajo | Medio | ✅ Completado |
-| B4 | Soporte Spec-Kit (`forge spec --emit speckit`) | Medio | Bajo | Pendiente |
-| B5 | Reciprocal Rank Fusion (recencia/embeddings) | Alto | Bajo | Post-v0.5 |
-| B6 | `forge eval` — benchmark savings + quality | Alto | Alto | Pendiente |
-| B7 | OpenTelemetry metric collector (opt-in) | Medio | Bajo | Post-v0.5 |
-| B8 | `forge implement` end-to-end con LLM real | Alto | Medio | Post-v0.5 |
+| ID  | Item                                           | Esfuerzo | Valor | Estado                                           |
+| --- | ---------------------------------------------- | -------- | ----- | ------------------------------------------------ |
+| B1  | Tests del MCP server (handlers.unit.test.ts)   | Medio    | Alto  | ✅ Completado — 14 tests, handlers.ts 85.75 %    |
+| B2  | `packages/agents/` — vacio                     | Bajo     | Bajo  | ✅ Eliminado (skills viven en `.claude/skills/`) |
+| B3  | Adaptador Cursor (`.cursor/rules/`)            | Bajo     | Medio | ✅ Completado                                    |
+| B4  | Soporte Spec-Kit (`forge spec --emit speckit`) | Medio    | Bajo  | Pendiente                                        |
+| B5  | Reciprocal Rank Fusion (recencia/embeddings)   | Alto     | Bajo  | Post-v0.5                                        |
+| B6  | `forge eval` — benchmark savings + quality     | Alto     | Alto  | Pendiente                                        |
+| B7  | OpenTelemetry metric collector (opt-in)        | Medio    | Bajo  | Post-v0.5                                        |
+| B8  | `forge implement` end-to-end con LLM real      | Alto     | Medio | Post-v0.5                                        |
 
 ### Estado del backlog original
 
-| ID | Item original | Estado |
-|---|---|---|
-| B1 | Adaptador Claude Code (slash command) | Pendiente |
-| B2 | Adaptador Codex | Pendiente |
-| B3 | Adaptador Cursor | Pendiente |
-| B4 | Soporte Spec-Kit | Pendiente |
-| B5 | Reciprocal Rank Fusion | Pendiente |
-| B6 | Visualizador HTML grafo | **✅ Completado en S7** |
-| B7 | `forge eval` benchmark | Pendiente |
-| B8 | OpenTelemetry metric collector | Pendiente |
+| ID  | Item original                         | Estado                  |
+| --- | ------------------------------------- | ----------------------- |
+| B1  | Adaptador Claude Code (slash command) | Pendiente               |
+| B2  | Adaptador Codex                       | Pendiente               |
+| B3  | Adaptador Cursor                      | Pendiente               |
+| B4  | Soporte Spec-Kit                      | Pendiente               |
+| B5  | Reciprocal Rank Fusion                | Pendiente               |
+| B6  | Visualizador HTML grafo               | **✅ Completado en S7** |
+| B7  | `forge eval` benchmark                | Pendiente               |
+| B8  | OpenTelemetry metric collector        | Pendiente               |
 
 ---
 

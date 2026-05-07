@@ -53,17 +53,17 @@ pnpm forge docs
 
 ## Comandos
 
-| Comando | Descripción | LLM requerido |
-|---|---|---|
-| `forge init` | Inicializa `.contextforge/` con directorios y plantillas | No |
-| `forge scan` | Indexa archivos con hashes BLAKE3, detecta lenguaje y tipo | No |
-| `forge graph` | Construye grafo de dependencias (nodos file/symbol, 5 edge types) | No |
-| `forge context "<tarea>"` | Selecciona archivos relevantes via PageRank + BFS + presupuesto | No |
-| `forge spec <id>` | Genera spec en formato OpenSpec (`changes/<id>/`) con evidencia del grafo | No |
-| `forge implement <id>` | Produce plan con guardrails derivados del context-pack | No |
-| `forge implement --check` | Valida cambios del agente contra guardrails | No |
-| `forge viz` | Genera visualización HTML interactiva del grafo | No |
-| `forge docs [--force]` | Scaffold de documentación Diátaxis (tutorials/how-to/reference/explanation/adr/architecture) | No |
+| Comando                   | Descripción                                                                                  | LLM requerido |
+| ------------------------- | -------------------------------------------------------------------------------------------- | ------------- |
+| `forge init`              | Inicializa `.contextforge/` con directorios y plantillas                                     | No            |
+| `forge scan`              | Indexa archivos con hashes BLAKE3, detecta lenguaje y tipo                                   | No            |
+| `forge graph`             | Construye grafo de dependencias (nodos file/symbol, 5 edge types)                            | No            |
+| `forge context "<tarea>"` | Selecciona archivos relevantes via PageRank + BFS + presupuesto                              | No            |
+| `forge spec <id>`         | Genera spec en formato OpenSpec (`changes/<id>/`) con evidencia del grafo                    | No            |
+| `forge implement <id>`    | Produce plan con guardrails derivados del context-pack                                       | No            |
+| `forge implement --check` | Valida cambios del agente contra guardrails                                                  | No            |
+| `forge viz`               | Genera visualización HTML interactiva del grafo                                              | No            |
+| `forge docs [--force]`    | Scaffold de documentación Diátaxis (tutorials/how-to/reference/explanation/adr/architecture) | No            |
 
 ---
 
@@ -91,13 +91,13 @@ Resultado real en este repo: 70 archivos → 30 seleccionados → 11 700 tokens 
 
 ### Schemas
 
-| Artefacto | Schema |
-|---|---|
-| `scan.json` | `docs/schemas/scan.schema.json` |
-| `graph.json` | `docs/schemas/graph.schema.json` |
-| `context-pack.json` | `docs/schemas/context-pack.schema.json` |
+| Artefacto             | Schema                                    |
+| --------------------- | ----------------------------------------- |
+| `scan.json`           | `docs/schemas/scan.schema.json`           |
+| `graph.json`          | `docs/schemas/graph.schema.json`          |
+| `context-pack.json`   | `docs/schemas/context-pack.schema.json`   |
 | `implement-plan.json` | `docs/schemas/implement-plan.schema.json` |
-| `token-ledger.json` | `docs/schemas/token-ledger.schema.json` |
+| `token-ledger.json`   | `docs/schemas/token-ledger.schema.json`   |
 
 ---
 
@@ -184,10 +184,12 @@ updated: YYYY-MM-DD
 `forge viz` genera `.contextforge/graph.html` — abre en cualquier navegador, sin servidor.
 
 **Vistas:**
+
 - **Grafo**: red completa file + symbol con layout cola
 - **Dominios**: agrupación por paquete con layout topológico horizontal (Kahn)
 
 **Features:**
+
 - Click en nodo → resumen en lenguaje natural (define N símbolos, importado por M archivos…)
 - Tour guiado por los archivos del context-pack (prev/next con auto-zoom + highlight de vecindad)
 - Nodos del context-pack resaltados en naranja
@@ -253,12 +255,12 @@ Suite actual: **120/120 tests pasando**, coverage ≥ 80 % en todas las métrica
 
 ## Integración con agentes de IA
 
-| Agente | Configuración | Estado |
-|---|---|---|
-| **Claude Code** | `.claude/skills/contextforge-*.md` (3 skills concisas) | ✅ Listo |
-| **Cursor** | `.cursor/rules/contextforge.mdc` (alwaysApply) | ✅ Listo |
-| **OpenCode** | `opencode.json` con MCP server registrado | ✅ Listo |
-| **Codex / otros** | Leen `.contextforge/*.json` directamente | ✅ Compatible |
+| Agente            | Configuración                                          | Estado        |
+| ----------------- | ------------------------------------------------------ | ------------- |
+| **Claude Code**   | `.claude/skills/contextforge-*.md` (3 skills concisas) | ✅ Listo      |
+| **Cursor**        | `.cursor/rules/contextforge.mdc` (alwaysApply)         | ✅ Listo      |
+| **OpenCode**      | `opencode.json` con MCP server registrado              | ✅ Listo      |
+| **Codex / otros** | Leen `.contextforge/*.json` directamente               | ✅ Compatible |
 
 Los artefactos JSON en `.contextforge/` son portables — cualquier agente los puede consumir sin modificación.
 
@@ -286,13 +288,13 @@ Tools: `forge_status` · `forge_domain_map` · `forge_neighbors` · `forge_conte
 
 ## Documentación
 
-| Documento | Descripción |
-|---|---|
-| `docs/token-savings-architecture.md` | Análisis de ahorro de tokens por capas con tabla de costos |
-| `docs/EXAMPLES/end-to-end-flow.md` | Walkthrough completo del pipeline con outputs reales |
-| `docs/IMPLEMENTATION_TASKS.md` | Backlog de sprints con criterios verificables |
-| `docs/CHANGELOG-schemas.md` | Historial de cambios de schemas |
-| `CONTEXTFORGE_SOURCE_OF_TRUTH.md` | Decisiones de diseño, arquitectura, roadmap y análisis competitivo |
+| Documento                            | Descripción                                                        |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| `docs/token-savings-architecture.md` | Análisis de ahorro de tokens por capas con tabla de costos         |
+| `docs/EXAMPLES/end-to-end-flow.md`   | Walkthrough completo del pipeline con outputs reales               |
+| `docs/IMPLEMENTATION_TASKS.md`       | Backlog de sprints con criterios verificables                      |
+| `docs/CHANGELOG-schemas.md`          | Historial de cambios de schemas                                    |
+| `CONTEXTFORGE_SOURCE_OF_TRUTH.md`    | Decisiones de diseño, arquitectura, roadmap y análisis competitivo |
 
 ---
 

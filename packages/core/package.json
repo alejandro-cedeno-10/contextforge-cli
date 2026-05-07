@@ -40,5 +40,8 @@
     "registry": "https://npm.pkg.github.com",
     "access": "public"
   },
-  "files": ["dist", "README.md"]
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

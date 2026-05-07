@@ -54,8 +54,20 @@ const SCAN_FIXTURE = {
   generatedAt: "2026-01-01T00:00:00Z",
   root: ".",
   files: [
-    { path: "packages/core/src/index.ts", hash: "abc123", size: 500, kind: "code", lang: "ts" },
-    { path: "packages/cli/src/index.ts", hash: "def456", size: 800, kind: "code", lang: "ts" },
+    {
+      path: "packages/core/src/index.ts",
+      hash: "abc123",
+      size: 500,
+      kind: "code",
+      lang: "ts"
+    },
+    {
+      path: "packages/cli/src/index.ts",
+      hash: "def456",
+      size: 800,
+      kind: "code",
+      lang: "ts"
+    },
     {
       path: "packages/core/__tests__/scanner.unit.test.ts",
       hash: "ghi789",
@@ -79,13 +91,23 @@ async function newWorkspace(): Promise<string> {
 async function writeArtifacts(root: string): Promise<void> {
   const cfDir = path.join(root, ".contextforge");
   await mkdir(cfDir, { recursive: true });
-  await writeFile(path.join(cfDir, "graph.json"), JSON.stringify(GRAPH_FIXTURE), "utf8");
-  await writeFile(path.join(cfDir, "scan.json"), JSON.stringify(SCAN_FIXTURE), "utf8");
+  await writeFile(
+    path.join(cfDir, "graph.json"),
+    JSON.stringify(GRAPH_FIXTURE),
+    "utf8"
+  );
+  await writeFile(
+    path.join(cfDir, "scan.json"),
+    JSON.stringify(SCAN_FIXTURE),
+    "utf8"
+  );
 }
 
 afterEach(async () => {
   const { rm } = await import("node:fs/promises");
-  await Promise.all(workspaces.map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    workspaces.map((dir) => rm(dir, { recursive: true, force: true }))
+  );
   workspaces.length = 0;
 });
 
@@ -177,7 +199,9 @@ describe("forgeNeighbors", () => {
     await writeArtifacts(root);
     const { forgeNeighbors } = createHandlers(root);
 
-    const result = await forgeNeighbors({ file_path: "packages/cli/src/index.ts" });
+    const result = await forgeNeighbors({
+      file_path: "packages/cli/src/index.ts"
+    });
     const text = result.content[0].text;
 
     expect(text).toContain("Graph neighbors:");
@@ -237,10 +261,16 @@ describe("forgeCheck", () => {
       },
       tasks: []
     };
-    await writeFile(path.join(cfDir, "implement-plan.json"), JSON.stringify(plan), "utf8");
+    await writeFile(
+      path.join(cfDir, "implement-plan.json"),
+      JSON.stringify(plan),
+      "utf8"
+    );
 
     const mockExecSync = () => "";
-    const { forgeCheck } = createHandlers(root, { execSync: mockExecSync as never });
+    const { forgeCheck } = createHandlers(root, {
+      execSync: mockExecSync as never
+    });
 
     const result = await forgeCheck();
     expect(result.content[0].text).toContain("PASSED");
@@ -263,10 +293,16 @@ describe("forgeCheck", () => {
       },
       tasks: []
     };
-    await writeFile(path.join(cfDir, "implement-plan.json"), JSON.stringify(plan), "utf8");
+    await writeFile(
+      path.join(cfDir, "implement-plan.json"),
+      JSON.stringify(plan),
+      "utf8"
+    );
 
     const mockExecSync = () => "";
-    const { forgeCheck } = createHandlers(root, { execSync: mockExecSync as never });
+    const { forgeCheck } = createHandlers(root, {
+      execSync: mockExecSync as never
+    });
 
     const result = await forgeCheck();
     expect(result.content[0].text).toContain("Max files changed: 3");
@@ -322,7 +358,9 @@ describe("forgeNeighbors — no similar files found", () => {
     await writeArtifacts(root);
     const { forgeNeighbors } = createHandlers(root);
 
-    const result = await forgeNeighbors({ file_path: "zzz/completely-unique-xyz.ts" });
+    const result = await forgeNeighbors({
+      file_path: "zzz/completely-unique-xyz.ts"
+    });
     const text = result.content[0].text;
 
     expect(text).toContain("File not found:");

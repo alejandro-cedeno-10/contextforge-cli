@@ -20,7 +20,10 @@ export default defineConfig({
         here,
         "packages/core/src/graph/builder.ts"
       ),
-      "@alejandro-cedeno-10/contextforge-core": path.resolve(here, "packages/core/src/index.ts")
+      "@alejandro-cedeno-10/contextforge-core": path.resolve(
+        here,
+        "packages/core/src/index.ts"
+      )
     }
   },
   test: {
@@ -28,7 +31,11 @@ export default defineConfig({
     include: ["packages/**/__tests__/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["packages/core/src/**/*.ts", "packages/cli/src/**/*.ts", "packages/mcp/src/**/*.ts"],
+      include: [
+        "packages/core/src/**/*.ts",
+        "packages/cli/src/**/*.ts",
+        "packages/mcp/src/**/*.ts"
+      ],
       exclude: [
         "packages/**/__tests__/**",
         "packages/mcp/src/index.ts",

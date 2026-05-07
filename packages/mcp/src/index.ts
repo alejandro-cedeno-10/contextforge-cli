@@ -10,7 +10,8 @@ import { createHandlers } from "./handlers.js";
 // ─── project root resolution ──────────────────────────────────────────────────
 
 function resolveProjectRoot(): string {
-  if (process.env["PROJECT_ROOT"]) return path.resolve(process.env["PROJECT_ROOT"]);
+  if (process.env["PROJECT_ROOT"])
+    return path.resolve(process.env["PROJECT_ROOT"]);
   let dir = process.cwd();
   for (let i = 0; i < 8; i++) {
     try {
@@ -41,11 +42,15 @@ server.tool(
   "forge_context",
   "Ranks and selects the most relevant source files for a given task using the pre-built ContextForge dependency graph and Personalized PageRank. Returns a prioritized file list with mode (full/excerpt/summary) that fits a token budget. Use this instead of loading the entire codebase.",
   {
-    task: z.string().describe("Natural language description of the task or question"),
+    task: z
+      .string()
+      .describe("Natural language description of the task or question"),
     seeds: z
       .array(z.string())
       .optional()
-      .describe("File paths to use as starting points for graph traversal (e.g. files you already know are relevant)"),
+      .describe(
+        "File paths to use as starting points for graph traversal (e.g. files you already know are relevant)"
+      ),
     budget: z
       .number()
       .int()
@@ -53,12 +58,16 @@ server.tool(
       .max(50000)
       .optional()
       .default(12000)
-      .describe("Max estimated tokens to include in the context pack (default 12000)"),
+      .describe(
+        "Max estimated tokens to include in the context pack (default 12000)"
+      ),
     include_content: z
       .boolean()
       .optional()
       .default(false)
-      .describe("Whether to include actual file content in the response (increases token usage)")
+      .describe(
+        "Whether to include actual file content in the response (increases token usage)"
+      )
   },
   handlers.forgeContext
 );
@@ -67,7 +76,11 @@ server.tool(
   "forge_neighbors",
   "Returns the direct neighbors of a file in the dependency graph: what it imports, what imports it, what tests it, and what symbols it defines. Use this to navigate the codebase without reading files.",
   {
-    file_path: z.string().describe("Relative path to the file (e.g. packages/core/src/scanner.ts)"),
+    file_path: z
+      .string()
+      .describe(
+        "Relative path to the file (e.g. packages/core/src/scanner.ts)"
+      ),
     depth: z
       .number()
       .int()
@@ -75,7 +88,9 @@ server.tool(
       .max(3)
       .optional()
       .default(1)
-      .describe("Graph traversal depth (1 = direct neighbors only, 2 = neighbors of neighbors)")
+      .describe(
+        "Graph traversal depth (1 = direct neighbors only, 2 = neighbors of neighbors)"
+      )
   },
   handlers.forgeNeighbors
 );

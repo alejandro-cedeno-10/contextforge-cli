@@ -44,9 +44,7 @@ export function selectContext(
   // Work only on code/test file nodes (excludes config, doc, schema, asset).
   const fileNodes = nodes.filter(
     (n) =>
-      n.type === "file" &&
-      n.path &&
-      (n.kind === "code" || n.kind === "test")
+      n.type === "file" && n.path && (n.kind === "code" || n.kind === "test")
   );
   const fileNodeIds = new Set(fileNodes.map((n) => n.id));
 
@@ -79,9 +77,7 @@ export function selectContext(
       // Nodes not reached by BFS get distance = bfsDepth (max penalty).
       const bfsDist = bfsDistances.get(n.id) ?? bfsDepth;
       const score =
-        seedNodeIds.length > 0
-          ? combinedScore(prScore, bfsDist)
-          : prScore;
+        seedNodeIds.length > 0 ? combinedScore(prScore, bfsDist) : prScore;
 
       const sizeBytes = sizeByPath.get(n.path!) ?? 500;
       const estimatedFullTokens = Math.max(20, Math.ceil(sizeBytes / 4));

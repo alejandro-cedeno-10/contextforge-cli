@@ -31,7 +31,11 @@ export interface VizParams {
 }
 
 export function generateVizHtml(p: VizParams): string {
-  const graphJson = JSON.stringify({ nodes: p.nodes, edges: p.edges, stats: p.stats });
+  const graphJson = JSON.stringify({
+    nodes: p.nodes,
+    edges: p.edges,
+    stats: p.stats
+  });
   const packJson = JSON.stringify(p.packFiles);
   const meta = JSON.stringify({
     projectName: p.projectName,

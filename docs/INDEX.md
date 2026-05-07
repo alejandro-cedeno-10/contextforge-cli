@@ -15,14 +15,14 @@ updated: 2026-05-07
 
 ## 🧭 Cómo navegar
 
-| Tu intención | Carpeta | Ejemplo |
-|--------------|---------|---------|
-| **Aprender** desde cero, paso a paso | [`tutorials/`](./tutorials/) | "Setup del proyecto en local" |
-| **Resolver una tarea concreta** | [`how-to/`](./how-to/) | "Cómo desplegar a prod" |
-| **Consultar** datos exactos | [`reference/`](./reference/) | OpenAPI spec, env vars |
-| **Entender** el por qué | [`explanation/`](./explanation/) | "Por qué hexagonal aquí" |
-| **Ver decisiones** arquitectónicas | [`adr/`](./adr/) | ADRs en formato MADR |
-| **Diagramas** del sistema | [`architecture/`](./architecture/) | C4, codemaps |
+| Tu intención                         | Carpeta                            | Ejemplo                       |
+| ------------------------------------ | ---------------------------------- | ----------------------------- |
+| **Aprender** desde cero, paso a paso | [`tutorials/`](./tutorials/)       | "Setup del proyecto en local" |
+| **Resolver una tarea concreta**      | [`how-to/`](./how-to/)             | "Cómo desplegar a prod"       |
+| **Consultar** datos exactos          | [`reference/`](./reference/)       | OpenAPI spec, env vars        |
+| **Entender** el por qué              | [`explanation/`](./explanation/)   | "Por qué hexagonal aquí"      |
+| **Ver decisiones** arquitectónicas   | [`adr/`](./adr/)                   | ADRs en formato MADR          |
+| **Diagramas** del sistema            | [`architecture/`](./architecture/) | C4, codemaps                  |
 
 ## 📖 Tutorials (aprender)
 
@@ -44,7 +44,7 @@ _Crea archivos en `reference/`._
 
 ## 💡 Explanation (entender)
 
-Documentos discursivos que explican el *por qué* del diseño.
+Documentos discursivos que explican el _por qué_ del diseño.
 
 _Crea archivos en `explanation/`._
 

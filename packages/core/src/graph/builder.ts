@@ -201,7 +201,12 @@ export async function buildGraph(options: {
     }
 
     for (const imp of parsed.imports) {
-      const resolved = resolveImportPath(file.path, imp.source, allFilePaths, workspaceAliases);
+      const resolved = resolveImportPath(
+        file.path,
+        imp.source,
+        allFilePaths,
+        workspaceAliases
+      );
       if (resolved) {
         addEdge({
           from: `file:${file.path}`,
