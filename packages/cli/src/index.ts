@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import {
   blake3Hex,
   buildDiataxisScaffold,
+  buildDomainSkills,
   buildGraph,
   buildHealthReport,
   buildOpenSpec,
@@ -560,6 +561,48 @@ async function cmdDocs(args: string[] = []): Promise<void> {
   }
 }
 
+async function cmdSkills(args: string[] = []): Promise<void> {
+  const { flags } = parseFlags(args);
+  const force = flags["force"] === true;
+
+  const graph = await readRequiredJson<{
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  }>(outputPath("graph.json"), "Ejecuta primero: pnpm forge graph");
+
+  const result = buildDomainSkills({
+    nodes: graph.nodes ?? [],
+    edges: graph.edges ?? []
+  });
+
+  for (const file of result.files) {
+    const fullPath = path.join(process.cwd(), file.path);
+    let exists = false;
+    try {
+      await fs.access(fullPath);
+      exists = true;
+    } catch {
+      exists = false;
+    }
+    if (exists && !force) {
+      console.log(
+        `[skip] ${file.path} already exists (use --force to overwrite)`
+      );
+      continue;
+    }
+    await writeText(fullPath, file.content);
+    console.log(`Escrito ${file.path}`);
+  }
+
+  if (result.skipped.length > 0) {
+    console.log("");
+    console.log(`[skills] ${result.skipped.length} dominios omitidos:`);
+    for (const s of result.skipped) {
+      console.log(`  ${s.domain} — ${s.reason}`);
+    }
+  }
+}
+
 async function cmdViz(): Promise<void> {
   type GraphFile = {
     nodes: VizNode[];
@@ -857,6 +900,7 @@ function printUsage(): void {
   pnpm forge implement --check
   pnpm forge implement --approve
   pnpm forge docs [--force]
+  pnpm forge skills [--force]
   pnpm forge viz
   pnpm forge sync [--since HEAD~1] [--rebuild]
   pnpm forge impact`);
@@ -890,6 +934,9 @@ export async function runCommand(
       break;
     case "docs":
       await cmdDocs(args);
+      break;
+    case "skills":
+      await cmdSkills(args);
       break;
     case "sync":
       await cmdSync(args.slice(0));

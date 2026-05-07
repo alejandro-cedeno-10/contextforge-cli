@@ -47,6 +47,9 @@ pnpm forge viz
 
 # 9. Scaffold de documentación Diátaxis
 pnpm forge docs
+
+# 10. Auto-generar skills por dominio para Claude Code
+pnpm forge skills
 ```
 
 ---
@@ -64,6 +67,7 @@ pnpm forge docs
 | `forge implement --check`            | Valida cambios del agente contra guardrails                                                  | No            |
 | `forge viz`                          | Genera visualización HTML interactiva del grafo                                              | No            |
 | `forge docs [--force]`               | Scaffold de documentación Diátaxis (tutorials/how-to/reference/explanation/adr/architecture) | No            |
+| `forge skills [--force]`             | Auto-genera skills por dominio en `.claude/skills/ctx-*.md` para auto-loading en Claude Code | No            |
 | `forge sync [--since X] [--rebuild]` | Reporta delta desde un ref de git (por defecto `HEAD~1`) y dominios afectados                | No            |
 | `forge impact`                       | Health check de artifacts + cobertura de skills por dominio                                  | No            |
 
@@ -178,6 +182,33 @@ updated: YYYY-MM-DD
 ```
 
 `architecture/module-relationships.md` se deriva automáticamente del grafo: lista dominios + dependencias cruzadas. Sin LLM.
+
+---
+
+## Skills por dominio (`forge skills`)
+
+`forge skills` auto-genera un skill por dominio del grafo en `.claude/skills/ctx-<domain>.md`. Cada skill describe los archivos clave, dependencias cruzadas y tests del dominio, con frontmatter (`name`, `description`, `tags`) preparado para que Claude Code lo auto-cargue cuando el dev abre archivos de ese dominio.
+
+```bash
+pnpm forge skills            # Genera skills sin sobrescribir existentes
+pnpm forge skills --force    # Regenera todos los skills desde cero
+```
+
+**Características:**
+
+- **Determinista**: deriva de `.contextforge/graph.json`. Sin LLM, sin red, byte-for-byte estable entre runs.
+- **Token-efficient**: cada skill ≤ 50 líneas (~300-500 tokens).
+- **Scope claro**: orden de archivos por degree (in + out edges); cross-domain deps en secciones `Depends on` / `Used by`.
+- **Coexiste con skills task-oriented** (`contextforge-*.md` curados manualmente): los generados usan el prefijo `ctx-*`.
+- **Slug**: `packages/core` → `ctx-packages-core.md`, `src` → `ctx-src.md`. Dominios con < 2 archivos se omiten y se reportan en el output.
+
+```yaml
+---
+name: ctx-packages-core
+description: Domain context for packages/core — 18 files, 13 tests, used by 1
+tags: [packages/core, domain-skill]
+---
+```
 
 ---
 

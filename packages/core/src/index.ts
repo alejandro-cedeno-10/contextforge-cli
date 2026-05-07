@@ -87,3 +87,10 @@ export {
   type ArtifactStatus,
   type SkillCoverage
 } from "./impact/healthCheck.js";
+
+export {
+  buildDomainSkills,
+  type DomainSkillsOptions,
+  type DomainSkillsResult,
+  type DomainSkillFile
+} from "./skills/skillBuilder.js";

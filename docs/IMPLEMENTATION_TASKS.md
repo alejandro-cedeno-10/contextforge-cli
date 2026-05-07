@@ -17,8 +17,9 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 | S9     | Diátaxis docs scaffolder + Claude skills    | ✅ Completado |
 | S10    | GitHub Packages publish workflow            | ✅ Completado |
 | S11    | forge sync + forge impact (Aspens-inspired) | ✅ Completado |
+| S12    | forge skills (domain skills auto-gen)       | ✅ Completado |
 
-**Suite de tests**: 147/147 pasando. **Coverage**: 89.54 % stmts / 82.53 % branches / 100 % funcs / 89.54 % lines.
+**Suite de tests**: ≥ 162/162 pasando. **Coverage**: ≥ 80 % stmts / branches / funcs / lines.
 **Ahorro tokens verificado**: 90.3 % (11 700 / 121 000).
 
 **Convenciones**:
@@ -553,6 +554,50 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 - **Archivos tocados**: `packages/core/src/index.ts` (export), `packages/mcp/src/handlers.ts` (importa desde core, re-exporta para preservar API).
 - **Criterios**:
   - [x] Tests del MCP siguen pasando con la importacion via core.
+
+---
+
+## Sprint 12 - forge skills (auto-domain-skills) ✅ COMPLETADO
+
+**Objetivo**: Auto-generar un skill por dominio en `.claude/skills/ctx-<domain>.md` para que Claude Code lo auto-cargue cuando el dev abre archivos del dominio. Inspirado en aspenkit/aspens pero sin LLM, manteniendo el principio determinismo-first.
+
+### S12.T1 - `buildDomainSkills` en core ✅
+
+- **Archivos creados**: `packages/core/src/skills/skillBuilder.ts`, `packages/core/__tests__/skillBuilder.unit.test.ts`.
+- **Archivos tocados**: `packages/core/src/index.ts` (export `buildDomainSkills`, `DomainSkillsOptions`, `DomainSkillsResult`, `DomainSkillFile`).
+- **Implementacion**:
+  - Pure logic: `buildDomainSkills({ nodes, edges, minFilesPerDomain?, maxFilesShown?, maxTestsShown? })`.
+  - Reuso de `getDomain()` desde `packages/core/src/graph/domain.ts`.
+  - Cálculo de degree (in + out) en una sola pasada por edges.
+  - Agrupación cross-domain `dependsOn` / `usedBy` solo para edges `imports`.
+  - `inferPurpose(filePath)` deterministic (camelCase → kebab-case, `index.ts` usa parent dir).
+  - `slugify(domain)`: `packages/core` → `packages-core`, `src` → `src`.
+  - Dominios con < `minFilesPerDomain` (default 2) → `result.skipped[]`, no se genera archivo.
+  - Plantilla heredoc con secciones condicionales (`Depends on` / `Used by` / `Tests in this domain` se omiten si están vacías).
+- **Criterios**:
+  - [x] ≥ 8 unit tests cubriendo cada Scenario del spec OpenSpec (`auto-domain-skills/specs/core/spec.md`).
+  - [x] Cobertura del módulo ≥ 80 %.
+  - [x] Determinismo byte-for-byte verificado en test.
+
+### S12.T2 - Comando `forge skills` ✅
+
+- **Archivos tocados**: `packages/cli/src/index.ts` (`cmdSkills` + case en `runCommand` + `printUsage`).
+- **Implementacion**:
+  - Lee `.contextforge/graph.json` con `readRequiredJson` (error claro si falta).
+  - Llama `buildDomainSkills({ nodes, edges })`.
+  - Por cada `DomainSkillFile`: si existe y NO hay `--force` → `[skip]`; si no existe o hay `--force` → escribir.
+  - Reporta dominios omitidos al final con razón.
+- **Criterios**:
+  - [x] `pnpm forge skills` genera ≥ 3 skills (`ctx-packages-core.md`, `ctx-packages-cli.md`, `ctx-packages-mcp.md`).
+  - [x] Re-ejecutar sin `--force` produce `[skip]` para skills existentes.
+  - [x] `--force` sobrescribe.
+
+### S12.T3 - Documentación ✅
+
+- **Archivos tocados**: `README.md` (fila en tabla de comandos, paso 10 en "Uso rápido", sección "Skills por dominio (`forge skills`)") y `docs/IMPLEMENTATION_TASKS.md` (S12 en tabla de estado, Sprint 12 con S12.T1/T2/T3, conteo de tests actualizado).
+- **Criterios**:
+  - [x] README documenta el comando con ejemplo de frontmatter.
+  - [x] `forge --help` (sin args) lista `pnpm forge skills [--force]`.
 
 ---
 
