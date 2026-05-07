@@ -1,6 +1,6 @@
 # ContextForge
 
-Token-efficient CLI que convierte cualquier repositorio en un índice consultable de conocimiento. Produce artefactos JSON validados — grafo de dependencias, paquete de contexto, spec SDD, plan de implementación — listos para ser consumidos por cualquier agente de IA (Claude Code, OpenCode, Cursor, Codex).
+Token-efficient CLI que convierte cualquier repositorio en un índice consultable de conocimiento. Produce artefactos JSON validados — grafo de dependencias, paquete de contexto, spec OpenSpec, plan de implementación — listos para ser consumidos por cualquier agente de IA (Claude Code, OpenCode, Cursor, Codex).
 
 **Ahorro verificado:** 90 % de tokens vs. carga completa del repo (`full_repo_dump`).
 
@@ -33,7 +33,7 @@ pnpm forge graph
 # 4. Seleccionar contexto para una tarea
 pnpm forge context "fix authentication bug"
 
-# 5. Generar spec SDD
+# 5. Generar spec OpenSpec con evidencia del grafo
 pnpm forge spec fix-auth-bug
 
 # 6. Generar plan de implementación con guardrails
@@ -56,8 +56,7 @@ pnpm forge viz
 | `forge scan` | Indexa archivos con hashes BLAKE3, detecta lenguaje y tipo | No |
 | `forge graph` | Construye grafo de dependencias (nodos file/symbol, 5 edge types) | No |
 | `forge context "<tarea>"` | Selecciona archivos relevantes via PageRank + BFS + presupuesto | No |
-| `forge spec <id>` | Genera spec SDD con evidencia del grafo | Opcional |
-| `forge spec <id> --emit openspec` | Genera estructura OpenSpec (`changes/<id>/`) | Opcional |
+| `forge spec <id>` | Genera spec en formato OpenSpec (`changes/<id>/`) con evidencia del grafo | No |
 | `forge implement <id>` | Produce plan con guardrails derivados del context-pack | No |
 | `forge implement --check` | Valida cambios del agente contra guardrails | No |
 | `forge viz` | Genera visualización HTML interactiva del grafo | No |
@@ -76,6 +75,12 @@ Todos los JSON son validados con JSON Schema 2020-12 antes de escribirse.
   token-ledger.json    # métricas de ahorro de tokens vs baseline
   implement-plan.json  # guardrails: allowedFiles, maxLocDelta, etc.
   graph.html           # visualización interactiva (Cytoscape.js)
+
+openspec/changes/<id>/
+  proposal.md          # intent, scope, por qué
+  design.md            # enfoque técnico con archivos del grafo
+  tasks.md             # checklist de implementación numerado
+  specs/<domain>/spec.md  # delta spec: ADDED / MODIFIED / REMOVED requirements
 ```
 
 Resultado real en este repo: 70 archivos → 30 seleccionados → 11 700 tokens (ahorro 90.3 %).
@@ -94,7 +99,7 @@ Resultado real en este repo: 70 archivos → 30 seleccionados → 11 700 tokens 
 
 ## Arquitectura de ahorro de tokens
 
-El ahorro ocurre en tres capas acumulativas:
+El ahorro ocurre en dos capas acumulativas:
 
 ```
 CAPA 1 — Preparación (una vez, 0 tokens):
@@ -105,50 +110,29 @@ CAPA 1 — Preparación (una vez, 0 tokens):
 CAPA 2 — Context pack (por sesión del agente):
   Sin ContextForge:  ~121 000 tokens  →  ~$0.36/sesión
   Con context-pack:  ~11 700 tokens   →  ~$0.035/sesión  (90% ahorro)
-
-CAPA 3 — MCP on-demand (por query durante implementación):
-  forge_context("tarea"):  ~2 000–4 000 tokens  →  ~$0.01/sesión  (97% ahorro)
 ```
 
 Ver `docs/token-savings-architecture.md` para análisis completo con tabla de costos por modelo.
 
 ---
 
-## MCP Server
+## Spec OpenSpec (`forge spec`)
 
-El servidor MCP permite que los agentes consulten el grafo de forma quirúrgica durante la implementación, en lugar de cargar el contexto completo al inicio de la sesión.
+`forge spec <id>` siempre emite en formato **OpenSpec** — estructura de cambios accionable y compatible con el estándar:
 
-### Configuración (`opencode.json` / `claude.json`)
-
-```json
-{
-  "mcpServers": {
-    "contextforge": {
-      "command": "node",
-      "args": ["packages/mcp/dist/index.js"],
-      "env": { "PROJECT_ROOT": "." }
-    }
-  }
-}
+```
+openspec/changes/fix-auth-bug/
+  proposal.md              # contexto y motivación del cambio
+  design.md                # decisiones técnicas respaldadas por el grafo
+  tasks.md                 # tareas numeradas T1, T1.1, T2...
+  specs/auth/spec.md       # delta spec con secciones:
+                           #   ## ADDED Requirements
+                           #   ## MODIFIED Requirements
+                           #   ## REMOVED Requirements
 ```
 
-El archivo `opencode.json` ya está configurado en este repo.
-
-### Tools disponibles
-
-| Tool | Descripción | Tokens aprox. |
-|---|---|---|
-| `forge_status` | Estado de artifacts en `.contextforge/` | ~400 |
-| `forge_domain_map` | Mapa de dominios con dependencias cruzadas | ~600 |
-| `forge_neighbors` | Vecinos BFS de un archivo (imports/tests/defines) | ~300 |
-| `forge_context` | Archivos relevantes para una tarea (PageRank) | ~2 000 |
-| `forge_check` | Valida guardrails contra `git diff HEAD` | ~200 |
-
-### Compilar el servidor MCP
-
-```bash
-pnpm --filter @contextforge/mcp build
-```
+Cada requirement usa formato **Given/When/Then + RFC 2119** (MUST/SHALL/SHOULD/MAY).
+Los archivos referenciados en `design.md` y `tasks.md` vienen directamente del `context-pack` — evidencia trazable del grafo.
 
 ---
 
@@ -190,7 +174,6 @@ packages/
   core/         → scanner, parser tree-sitter, graph builder,
                   selector PageRank, packer, schema validator
   cli/          → comandos forge, orquestación del pipeline
-  mcp/          → servidor MCP con 5 tools para agentes
   integrations/ → adaptadores (OpenCode como referencia)
   agents/       → plantillas y skills compartidos (pendiente)
 ```
@@ -204,19 +187,40 @@ pnpm test               # todos los tests
 pnpm test --coverage    # con cobertura
 ```
 
-Suite actual: **91/91 tests pasando**.
+Suite actual: **120/120 tests pasando**, coverage ≥ 80 % en todas las métricas.
 
-Áreas cubiertas: scanner · graph builder · selector PageRank · packer · schema validator · spec render · OpenSpec · treeSitter parser · scanCache · implementValidator.
+Áreas cubiertas: scanner · graph builder · selector PageRank · packer · schema validator · spec render · OpenSpec · treeSitter parser · scanCache · implementValidator · MCP handlers.
 
 ---
 
 ## Principios
 
 - **Determinismo primero**: `forge scan` y `forge graph` nunca llaman a ningún LLM.
+- **OpenSpec por defecto**: `forge spec` siempre emite estructura compatible con el estándar OpenSpec.
 - **Cache por hash**: si `scan.json` no cambió, `forge graph` salta el rebuild.
 - **Presupuesto explícito**: cada context-pack tiene `maxInputTokens` trazable en `token-ledger.json`.
 - **JSON validado**: ningún artefacto se escribe sin pasar JSON Schema.
 - **Portable**: cualquier agente puede consumir `.contextforge/*.json` sin modificación.
+
+---
+
+## Próximamente
+
+**MCP Server** — queries quirúrgicas al grafo durante la implementación (97 % de ahorro adicional):
+
+```json
+{
+  "mcpServers": {
+    "contextforge": {
+      "command": "npx",
+      "args": ["@alejandro-cedeno-10/contextforge-mcp"],
+      "env": { "PROJECT_ROOT": "." }
+    }
+  }
+}
+```
+
+Tools: `forge_status` · `forge_domain_map` · `forge_neighbors` · `forge_context` · `forge_check`
 
 ---
 

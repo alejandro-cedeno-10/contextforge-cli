@@ -179,11 +179,11 @@ describe("forge commands", () => {
     expect(implement.guardrails.maxLocDelta).toBeGreaterThanOrEqual(1);
     expect(implement.tasks.length).toBeGreaterThanOrEqual(1);
 
-    const spec = await readFile(
-      path.join(cwd, ".contextforge", "spec.sdd.md"),
+    const proposal = await readFile(
+      path.join(cwd, "openspec", "changes", "change-1", "proposal.md"),
       "utf8"
     );
-    expect(spec).toContain("# Spec SDD");
+    expect(proposal).toContain("## Intent");
   });
 
   it("graph fails with SchemaValidationError when scan.json is invalid", async () => {

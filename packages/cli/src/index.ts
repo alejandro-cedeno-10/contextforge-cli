@@ -280,39 +280,18 @@ async function cmdContext(task = "Describe la tarea aqui"): Promise<void> {
   console.log("Escrito .contextforge/token-ledger.json");
 }
 
-async function cmdSpec(
-  changeId = "change-1",
-  args: string[] = []
-): Promise<void> {
-  const { flags } = parseFlags(args);
-  const emitTarget = typeof flags["emit"] === "string" ? flags["emit"] : null;
-
+async function cmdSpec(changeId = "change-1"): Promise<void> {
   type PackFile = { path: string; reason: string; mode: string };
   type ContextPack = { task?: string; files?: PackFile[] };
   const pack = await tryReadJson<ContextPack>(outputPath("context-pack.json"));
   const task = pack?.task ?? "Describe la tarea aqui";
   const affectedFiles: PackFile[] = pack?.files ?? [];
 
-  if (emitTarget === "openspec") {
-    const result = buildOpenSpec({ changeId, task, affectedFiles });
-    for (const file of result.files) {
-      await writeText(path.join(process.cwd(), file.path), file.content);
-    }
-    console.log(
-      `Escrito ${result.changeDir}/ (proposal, design, tasks, specs)`
-    );
-    return;
+  const result = buildOpenSpec({ changeId, task, affectedFiles });
+  for (const file of result.files) {
+    await writeText(path.join(process.cwd(), file.path), file.content);
   }
-
-  const spec = renderSDD({
-    title: task,
-    task,
-    seeds: affectedFiles.filter((f) => f.reason === "seed").map((f) => f.path),
-    affectedFiles
-  });
-
-  await writeText(outputPath("spec.sdd.md"), spec);
-  console.log("Escrito .contextforge/spec.sdd.md");
+  console.log(`Escrito ${result.changeDir}/ (proposal, design, tasks, specs)`);
 }
 
 async function cmdImplement(
@@ -538,7 +517,7 @@ function printUsage(): void {
   pnpm forge scan
   pnpm forge graph
   pnpm forge context [task]
-  pnpm forge spec [change-id] [--emit openspec]
+  pnpm forge spec [change-id]
   pnpm forge implement [change-id]
   pnpm forge implement --check
   pnpm forge implement --approve
@@ -563,7 +542,7 @@ export async function runCommand(
       await cmdContext(args[0]);
       break;
     case "spec":
-      await cmdSpec(args[0], args.slice(1));
+      await cmdSpec(args[0]);
       break;
     case "implement":
       await cmdImplement(args[0], args.slice(1));
