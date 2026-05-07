@@ -44,6 +44,9 @@ pnpm forge implement --check
 
 # 8. Visualizar el grafo (abre graph.html)
 pnpm forge viz
+
+# 9. Scaffold de documentación Diátaxis
+pnpm forge docs
 ```
 
 ---
@@ -60,6 +63,7 @@ pnpm forge viz
 | `forge implement <id>` | Produce plan con guardrails derivados del context-pack | No |
 | `forge implement --check` | Valida cambios del agente contra guardrails | No |
 | `forge viz` | Genera visualización HTML interactiva del grafo | No |
+| `forge docs [--force]` | Scaffold de documentación Diátaxis (tutorials/how-to/reference/explanation/adr/architecture) | No |
 
 ---
 
@@ -133,6 +137,45 @@ openspec/changes/fix-auth-bug/
 
 Cada requirement usa formato **Given/When/Then + RFC 2119** (MUST/SHALL/SHOULD/MAY).
 Los archivos referenciados en `design.md` y `tasks.md` vienen directamente del `context-pack` — evidencia trazable del grafo.
+
+---
+
+## Documentación Diátaxis (`forge docs`)
+
+`forge docs` genera la estructura [Diátaxis](https://diataxis.fr/) lista para usar:
+
+```bash
+pnpm forge docs            # Crea folders + INDEX.md (no sobrescribe)
+pnpm forge docs --force    # Sobrescribe archivos existentes
+```
+
+**Estructura generada:**
+
+```
+docs/
+  INDEX.md                          # Punto de entrada con tabla de navegación
+  tutorials/                        # Aprender paso a paso
+  how-to/                           # Recetas para tareas concretas
+  reference/                        # Datos exactos (OpenAPI, env vars)
+  explanation/                      # Por qué del diseño
+  adr/README.md                     # Plantilla MADR para decisiones
+  architecture/module-relationships.md  # Auto desde .contextforge/graph.json
+```
+
+**Convenciones de frontmatter** (cada doc nuevo):
+
+```yaml
+---
+title: "Título conciso"
+description: "Una línea — el agente decide si leer el resto sin gastar tokens"
+audience: both | dev | ops
+type: tutorial | how-to | reference | explanation | architecture
+tags: [tag1, tag2]
+updated: YYYY-MM-DD
+---
+```
+
+`architecture/module-relationships.md` se deriva automáticamente del grafo: lista dominios + dependencias cruzadas. Sin LLM.
 
 ---
 

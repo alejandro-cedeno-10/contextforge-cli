@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   blake3Hex,
+  buildDiataxisScaffold,
   buildGraph,
   buildOpenSpec,
   renderSDD,
@@ -14,6 +15,8 @@ import {
   SchemaValidationError,
   SCHEMA_VERSIONS,
   scanProject,
+  type GraphEdge,
+  type GraphNode,
   type ScanResult,
   validateOrThrow
 } from "@alejandro-cedeno-10/contextforge-core";
@@ -480,6 +483,43 @@ async function cmdImplementApprove(): Promise<void> {
   console.log("Estado actualizado a: approved_for_edit");
 }
 
+async function cmdDocs(args: string[] = []): Promise<void> {
+  const { flags } = parseFlags(args);
+  const force = flags["force"] === true;
+
+  const graph = await tryReadJson<{
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  }>(outputPath("graph.json"));
+
+  const result = buildDiataxisScaffold({
+    projectName: path.basename(process.cwd()),
+    date: new Date().toISOString().slice(0, 10),
+    graph
+  });
+
+  for (const folder of result.folders) {
+    await ensureDir(path.join(process.cwd(), folder));
+  }
+
+  for (const file of result.files) {
+    const fullPath = path.join(process.cwd(), file.path);
+    let exists = false;
+    try {
+      await fs.access(fullPath);
+      exists = true;
+    } catch {
+      exists = false;
+    }
+    if (exists && !force) {
+      console.log(`[skip] ${file.path} ya existe (usa --force para sobrescribir)`);
+      continue;
+    }
+    await writeText(fullPath, file.content);
+    console.log(`Escrito ${file.path}`);
+  }
+}
+
 async function cmdViz(): Promise<void> {
   type GraphFile = {
     nodes: VizNode[];
@@ -521,6 +561,7 @@ function printUsage(): void {
   pnpm forge implement [change-id]
   pnpm forge implement --check
   pnpm forge implement --approve
+  pnpm forge docs [--force]
   pnpm forge viz`);
 }
 
@@ -549,6 +590,9 @@ export async function runCommand(
       break;
     case "viz":
       await cmdViz();
+      break;
+    case "docs":
+      await cmdDocs(args);
       break;
     default:
       printUsage();

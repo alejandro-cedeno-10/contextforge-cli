@@ -62,3 +62,10 @@ export {
   type ValidatorResult,
   type Guardrails
 } from "./implement/validator.js";
+
+export {
+  buildDiataxisScaffold,
+  type DiataxisOptions,
+  type DiataxisFile,
+  type DiataxisResult
+} from "./docs/scaffolder.js";

@@ -10,13 +10,16 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 | S2 | Cache + BLAKE3 | ✅ Completado |
 | S3 | Grafo tree-sitter | ✅ Completado |
 | S4 | Context selector PageRank | ✅ Completado |
-| S5 | Spec SDD + OpenSpec | ✅ Completado |
+| S5 | Spec OpenSpec (default) | ✅ Completado |
 | S6 | Implement-plan guardrails | ✅ Completado |
 | S7 | Grafo visual interactivo | ✅ Completado |
 | S8 | MCP Server | ✅ Completado |
-| — | Tests MCP, agents package | Backlog |
+| S9 | Diátaxis docs scaffolder + Claude skills | ✅ Completado |
+| S10 | GitHub Packages publish workflow | ✅ Completado |
+| — | Cursor adapter, packages/agents/ decision | Backlog |
 
-**Suite de tests**: 91/91 pasando. **Ahorro tokens verificado**: 90.3 % (11 700 / 121 000).
+**Suite de tests**: 130/130 pasando. **Coverage**: 88.67 % stmts / 82.03 % branches / 100 % funcs / 88.67 % lines.
+**Ahorro tokens verificado**: 90.3 % (11 700 / 121 000).
 
 **Convenciones**:
 
@@ -462,17 +465,68 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 
 ---
 
-## Backlog post-MVP (no asignado a sprint)
+## Sprint 9 - Diátaxis docs scaffolder + Claude skills ✅ COMPLETADO
 
-- **B1**: Tests del MCP server (`packages/mcp/__tests__/`) — 5 tools sin cobertura.
-- **B2**: `packages/agents/` — solo tiene `package.json`, sin implementacion.
-- **B3**: Adaptador Cursor (rule + import context-pack a chat).
-- **B4**: Soporte Spec-Kit como segundo target de `--emit`.
-- **B5**: Reciprocal Rank Fusion con segunda signal (recencia, embeddings opcionales).
-- **B6**: `forge eval` — benchmark contra suite de tareas conocidas con metricas savings + quality.
-- **B7**: Metric collector via OpenTelemetry para uso real (opt-in).
-- **B8**: `forge implement` end-to-end — generar `implement-plan.json` real y validar flujo SDD completo.
-- **B9**: Soporte Spec-Kit como segundo target (`--emit speckit`).
+**Objetivo**: Comando `forge docs` deterministico que genera estructura Diátaxis lista para usar, mas skills concisas para Claude Code.
+
+### S9.T1 - `buildDiataxisScaffold` en core ✅
+
+- **Archivos creados**: `packages/core/src/docs/scaffolder.ts`, `packages/core/__tests__/docsScaffolder.unit.test.ts`.
+- **Implementacion**: Factory deterministica que produce 6 folders (tutorials/how-to/reference/explanation/adr/architecture) + INDEX.md + adr/README.md + architecture/module-relationships.md (opcional desde graph).
+- **Criterios**:
+  - [x] 10 unit tests cubriendo folders, frontmatter, generacion condicional desde graph.
+  - [x] Cobertura del modulo: 96.55 % statements / 86.11 % branches.
+
+### S9.T2 - Comando `forge docs` ✅
+
+- **Archivos tocados**: `packages/cli/src/index.ts` (cmdDocs + case en runCommand).
+- **Implementacion**: Lee `.contextforge/graph.json` opcionalmente, genera scaffold con plantillas exactas. Flag `--force` para sobrescribir.
+- **Criterios**:
+  - [x] `pnpm forge docs` crea folders y archivos sin sobrescribir existentes.
+  - [x] `--force` sobrescribe.
+  - [x] `architecture/module-relationships.md` se genera desde graph (25 dominios + cross-deps).
+
+### S9.T3 - Skills concisas para Claude Code ✅
+
+- **Archivos creados**: `.claude/skills/contextforge-flow.md`, `.claude/skills/contextforge-spec.md`, `.claude/skills/contextforge-docs.md`.
+- **Implementacion**: 3 skills <= 45 lineas cada uno con frontmatter `name`/`description`. Token-efficient: cargan solo la guia esencial sin gastar contexto.
+- **Criterios**:
+  - [x] Cada skill <= 60 lineas (objetivo: 30-40).
+  - [x] Cubren: flujo completo, generacion de spec, uso de forge docs.
+
+---
+
+## Sprint 10 - Publicacion en GitHub Packages ✅ COMPLETADO
+
+**Objetivo**: Hacer los paquetes instalables via `npx` y `npm install` desde GitHub Packages.
+
+### S10.T1 - Rename de scope para GitHub Packages ✅
+
+- **Archivos tocados**: 5 package.json + 4 archivos TypeScript + vitest.config.ts.
+- **Implementacion**: `@contextforge/*` → `@alejandro-cedeno-10/contextforge-*` (scope debe coincidir con GitHub username).
+
+### S10.T2 - Workflow de publicacion ✅
+
+- **Archivos creados**: `.github/workflows/publish.yml`, `.npmrc`.
+- **Implementacion**: Trigger en `v*.*.*` tags. Build + test + publish 3 paquetes (core, cli, mcp) con `GITHUB_TOKEN`.
+- **Criterios**:
+  - [x] Tag `v0.1.0` creado y empujado.
+  - [x] Workflow ejecutable manualmente con `workflow_dispatch`.
+
+---
+
+## Backlog post-MVP
+
+| ID | Item | Esfuerzo | Valor | Estado |
+|----|------|----------|-------|--------|
+| B1 | Tests del MCP server | Medio | Alto | ✅ Completado en S8.T2 |
+| B2 | `packages/agents/` — vacio | Bajo | Bajo | Decidir: implementar o eliminar |
+| B3 | Adaptador Cursor (`.cursor/rules/`) | Bajo | Medio | Pendiente |
+| B4 | Soporte Spec-Kit (`forge spec --emit speckit`) | Medio | Bajo | Pendiente |
+| B5 | Reciprocal Rank Fusion (recencia/embeddings) | Alto | Bajo | Post-v0.5 |
+| B6 | `forge eval` — benchmark savings + quality | Alto | Alto | Pendiente |
+| B7 | OpenTelemetry metric collector (opt-in) | Medio | Bajo | Post-v0.5 |
+| B8 | `forge implement` end-to-end con LLM real | Alto | Medio | Post-v0.5 |
 
 ### Estado del backlog original
 
