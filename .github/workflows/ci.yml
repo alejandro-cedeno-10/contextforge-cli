@@ -16,14 +16,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: "pnpm"
-
-      - name: Enable Corepack
-        run: corepack enable
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
@@ -31,8 +31,30 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Test
-        run: pnpm test
-
       - name: Build
         run: pnpm build
+
+      - name: Test
+        run: pnpm test:coverage
+
+      - name: Pipeline self-check (forge end-to-end on this repo)
+        run: |
+          pnpm forge init
+          pnpm forge scan
+          pnpm forge graph
+          pnpm forge context
+          pnpm forge spec
+          pnpm forge implement
+
+      - name: Standalone JSON Schema validation (ajv-cli)
+        run: |
+          set -euo pipefail
+          for schema in scan graph context-pack token-ledger implement-plan; do
+            echo "::group::ajv validate ${schema}"
+            pnpm exec ajv validate \
+              --spec=draft2020 \
+              -c ajv-formats \
+              -s "docs/schemas/${schema}.schema.json" \
+              -d ".contextforge/${schema}.json"
+            echo "::endgroup::"
+          done

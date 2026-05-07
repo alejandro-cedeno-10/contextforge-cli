@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextforge.dev/schemas/graph.schema.json",
+  "title": "CodeGraph",
+  "description": "Grafo determinista de archivos y simbolos. Producto de `forge graph`.",
+  "type": "object",
+  "required": ["schemaVersion", "project", "generatedAt", "nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "project": {
+      "type": "object",
+      "required": ["name", "root"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "root": { "type": "string" }
+      }
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scanRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Referencia al scan.json que origino este grafo (para validar consistencia).",
+      "required": ["path", "scanHash"],
+      "properties": {
+        "path": { "type": "string" },
+        "scanHash": { "type": "string" }
+      }
+    },
+    "parser": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Metadata del parser usado.",
+      "properties": {
+        "engine": {
+          "type": "string",
+          "enum": ["web-tree-sitter", "tree-sitter-native", "heuristic", "none"]
+        },
+        "engineVersion": { "type": "string" },
+        "grammars": {
+          "type": "object",
+          "description": "Map lang -> version de grammar.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nodesTotal": { "type": "integer", "minimum": 0 },
+        "edgesTotal": { "type": "integer", "minimum": 0 },
+        "nodesByType": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "edgesByType": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID estable. Convencion: 'file:<path>' para files, 'symbol:<path>#<name>' para simbolos.",
+          "pattern": "^(file|symbol|folder|package):.+"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["file", "symbol", "folder", "package"]
+        },
+        "label": { "type": "string" },
+        "path": {
+          "type": "string",
+          "description": "Ruta relativa cuando aplica (file/symbol)."
+        },
+        "hash": {
+          "type": "string",
+          "description": "Hash del contenido (file) o de la signatura (symbol) para invalidacion incremental."
+        },
+        "kind": {
+          "type": "string",
+          "description": "Para file: scan kind. Para symbol: 'function'|'class'|'method'|'interface'|'type'|'const'|'var'|'enum'."
+        },
+        "lang": { "type": "string" },
+        "exported": {
+          "type": "boolean",
+          "description": "Solo para symbol: true si es parte de la API publica del modulo."
+        },
+        "signature": {
+          "type": "string",
+          "description": "Solo para symbol: signatura serializada (params + return type)."
+        },
+        "loc": {
+          "type": "object",
+          "description": "Solo para symbol: ubicacion en el archivo.",
+          "additionalProperties": false,
+          "properties": {
+            "startLine": { "type": "integer", "minimum": 1 },
+            "endLine": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["from", "to", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": "string", "description": "Node ID origen." },
+        "to": { "type": "string", "description": "Node ID destino." },
+        "type": {
+          "type": "string",
+          "enum": [
+            "defines",
+            "imports",
+            "calls",
+            "references",
+            "tests",
+            "contains",
+            "extends",
+            "implements"
+          ],
+          "description": "5 canonicos (defines/imports/calls/references/tests) + 3 estructurales/herencia opcionales."
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Peso para PageRank. Default 1. references puede usar weight basado en rareza del identificador."
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Solo cuando inferencia no es trivial.",
+          "properties": {
+            "file": { "type": "string" },
+            "line": { "type": "integer", "minimum": 1 },
+            "snippet": { "type": "string", "maxLength": 200 }
+          }
+        }
+      }
+    }
+  }
+}

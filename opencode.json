@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.schema.json",
+  "mcpServers": {
+    "contextforge": {
+      "command": "node",
+      "args": ["packages/mcp/dist/index.js"],
+      "env": {
+        "PROJECT_ROOT": "."
+      }
+    }
+  }
+}

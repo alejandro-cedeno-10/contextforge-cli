@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "description": "ContextForge MVP CLI for structural graphs, context packs and SDD specs",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alejandro-cedeno-10/contextforge-cli.git"
+  },
   "type": "module",
   "packageManager": "pnpm@10.0.0",
   "engines": {
@@ -15,6 +19,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "forge": "tsx packages/cli/src/index.ts"
@@ -23,6 +28,9 @@
     "@types/node": "^22.10.1",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
+    "ajv-cli": "^5.0.0",
+    "ajv-formats": "^3.0.1",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.39.1",
     "prettier": "^3.6.2",
     "tsx": "^4.20.6",

@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextforge.dev/schemas/context-pack.schema.json",
+  "title": "ContextPack",
+  "description": "Contexto minimo seleccionado para una tarea. Producto de `forge context`.",
+  "type": "object",
+  "required": ["schemaVersion", "task", "generatedAt", "budget", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Descripcion textual de la tarea para la cual se selecciono el contexto."
+    },
+    "taskId": {
+      "type": "string",
+      "description": "ID estable de la tarea (slug). Usado para correlacionar con implement-plan y spec."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "graphRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "graphHash"],
+      "properties": {
+        "path": { "type": "string" },
+        "graphHash": { "type": "string" }
+      }
+    },
+    "seeds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Node IDs usados como semilla para PageRank/BFS."
+    },
+    "budget": {
+      "type": "object",
+      "required": ["maxInputTokens"],
+      "additionalProperties": false,
+      "properties": {
+        "maxInputTokens": { "type": "integer", "minimum": 1 },
+        "estimatedTokens": { "type": "integer", "minimum": 0 },
+        "tokenizer": {
+          "type": "string",
+          "description": "Identificador del tokenizador usado para estimacion (ej. 'anthropic.count_tokens@claude-sonnet-4-6', 'js-tiktoken@o200k_base')."
+        }
+      }
+    },
+    "ranking": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Metadata del algoritmo de seleccion para auditoria.",
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": ["personalized-pagerank+bfs+greedy", "manual", "naive-top-k"]
+        },
+        "alpha": { "type": "number", "minimum": 0, "maximum": 1 },
+        "iterations": { "type": "integer", "minimum": 1 },
+        "bfsDepth": { "type": "integer", "minimum": 0 },
+        "seedBoost": { "type": "number" }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/packedFile" }
+    },
+    "excluded": {
+      "type": "array",
+      "description": "Archivos rankeados pero excluidos por budget. Util para auditoria.",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "score": { "type": "number" },
+          "reason": {
+            "type": "string",
+            "enum": ["budget_exhausted", "below_threshold", "manually_excluded"]
+          }
+        }
+      }
+    },
+    "ledgerRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "description": "Referencia al token-ledger.json correspondiente.",
+      "properties": {
+        "path": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "packedFile": {
+      "type": "object",
+      "required": ["path", "reason", "mode"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "seed",
+            "direct_import",
+            "transitive_dep",
+            "test_for",
+            "referenced_symbol",
+            "called_by_seed",
+            "manual"
+          ],
+          "description": "Por que se incluyo este archivo. Auditable por usuario."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["full", "excerpt", "summary"],
+          "description": "Granularidad incluida. summary y excerpt son deterministas (AST-based)."
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Score combinado (PageRank * BFS-distance-factor * edge-multiplier)."
+        },
+        "hash": {
+          "type": "string",
+          "description": "Hash del contenido para deteccion de drift contra graph/scan."
+        },
+        "tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tokens contados del contenido empaquetado en este modo."
+        },
+        "excerpt": {
+          "type": "string",
+          "description": "Solo cuando mode=excerpt: contenido extractado (signaturas + N lineas de contexto por simbolo)."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Solo cuando mode=summary: signaturas exports + path + imports."
+        },
+        "symbols": {
+          "type": "array",
+          "description": "Simbolos relevantes incluidos (para excerpt/summary).",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

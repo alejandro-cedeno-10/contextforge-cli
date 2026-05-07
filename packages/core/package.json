@@ -1,16 +1,44 @@
 {
-  "name": "@contextforge/core",
+  "name": "@alejandro-cedeno-10/contextforge-core",
   "version": "0.1.0",
   "type": "module",
-  "main": "dist/scanner.js",
-  "types": "dist/scanner.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/scanner.d.ts",
-      "default": "./dist/scanner.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema/validator": {
+      "types": "./dist/schema/validator.d.ts",
+      "default": "./dist/schema/validator.js"
+    },
+    "./schema/versions": {
+      "types": "./dist/schema/versions.d.ts",
+      "default": "./dist/schema/versions.js"
+    },
+    "./graph/builder": {
+      "types": "./dist/graph/builder.d.ts",
+      "default": "./dist/graph/builder.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"
-  }
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alejandro-cedeno-10/contextforge-cli.git",
+    "directory": "packages/core"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "files": ["dist", "README.md"]
 }

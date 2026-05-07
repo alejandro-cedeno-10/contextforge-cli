@@ -1,5 +1,5 @@
 {
-  "name": "@contextforge/cli",
+  "name": "@alejandro-cedeno-10/contextforge-cli",
   "version": "0.1.0",
   "type": "module",
   "bin": {
@@ -8,9 +8,20 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@contextforge/core": "workspace:*"
+    "@alejandro-cedeno-10/contextforge-core": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alejandro-cedeno-10/contextforge-cli.git",
+    "directory": "packages/cli"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "files": ["dist", "README.md"]
 }

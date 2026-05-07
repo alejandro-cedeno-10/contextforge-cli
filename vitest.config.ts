@@ -1,13 +1,40 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
 
+const here = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@alejandro-cedeno-10/contextforge-core/schema/validator": path.resolve(
+        here,
+        "packages/core/src/schema/validator.ts"
+      ),
+      "@alejandro-cedeno-10/contextforge-core/schema/versions": path.resolve(
+        here,
+        "packages/core/src/schema/versions.ts"
+      ),
+      "@alejandro-cedeno-10/contextforge-core/graph/builder": path.resolve(
+        here,
+        "packages/core/src/graph/builder.ts"
+      ),
+      "@alejandro-cedeno-10/contextforge-core": path.resolve(here, "packages/core/src/index.ts")
+    }
+  },
   test: {
     environment: "node",
     include: ["packages/**/__tests__/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["packages/core/src/**/*.ts", "packages/cli/src/**/*.ts"],
-      exclude: ["packages/**/__tests__/**"],
+      include: ["packages/core/src/**/*.ts", "packages/cli/src/**/*.ts", "packages/mcp/src/**/*.ts"],
+      exclude: [
+        "packages/**/__tests__/**",
+        "packages/mcp/src/index.ts",
+        "packages/cli/src/index.ts",
+        "packages/cli/src/htmlTemplate.ts"
+      ],
       thresholds: {
         branches: 80,
         functions: 80,

@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextforge.dev/schemas/token-ledger.schema.json",
+  "title": "TokenLedger",
+  "description": "Registro auditable de tokens y costos para una ejecucion de `forge context`. Habilita metricas de exito.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "runId",
+    "timestamp",
+    "tokenizer",
+    "baseline",
+    "packed",
+    "savings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "runId": {
+      "type": "string",
+      "description": "ULID o UUID unico por ejecucion."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "commit": {
+          "type": "string",
+          "description": "SHA del commit actual si es git repo."
+        },
+        "filesTotal": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "tokenizer": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "anthropic.count_tokens",
+            "js-tiktoken",
+            "gpt-tokenizer",
+            "gemini.count_tokens",
+            "approximation"
+          ],
+          "description": "Tokenizador efectivamente usado."
+        },
+        "model": {
+          "type": "string",
+          "description": "Modelo concreto cuando aplica (ej. 'claude-sonnet-4-6', 'o200k_base')."
+        },
+        "fallbackUsed": {
+          "type": "boolean",
+          "description": "True si fallo el primario y se cayo a un fallback (ej. red caida -> tiktoken local)."
+        }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "required": ["strategy", "tokens"],
+      "additionalProperties": false,
+      "description": "Baseline contra el cual se mide el ahorro.",
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["full_repo_dump", "naive_top_k", "previous_pack", "manual"],
+          "description": "full_repo_dump = todos los archivos no-ignorados concatenados. naive_top_k = top-K por path-distance al seed."
+        },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "filesIncluded": { "type": "integer", "minimum": 0 },
+        "params": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Parametros del baseline (ej. K para naive_top_k)."
+        }
+      }
+    },
+    "packed": {
+      "type": "object",
+      "required": ["tokens"],
+      "additionalProperties": false,
+      "properties": {
+        "tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tokens del context-pack final."
+        },
+        "filesIncluded": { "type": "integer", "minimum": 0 },
+        "systemPromptTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tokens estimados del system prompt del agente al consumir el pack."
+        },
+        "toolSchemaTokens": { "type": "integer", "minimum": 0 },
+        "byMode": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "full": { "type": "integer", "minimum": 0 },
+            "excerpt": { "type": "integer", "minimum": 0 },
+            "summary": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "savings": {
+      "type": "object",
+      "required": ["absoluteTokens", "savingsPct"],
+      "additionalProperties": false,
+      "properties": {
+        "absoluteTokens": {
+          "type": "integer",
+          "description": "baseline.tokens - packed.tokens. Puede ser negativo si packed > baseline (regresion)."
+        },
+        "savingsPct": {
+          "type": "number",
+          "description": "Porcentaje ahorrado respecto a baseline."
+        },
+        "compressionRatio": {
+          "type": "number",
+          "minimum": 0,
+          "description": "baseline.tokens / packed.tokens. Mas legible cuando savings > 90%."
+        }
+      }
+    },
+    "costUsd": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Costos estimados en USD. Reportar 3 escenarios.",
+      "properties": {
+        "currency": { "type": "string", "const": "USD" },
+        "pricingSnapshotDate": { "type": "string", "format": "date" },
+        "model": {
+          "type": "string",
+          "description": "Modelo asumido para el calculo (ej. 'claude-sonnet-4-6')."
+        },
+        "baselineInput": { "type": "number", "minimum": 0 },
+        "packedInputNoCache": { "type": "number", "minimum": 0 },
+        "packedInputCacheWrite": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Primera ejecucion con cache write (1.25x base para 5m TTL)."
+        },
+        "packedInputCacheRead": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Ejecuciones siguientes con cache hit (0.1x base = 90% off)."
+        },
+        "estimatedOutputBudgetTokens": { "type": "integer", "minimum": 0 },
+        "estimatedOutputCost": { "type": "number", "minimum": 0 }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "ttl": { "type": "string", "enum": ["5m", "1h", "none"] },
+        "cacheWriteTokens": { "type": "integer", "minimum": 0 },
+        "cacheReadTokensExpected": { "type": "integer", "minimum": 0 },
+        "hitRatioObserved": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "qualityAtBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Opcional. Metrica de calidad medida a budget fijo (eval task suite).",
+      "properties": {
+        "budgetTokens": { "type": "integer", "minimum": 1 },
+        "evalSuite": { "type": "string" },
+        "score": { "type": "number" }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Notas para auditoria (ej. 'Opus 4.7 tokenizer drift up to +35% vs 4.6')."
+    }
+  }
+}

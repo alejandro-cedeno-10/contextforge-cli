@@ -1,6 +1,9 @@
 {
-  "name": "@contextforge/integrations",
+  "name": "@alejandro-cedeno-10/contextforge-integrations",
   "version": "0.1.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
 }
