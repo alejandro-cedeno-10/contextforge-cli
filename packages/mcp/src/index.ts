@@ -1,0 +1,107 @@
+#!/usr/bin/env node
+import path from "node:path";
+
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+
+import { createHandlers } from "./handlers.js";
+
+// ─── project root resolution ──────────────────────────────────────────────────
+
+function resolveProjectRoot(): string {
+  if (process.env["PROJECT_ROOT"]) return path.resolve(process.env["PROJECT_ROOT"]);
+  let dir = process.cwd();
+  for (let i = 0; i < 8; i++) {
+    try {
+      // sync existence check at startup
+      const { statSync } = require("node:fs");
+      statSync(path.join(dir, ".contextforge", "graph.json"));
+      return dir;
+    } catch {
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  return process.cwd();
+}
+
+const PROJECT_ROOT = resolveProjectRoot();
+const handlers = createHandlers(PROJECT_ROOT);
+
+// ─── MCP server ───────────────────────────────────────────────────────────────
+
+const server = new McpServer(
+  { name: "contextforge", version: "0.1.0" },
+  { capabilities: { tools: {} } }
+);
+
+server.tool(
+  "forge_context",
+  "Ranks and selects the most relevant source files for a given task using the pre-built ContextForge dependency graph and Personalized PageRank. Returns a prioritized file list with mode (full/excerpt/summary) that fits a token budget. Use this instead of loading the entire codebase.",
+  {
+    task: z.string().describe("Natural language description of the task or question"),
+    seeds: z
+      .array(z.string())
+      .optional()
+      .describe("File paths to use as starting points for graph traversal (e.g. files you already know are relevant)"),
+    budget: z
+      .number()
+      .int()
+      .min(1000)
+      .max(50000)
+      .optional()
+      .default(12000)
+      .describe("Max estimated tokens to include in the context pack (default 12000)"),
+    include_content: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Whether to include actual file content in the response (increases token usage)")
+  },
+  handlers.forgeContext
+);
+
+server.tool(
+  "forge_neighbors",
+  "Returns the direct neighbors of a file in the dependency graph: what it imports, what imports it, what tests it, and what symbols it defines. Use this to navigate the codebase without reading files.",
+  {
+    file_path: z.string().describe("Relative path to the file (e.g. packages/core/src/scanner.ts)"),
+    depth: z
+      .number()
+      .int()
+      .min(1)
+      .max(3)
+      .optional()
+      .default(1)
+      .describe("Graph traversal depth (1 = direct neighbors only, 2 = neighbors of neighbors)")
+  },
+  handlers.forgeNeighbors
+);
+
+server.tool(
+  "forge_domain_map",
+  "Returns a high-level map of the project's domains (packages/modules) and their dependencies. Use this to understand project structure without reading package.json files.",
+  {},
+  handlers.forgeDomainMap
+);
+
+server.tool(
+  "forge_check",
+  "Validates the current git diff against the implement-plan guardrails. Returns pass/fail with specific violations (forbidden paths, files outside allowed list, LOC delta exceeded). Run this before committing to verify compliance.",
+  {},
+  handlers.forgeCheck
+);
+
+server.tool(
+  "forge_status",
+  "Returns the current state of all ContextForge artifacts: scan freshness, graph stats, context pack summary, and implement-plan status. Use this at the start of a session to understand what's already been prepared.",
+  {},
+  handlers.forgeStatus
+);
+
+// ─── transport ────────────────────────────────────────────────────────────────
+
+const transport = new StdioServerTransport();
+await server.connect(transport);

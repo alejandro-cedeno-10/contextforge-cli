@@ -1,0 +1,33 @@
+{
+  "name": "@alejandro-cedeno-10/contextforge-mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MCP server exposing ContextForge graph intelligence to AI agents",
+  "bin": {
+    "contextforge-mcp": "./dist/index.js"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@alejandro-cedeno-10/contextforge-core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alejandro-cedeno-10/contextforge-cli.git",
+    "directory": "packages/mcp"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "files": ["dist", "README.md"]
+}

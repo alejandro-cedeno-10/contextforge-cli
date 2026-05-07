@@ -13,5 +13,14 @@ coverage/
 .contextforge/output/
 .contextforge/tmp/
 
+# Generated forge artifacts (re-derivable from source via `pnpm forge ...`).
+# Templates/examples under .contextforge/{templates,structure}/ remain tracked.
+.contextforge/scan.json
+.contextforge/graph.json
+.contextforge/context-pack.json
+.contextforge/spec.sdd.md
+.contextforge/implement-plan.json
+.contextforge/token-ledger.json
+
 CLAUDE.local.md
 .claude/settings.local.json

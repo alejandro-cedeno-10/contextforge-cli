@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextforge.dev/schemas/scan.schema.json",
+  "title": "ScanResult",
+  "description": "Inventario estructural determinista del repositorio. Producto de `forge scan`.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "root",
+    "generatedAt",
+    "hashAlgorithm",
+    "files"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "SemVer del schema. Bump major rompe compatibilidad."
+    },
+    "root": {
+      "type": "string",
+      "description": "Ruta absoluta normalizada (forward slashes) del repo escaneado."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC de cuando se genero el scan."
+    },
+    "hashAlgorithm": {
+      "type": "string",
+      "enum": ["blake3", "sha256"],
+      "description": "Algoritmo usado para fingerprint de archivos. blake3 desde v0.2; sha256 legacy v0.1."
+    },
+    "ignoreSourcePaths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Rutas relativas de archivos de ignore aplicados (ej. .gitignore, .forgeignore)."
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "filesTotal": { "type": "integer", "minimum": 0 },
+        "bytesTotal": { "type": "integer", "minimum": 0 },
+        "byKind": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scanFile" }
+    }
+  },
+  "$defs": {
+    "scanFile": {
+      "type": "object",
+      "required": ["path", "ext", "size", "hash", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Ruta relativa al root con forward slashes."
+        },
+        "ext": {
+          "type": "string",
+          "description": "Extension lowercase incluyendo punto, ej '.ts'."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tamano en bytes."
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32,128}$",
+          "description": "Hash hex del contenido del archivo segun hashAlgorithm."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "code",
+            "config",
+            "doc",
+            "asset",
+            "test",
+            "schema",
+            "unknown"
+          ],
+          "description": "Clasificacion deterministica por extension/heuristica."
+        },
+        "lang": {
+          "type": "string",
+          "description": "Lenguaje detectado (ej. 'typescript', 'python'). Solo para kind=code/test."
+        },
+        "loc": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Lineas de codigo no vacias. Opcional."
+        },
+        "isTest": {
+          "type": "boolean",
+          "description": "True si el path matchea heuristica de test (__tests__/, *.test.*, *.spec.*)."
+        },
+        "isGenerated": {
+          "type": "boolean",
+          "description": "True si el archivo aparenta ser generado (header marker, ubicacion en dist/, etc)."
+        }
+      }
+    }
+  }
+}

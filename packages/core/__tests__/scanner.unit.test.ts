@@ -33,7 +33,8 @@ describe("scanProject", () => {
 
     const result = await scanProject(root);
 
-    expect(result.schemaVersion).toBe("0.1.0");
+    expect(result.schemaVersion).toBe("0.2.0");
+    expect(result.hashAlgorithm).toBe("blake3");
     expect(result.files.length).toBe(2);
     expect(result.files.map((file) => file.path)).toEqual([
       "src/a.md",
@@ -42,6 +43,19 @@ describe("scanProject", () => {
     expect(result.files[0]?.kind).toBe("doc");
     expect(result.files[1]?.kind).toBe("code");
     expect(result.files[1]?.hash.length).toBe(64);
+  });
+
+  it("matches known blake3 vector for empty file", async () => {
+    const root = await newWorkspace();
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await writeFile(path.join(root, "src", "empty.txt"), "", "utf8");
+
+    const result = await scanProject(root);
+    const file = result.files.find((entry) => entry.path === "src/empty.txt");
+
+    expect(file?.hash).toBe(
+      "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    );
   });
 
   it("ignores default folders and forgeignore rules", async () => {
