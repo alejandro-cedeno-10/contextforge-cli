@@ -217,8 +217,12 @@ packages/
   core/         → scanner, parser tree-sitter, graph builder,
                   selector PageRank, packer, schema validator
   cli/          → comandos forge, orquestación del pipeline
+  mcp/          → servidor MCP con 5 tools para agentes
   integrations/ → adaptadores (OpenCode como referencia)
-  agents/       → plantillas y skills compartidos (pendiente)
+
+.claude/skills/    → 3 skills concisas para Claude Code
+.cursor/rules/     → reglas para que Cursor use los artifacts
+opencode.json      → configuración MCP para OpenCode
 ```
 
 ---
@@ -244,6 +248,19 @@ Suite actual: **120/120 tests pasando**, coverage ≥ 80 % en todas las métrica
 - **Presupuesto explícito**: cada context-pack tiene `maxInputTokens` trazable en `token-ledger.json`.
 - **JSON validado**: ningún artefacto se escribe sin pasar JSON Schema.
 - **Portable**: cualquier agente puede consumir `.contextforge/*.json` sin modificación.
+
+---
+
+## Integración con agentes de IA
+
+| Agente | Configuración | Estado |
+|---|---|---|
+| **Claude Code** | `.claude/skills/contextforge-*.md` (3 skills concisas) | ✅ Listo |
+| **Cursor** | `.cursor/rules/contextforge.mdc` (alwaysApply) | ✅ Listo |
+| **OpenCode** | `opencode.json` con MCP server registrado | ✅ Listo |
+| **Codex / otros** | Leen `.contextforge/*.json` directamente | ✅ Compatible |
+
+Los artefactos JSON en `.contextforge/` son portables — cualquier agente los puede consumir sin modificación.
 
 ---
 

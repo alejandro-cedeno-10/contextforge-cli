@@ -520,8 +520,8 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 | ID | Item | Esfuerzo | Valor | Estado |
 |----|------|----------|-------|--------|
 | B1 | Tests del MCP server | Medio | Alto | ✅ Completado en S8.T2 |
-| B2 | `packages/agents/` — vacio | Bajo | Bajo | Decidir: implementar o eliminar |
-| B3 | Adaptador Cursor (`.cursor/rules/`) | Bajo | Medio | Pendiente |
+| B2 | `packages/agents/` — vacio | Bajo | Bajo | ✅ Eliminado (skills viven en `.claude/skills/`) |
+| B3 | Adaptador Cursor (`.cursor/rules/`) | Bajo | Medio | ✅ Completado |
 | B4 | Soporte Spec-Kit (`forge spec --emit speckit`) | Medio | Bajo | Pendiente |
 | B5 | Reciprocal Rank Fusion (recencia/embeddings) | Alto | Bajo | Post-v0.5 |
 | B6 | `forge eval` — benchmark savings + quality | Alto | Alto | Pendiente |

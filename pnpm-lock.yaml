@@ -42,8 +42,6 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@22.19.17)(tsx@4.21.0)
 
-  packages/agents: {}
-
   packages/cli:
     dependencies:
       '@alejandro-cedeno-10/contextforge-core':

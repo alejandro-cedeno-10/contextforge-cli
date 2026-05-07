@@ -1,0 +1,37 @@
+---
+description: Use ContextForge artifacts for token-efficient context selection
+alwaysApply: true
+---
+
+# ContextForge integration
+
+This project uses [ContextForge](./README.md) — a deterministic pipeline that produces curated context artifacts to save tokens during AI-assisted development.
+
+## Before suggesting code changes
+
+1. Check if `.contextforge/context-pack.json` exists.
+2. If yes, those files are the **primary context** for the current task. Prefer them over reading the entire codebase.
+3. Use `.contextforge/graph.json` to understand which files depend on the ones being modified.
+
+## When artifacts are missing or stale
+
+Suggest running this pipeline (deterministic, no LLM, < 30 s):
+
+```bash
+pnpm forge scan       # Index files with BLAKE3 hashes
+pnpm forge graph      # Build dependency graph (tree-sitter)
+pnpm forge context "<task description>"  # PageRank + budget pack
+```
+
+## When generating specs
+
+`forge spec <change-id>` always emits OpenSpec format at `openspec/changes/<id>/`.
+Reference these files when working on a tracked change.
+
+## When committing
+
+Run `pnpm forge implement --check` before committing changes — validates the diff against guardrails (allowed files, max LOC delta, forbidden paths).
+
+## Token savings observed
+
+Real measurement on this repo: **90.3 % savings** vs full repo dump (11 700 vs 121 000 tokens).
