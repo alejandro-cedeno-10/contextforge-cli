@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOpenSpec, inferDomain } from "../src/spec/openspec";
+import {
+  buildOpenSpec,
+  inferDomain,
+  validateOpenSpecFiles
+} from "../src/spec/openspec";
 
 describe("inferDomain", () => {
   it("returns core for empty file list", () => {
@@ -97,5 +101,84 @@ describe("buildOpenSpec", () => {
     expect(result.files.some((f) => f.path.includes("/specs/payments/"))).toBe(
       true
     );
+  });
+
+  it("does not reference the obsolete --emit openspec flag", () => {
+    const result = buildOpenSpec(base);
+    for (const file of result.files) {
+      expect(file.content).not.toContain("--emit openspec");
+    }
+  });
+});
+
+describe("validateOpenSpecFiles", () => {
+  const validFiles = (changeId = "x") =>
+    buildOpenSpec({ changeId, task: "t", affectedFiles: [] }).files;
+
+  it("returns no issues for buildOpenSpec output", () => {
+    expect(validateOpenSpecFiles(validFiles())).toEqual([]);
+  });
+
+  it("flags missing proposal.md", () => {
+    const files = validFiles().filter((f) => !f.path.endsWith("proposal.md"));
+    const issues = validateOpenSpecFiles(files);
+    expect(issues.some((i) => i.rule === "missing-file")).toBe(true);
+  });
+
+  it("flags proposal.md missing ## Intent section", () => {
+    const files = validFiles().map((f) =>
+      f.path.endsWith("proposal.md")
+        ? { ...f, content: "# Proposal\n\nNo Intent section here." }
+        : f
+    );
+    const issues = validateOpenSpecFiles(files);
+    expect(
+      issues.some(
+        (i) => i.rule === "missing-section" && i.detail.includes("## Intent")
+      )
+    ).toBe(true);
+  });
+
+  it("flags missing delta spec under specs/<domain>/", () => {
+    const files = validFiles().filter((f) => !f.path.includes("/specs/"));
+    const issues = validateOpenSpecFiles(files);
+    expect(
+      issues.some(
+        (i) =>
+          i.rule === "missing-file" && i.file.includes("specs/<domain>/spec.md")
+      )
+    ).toBe(true);
+  });
+
+  it("flags delta spec without ADDED/MODIFIED/REMOVED headings", () => {
+    const files = validFiles().map((f) =>
+      f.path.includes("/specs/")
+        ? { ...f, content: "# Delta\nNo proper headings." }
+        : f
+    );
+    const issues = validateOpenSpecFiles(files);
+    expect(issues.some((i) => i.rule === "missing-delta-section")).toBe(true);
+  });
+
+  it("accepts a delta spec that has ADDED Requirements only", () => {
+    const minimal = [
+      {
+        path: "openspec/changes/x/proposal.md",
+        content: "# P\n## Intent\nx\n## Scope\ny"
+      },
+      {
+        path: "openspec/changes/x/design.md",
+        content: "# D\n## Technical approach\nz"
+      },
+      {
+        path: "openspec/changes/x/tasks.md",
+        content: "# T\n## Implementation checklist\n- [ ] T1"
+      },
+      {
+        path: "openspec/changes/x/specs/core/spec.md",
+        content: "# S\n## ADDED Requirements\n- foo MUST bar"
+      }
+    ];
+    expect(validateOpenSpecFiles(minimal)).toEqual([]);
   });
 });

@@ -51,9 +51,11 @@ export { renderSDD, type SDDContext, type SpecFile } from "./spec/render.js";
 export {
   buildOpenSpec,
   inferDomain,
+  validateOpenSpecFiles,
   type OpenSpecOptions,
   type OpenSpecResult,
-  type OpenSpecFile
+  type OpenSpecFile,
+  type OpenSpecValidationIssue
 } from "./spec/openspec.js";
 
 export {

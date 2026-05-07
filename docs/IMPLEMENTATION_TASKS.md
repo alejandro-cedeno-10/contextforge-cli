@@ -4,19 +4,19 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 
 ## Estado actual (2026-05-07)
 
-| Sprint | Foco                                       | Estado        |
-| ------ | ------------------------------------------ | ------------- |
-| S1     | Schemas + validacion JSON                  | ✅ Completado |
-| S2     | Cache + BLAKE3                             | ✅ Completado |
-| S3     | Grafo tree-sitter                          | ✅ Completado |
-| S4     | Context selector PageRank                  | ✅ Completado |
-| S5     | Spec OpenSpec (default)                    | ✅ Completado |
-| S6     | Implement-plan guardrails                  | ✅ Completado |
-| S7     | Grafo visual interactivo                   | ✅ Completado |
-| S8     | MCP Server                                 | ✅ Completado |
-| S9     | Diátaxis docs scaffolder + Claude skills   | ✅ Completado |
-| S10    | GitHub Packages publish workflow           | ✅ Completado |
-| S11    | forge sync + forge impact (Aspens-inspired)| ✅ Completado |
+| Sprint | Foco                                        | Estado        |
+| ------ | ------------------------------------------- | ------------- |
+| S1     | Schemas + validacion JSON                   | ✅ Completado |
+| S2     | Cache + BLAKE3                              | ✅ Completado |
+| S3     | Grafo tree-sitter                           | ✅ Completado |
+| S4     | Context selector PageRank                   | ✅ Completado |
+| S5     | Spec OpenSpec (default)                     | ✅ Completado |
+| S6     | Implement-plan guardrails                   | ✅ Completado |
+| S7     | Grafo visual interactivo                    | ✅ Completado |
+| S8     | MCP Server                                  | ✅ Completado |
+| S9     | Diátaxis docs scaffolder + Claude skills    | ✅ Completado |
+| S10    | GitHub Packages publish workflow            | ✅ Completado |
+| S11    | forge sync + forge impact (Aspens-inspired) | ✅ Completado |
 
 **Suite de tests**: 147/147 pasando. **Coverage**: 89.54 % stmts / 82.53 % branches / 100 % funcs / 89.54 % lines.
 **Ahorro tokens verificado**: 90.3 % (11 700 / 121 000).

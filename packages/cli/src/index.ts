@@ -15,6 +15,7 @@ import {
   renderSDD,
   selectContext,
   validateGuardrails,
+  validateOpenSpecFiles,
   SchemaValidationError,
   SCHEMA_VERSIONS,
   scanProject,
@@ -286,6 +287,15 @@ async function cmdContext(task = "Describe la tarea aqui"): Promise<void> {
   console.log("Escrito .contextforge/token-ledger.json");
 }
 
+function isOpenSpecCliAvailable(): boolean {
+  try {
+    execSync("openspec --version", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function cmdSpec(changeId = "change-1"): Promise<void> {
   type PackFile = { path: string; reason: string; mode: string };
   type ContextPack = { task?: string; files?: PackFile[] };
@@ -294,10 +304,35 @@ async function cmdSpec(changeId = "change-1"): Promise<void> {
   const affectedFiles: PackFile[] = pack?.files ?? [];
 
   const result = buildOpenSpec({ changeId, task, affectedFiles });
+
+  const issues = validateOpenSpecFiles(result.files);
+  if (issues.length > 0) {
+    const detail = issues
+      .map((i) => `  - [${i.rule}] ${i.file}: ${i.detail}`)
+      .join("\n");
+    throw new Error(
+      `OpenSpec output failed conformance check:\n${detail}\n` +
+        `This is a bug in @alejandro-cedeno-10/contextforge-core. Please report it.`
+    );
+  }
+
   for (const file of result.files) {
     await writeText(path.join(process.cwd(), file.path), file.content);
   }
   console.log(`Escrito ${result.changeDir}/ (proposal, design, tasks, specs)`);
+
+  if (isOpenSpecCliAvailable()) {
+    console.log(
+      `\nSiguiente paso (openspec CLI detectado):\n` +
+        `  openspec validate ${result.changeDir}\n` +
+        `  openspec list`
+    );
+  } else {
+    console.log(
+      `\nOpenSpec CLI no detectado (opcional).\n` +
+        `Para gestionar el ciclo de vida del change instala: npm i -g @fission-ai/openspec`
+    );
+  }
 }
 
 async function cmdImplement(

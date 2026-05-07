@@ -104,7 +104,7 @@ ${fileList}
 1. \`forge scan\` → \`.contextforge/scan.json\`
 2. \`forge graph\` → \`.contextforge/graph.json\`
 3. \`forge context\` → \`.contextforge/context-pack.json\`
-4. \`forge spec --emit openspec\` → esta estructura
+4. \`forge spec\` → esta estructura (formato OpenSpec)
 5. \`forge implement\` → \`.contextforge/implement-plan.json\`
 
 ## Risks
@@ -150,4 +150,83 @@ ${taskList}
       { path: `${changeDir}/specs/${domain}/spec.md`, content: deltaSpec }
     ]
   };
+}
+
+export interface OpenSpecValidationIssue {
+  file: string;
+  rule: string;
+  detail: string;
+}
+
+const OPENSPEC_REQUIRED_SECTIONS: Record<string, string[]> = {
+  "proposal.md": ["## Intent", "## Scope"],
+  "design.md": ["## Technical approach"],
+  "tasks.md": ["## Implementation checklist"]
+};
+
+const OPENSPEC_DELTA_HEADINGS = [
+  "## ADDED Requirements",
+  "## MODIFIED Requirements",
+  "## REMOVED Requirements"
+];
+
+export function validateOpenSpecFiles(
+  files: ReadonlyArray<OpenSpecFile>
+): OpenSpecValidationIssue[] {
+  const issues: OpenSpecValidationIssue[] = [];
+  const byBasename = new Map<string, OpenSpecFile>();
+  let deltaSpec: OpenSpecFile | undefined;
+
+  for (const file of files) {
+    const basename = file.path.split("/").pop() ?? "";
+    if (file.path.includes("/specs/") && basename === "spec.md") {
+      deltaSpec = file;
+    } else {
+      byBasename.set(basename, file);
+    }
+  }
+
+  for (const [name, requiredSections] of Object.entries(
+    OPENSPEC_REQUIRED_SECTIONS
+  )) {
+    const file = byBasename.get(name);
+    if (!file) {
+      issues.push({
+        file: name,
+        rule: "missing-file",
+        detail: `OpenSpec change must include ${name}`
+      });
+      continue;
+    }
+    for (const section of requiredSections) {
+      if (!file.content.includes(section)) {
+        issues.push({
+          file: file.path,
+          rule: "missing-section",
+          detail: `${name} must contain "${section}"`
+        });
+      }
+    }
+  }
+
+  if (!deltaSpec) {
+    issues.push({
+      file: "specs/<domain>/spec.md",
+      rule: "missing-file",
+      detail: "OpenSpec change must include a delta spec under specs/<domain>/"
+    });
+  } else {
+    const hasAnyDeltaHeading = OPENSPEC_DELTA_HEADINGS.some((h) =>
+      deltaSpec!.content.includes(h)
+    );
+    if (!hasAnyDeltaHeading) {
+      issues.push({
+        file: deltaSpec.path,
+        rule: "missing-delta-section",
+        detail: `Delta spec must contain at least one of: ${OPENSPEC_DELTA_HEADINGS.join(", ")}`
+      });
+    }
+  }
+
+  return issues;
 }
