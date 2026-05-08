@@ -31,14 +31,14 @@ Internamente ocurre en este orden:
 
 ## Artefactos escritos
 
-| Archivo | Para quién | Contenido |
-|---|---|---|
-| `.contextforge/context-pack.json` | todos los agentes | archivos seleccionados + razón + tokens |
-| `.contextforge/token-ledger.json` | reporting | baseline vs packed, % ahorro, ratio |
-| `.contextforge/agent-manifest.json` | neutro (todas las tools) | JSON con skills activas, razones, dominios |
-| `.claude/agent-manifest.md` | Claude Code | Markdown con lista de skills + razón de activación |
-| `.cursor/rules/contextforge-active.mdc` | Cursor | Frontmatter + globs de dominio + reglas activas |
-| `.contextforge/manifests/opencode-readme.md` | OpenCode | Markdown con template MCP (`selectAgentContext`) |
+| Archivo                                      | Para quién               | Contenido                                          |
+| -------------------------------------------- | ------------------------ | -------------------------------------------------- |
+| `.contextforge/context-pack.json`            | todos los agentes        | archivos seleccionados + razón + tokens            |
+| `.contextforge/token-ledger.json`            | reporting                | baseline vs packed, % ahorro, ratio                |
+| `.contextforge/agent-manifest.json`          | neutro (todas las tools) | JSON con skills activas, razones, dominios         |
+| `.claude/agent-manifest.md`                  | Claude Code              | Markdown con lista de skills + razón de activación |
+| `.cursor/rules/contextforge-active.mdc`      | Cursor                   | Frontmatter + globs de dominio + reglas activas    |
+| `.contextforge/manifests/opencode-readme.md` | OpenCode                 | Markdown con template MCP (`selectAgentContext`)   |
 
 Un solo `forge context` escribe los seis. Si solo querés regenerar los manifests
 sin recomputar el pack:
@@ -52,11 +52,11 @@ forge manifest --agents=claude,cursor,opencode --force
 Una skill en `.claude/skills/` se incluye en el manifest activo si se cumple
 alguna de estas tres condiciones:
 
-| Condición | Ejemplo |
-|---|---|
+| Condición                                                          | Ejemplo                                      |
+| ------------------------------------------------------------------ | -------------------------------------------- |
 | Su `domain:` en frontmatter matchea un dominio tocado por la tarea | `domain: packages/core` y la tarea toca core |
-| Tiene `alwaysApply: true` en frontmatter | skills de convenciones globales |
-| Su nombre sigue la convención `ctx-<dominio-slug>` | `ctx-packages-cli.md` |
+| Tiene `alwaysApply: true` en frontmatter                           | skills de convenciones globales              |
+| Su nombre sigue la convención `ctx-<dominio-slug>`                 | `ctx-packages-cli.md`                        |
 
 Si ninguna condición aplica, la skill **no se carga** — el agente no la ve, y no
 gasta tokens en ella.
@@ -184,10 +184,10 @@ forge docs --force  # sobreescribe los archivos semilla
 
 Archivos que crea:
 
-| Archivo | Descripción |
-|---|---|
-| `docs/INDEX.md` | Índice de navegación con las convenciones del proyecto |
-| `docs/adr/README.md` | Plantilla MADR para Architecture Decision Records |
+| Archivo                                     | Descripción                                                |
+| ------------------------------------------- | ---------------------------------------------------------- |
+| `docs/INDEX.md`                             | Índice de navegación con las convenciones del proyecto     |
+| `docs/adr/README.md`                        | Plantilla MADR para Architecture Decision Records          |
 | `docs/architecture/module-relationships.md` | Tabla de dominios y dependencias cruzadas (del graph.json) |
 
 Las carpetas `tutorials/`, `how-to/`, `reference/`, `explanation/` quedan vacías:
