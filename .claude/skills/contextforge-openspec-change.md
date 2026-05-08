@@ -51,10 +51,10 @@ graph.subset.json   →   .contextforge/graph.json   →   leer el repo
 
 ## Subgrafo: dos modos
 
-| Modo | Default | Qué incluye | Cuándo |
-| ---- | :-----: | ----------- | ------ |
-| `compact` | ✅ | Focus files + sus **símbolos exportados** + 1-hop file neighbours (sin sus símbolos) + folders + packages | Caso normal · ahorro real de tokens |
-| `full`    |    | Todo lo anterior + **cada símbolo** (incl. internos) de cada archivo alcanzable | Solo si el agente lo pide explícitamente vía `--subgraph-full` |
+| Modo      | Default | Qué incluye                                                                                               | Cuándo                                                         |
+| --------- | :-----: | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `compact` |   ✅    | Focus files + sus **símbolos exportados** + 1-hop file neighbours (sin sus símbolos) + folders + packages | Caso normal · ahorro real de tokens                            |
+| `full`    |         | Todo lo anterior + **cada símbolo** (incl. internos) de cada archivo alcanzable                           | Solo si el agente lo pide explícitamente vía `--subgraph-full` |
 
 Si necesitas ver internos de un archivo del subgrafo, usa `forge_neighbors` sobre ese archivo en vez de regenerar `--subgraph-full`.
 

@@ -5,7 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [0.3.8] — 2026-05-08
+
+### Fixed
+
+- **CI lint pipeline.** Prettier reportaba 14 archivos sin formatear que
+  bloqueaban `pnpm lint` en GitHub Actions. Reformateado con
+  `prettier --write` (cambios cosméticos: indentación de tablas markdown,
+  saltos de línea consistentes en arrays/objetos largos). Sin cambios de
+  comportamiento. Re-publica todo lo que iba en v0.3.7.
 
 ### Changed — Subgrafo `compact` por defecto (token savings)
 
@@ -146,7 +154,7 @@ veía cuando el spec fue aprobado. El subset cierra la trazabilidad.
 - **Resolución por `tsconfig.paths`.**
   Lee `tsconfig.json` (con soporte JSONC: comentarios y trailing commas) y
   resuelve alias como `@/foo`, `~lib/util`, etc. usando `compilerOptions.paths`
-  + `baseUrl`.
+  - `baseUrl`.
 
 - **Nodos `package` para imports externos.**
   Cada import que no resuelve a workspace ni a path relativo emite un nodo

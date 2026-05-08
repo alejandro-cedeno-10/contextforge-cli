@@ -51,9 +51,7 @@ export function inferDomain(filePaths: string[]): string {
 }
 
 function formatTypeCounts(counts: Record<string, number>): string {
-  const entries = Object.entries(counts).sort((a, b) =>
-    a[0] < b[0] ? -1 : 1
-  );
+  const entries = Object.entries(counts).sort((a, b) => (a[0] < b[0] ? -1 : 1));
   if (entries.length === 0) return "(ninguno)";
   return entries.map(([k, v]) => `${k}=${v}`).join(", ");
 }

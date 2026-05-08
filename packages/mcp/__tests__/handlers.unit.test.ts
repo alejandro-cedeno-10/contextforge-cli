@@ -379,7 +379,13 @@ describe("forgeChangeSubgraph", () => {
       generatedAt: "2026-05-08T00:00:00Z",
       graphRef: ".contextforge/graph.json",
       focus: ["src/a.ts"],
-      stats: { nodesTotal: 1, edgesTotal: 0, nodesByType: {}, edgesByType: {}, depth: 1 },
+      stats: {
+        nodesTotal: 1,
+        edgesTotal: 0,
+        nodesByType: {},
+        edgesByType: {},
+        depth: 1
+      },
       nodes: [
         { id: "file:src/a.ts", type: "file", label: "a.ts", path: "src/a.ts" }
       ],
@@ -440,7 +446,9 @@ describe("forgeStatus — change subgraph awareness", () => {
     expect(text).toContain("OpenSpec changes with frozen subgraph");
     expect(text).toContain("demo-change");
     expect(text).toContain("42 nodes");
-    expect(text).toContain('forge_change_subgraph({ change_id: "demo-change" })');
+    expect(text).toContain(
+      'forge_change_subgraph({ change_id: "demo-change" })'
+    );
     expect(text).not.toContain("no-subgraph");
   });
 });

@@ -748,10 +748,7 @@ async function cmdSpec(
       edges: subset.edges
     };
     validateOrThrow("graph-subset", subgraphPayload);
-    await writeJson(
-      path.join(changeDir, "graph.subset.json"),
-      subgraphPayload
-    );
+    await writeJson(path.join(changeDir, "graph.subset.json"), subgraphPayload);
     console.log(
       `Escrito openspec/changes/${changeId}/graph.subset.json (${subset.stats.nodesTotal} nodos, ${subset.stats.edgesTotal} aristas, mode=${subset.stats.mode})`
     );
@@ -805,7 +802,9 @@ function renderChangeContextMd(args: {
     .map((f) => `- \`${f}\``)
     .join("\n");
   const focusMore =
-    focus.length > 12 ? `\n- _… y ${focus.length - 12} más en \`./graph.subset.json:focus\`_` : "";
+    focus.length > 12
+      ? `\n- _… y ${focus.length - 12} más en \`./graph.subset.json:focus\`_`
+      : "";
 
   return `# Contexto del change \`${changeId}\`
 

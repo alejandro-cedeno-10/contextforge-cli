@@ -273,7 +273,12 @@ function deriveFolderNodes(filePaths: readonly string[]): {
     });
 
     const parent = path.posix.dirname(folder);
-    if (parent && parent !== folder && parent !== "." && folderSet.has(parent)) {
+    if (
+      parent &&
+      parent !== folder &&
+      parent !== "." &&
+      folderSet.has(parent)
+    ) {
       containsEdges.push({
         from: `folder:${parent}`,
         to: `folder:${folder}`,
@@ -342,8 +347,7 @@ export async function buildGraph(options: {
   const parseTargets = scan.files.filter(
     (f) => f.kind === "code" || f.kind === "test"
   );
-  const concurrency =
-    options.concurrency ?? Math.min(os.cpus().length || 4, 8);
+  const concurrency = options.concurrency ?? Math.min(os.cpus().length || 4, 8);
 
   let reusedCount = 0;
   let reparsedCount = 0;
@@ -600,4 +604,3 @@ export async function buildGraph(options: {
     }
   };
 }
-

@@ -260,9 +260,7 @@ describe("buildGraph", () => {
 
     const result = await buildGraph({ root, scan });
 
-    const implementsEdges = result.edges.filter(
-      (e) => e.type === "implements"
-    );
+    const implementsEdges = result.edges.filter((e) => e.type === "implements");
     expect(implementsEdges).toHaveLength(1);
     expect(implementsEdges[0]?.from).toBe("symbol:src/impl.ts#Hi");
     expect(implementsEdges[0]?.to).toBe("symbol:src/iface.ts#Greet");

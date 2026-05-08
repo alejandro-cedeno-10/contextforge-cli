@@ -5,11 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { buildGraph } from "../src/graph/builder";
-import {
-  GRAPH_CACHE_FILE,
-  loadCache,
-  saveCache
-} from "../src/graph/cache";
+import { GRAPH_CACHE_FILE, loadCache, saveCache } from "../src/graph/cache";
 import { PARSER_VERSION } from "../src/parser/treeSitter";
 import { SCHEMA_VERSIONS } from "../src/schema/versions";
 import type { ScanResult } from "../src/scanner";

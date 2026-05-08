@@ -9,10 +9,7 @@ import {
   enrichGraphSymbols,
   selectEnrichmentTargets
 } from "../src/graph/enrich";
-import {
-  exportToDot,
-  exportToGraphML
-} from "../src/graph/exporters";
+import { exportToDot, exportToGraphML } from "../src/graph/exporters";
 import {
   loadTsconfigPaths,
   resolveTsconfigAlias
@@ -138,7 +135,7 @@ describe("Tier 4 — exporters", () => {
     expect(dot).toContain("digraph ContextForge");
     expect(dot).toContain('"file:a.ts"');
     expect(dot).toContain('"file:a.ts" -> "symbol:a.ts#Foo"');
-    expect(dot).toContain("label=\"defines\"");
+    expect(dot).toContain('label="defines"');
   });
 
   it("renders GraphML with type and exported keys", () => {
@@ -365,8 +362,8 @@ describe("Tier 4 — enrichGraphSymbols (mocked fetch)", () => {
   });
 
   it("throws when apiKey is missing", async () => {
-    await expect(
-      enrichGraphSymbols([], { apiKey: "" })
-    ).rejects.toThrow(/ANTHROPIC_API_KEY/);
+    await expect(enrichGraphSymbols([], { apiKey: "" })).rejects.toThrow(
+      /ANTHROPIC_API_KEY/
+    );
   });
 });

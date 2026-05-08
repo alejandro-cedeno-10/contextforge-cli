@@ -114,8 +114,8 @@ function joinForAllFiles(
   rest: string,
   allFiles: ReadonlySet<string>
 ): string | null {
-  const joined = path
-    .posix.join(base.replace(/\\/g, "/"), rest.replace(/\\/g, "/"))
+  const joined = path.posix
+    .join(base.replace(/\\/g, "/"), rest.replace(/\\/g, "/"))
     .replace(/^\.\//, "")
     .replace(/^\/+/, "");
 

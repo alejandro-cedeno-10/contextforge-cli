@@ -190,7 +190,10 @@ function extractHeuristicCalls(
       // Skip definitions: `function foo(` or `class Foo(` (Python class def)
       // by checking the token immediately preceding the match.
       const before = sanitized.slice(0, match.index).trimEnd();
-      const lastToken = before.split(/[\s(){};,=:<>+\-*/%!|&^?]+/).filter(Boolean).pop();
+      const lastToken = before
+        .split(/[\s(){};,=:<>+\-*/%!|&^?]+/)
+        .filter(Boolean)
+        .pop();
       if (
         lastToken === "function" ||
         lastToken === "class" ||

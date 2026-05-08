@@ -593,7 +593,8 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     try {
       const changesDir = path.join(root, "openspec", "changes");
       const entries = await fs.readdir(changesDir, { withFileTypes: true });
-      const withSubgraph: Array<{ id: string; nodes: number; edges: number }> = [];
+      const withSubgraph: Array<{ id: string; nodes: number; edges: number }> =
+        [];
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         const subgraphPath = path.join(

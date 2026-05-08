@@ -258,30 +258,34 @@ Esta sección explica **qué genera `forge graph`**, **cómo lo genera**, **cóm
     "nodesByType": { "file": 287, "folder": 117, "symbol": 3104 },
     "edgesByType": { "imports": 71, "defines": 2256, "contains": 376 }
   },
-  "nodes": [ /* ordenados por id, JSON byte-estable */ ],
-  "edges": [ /* ordenadas por (from,to,type) */ ]
+  "nodes": [
+    /* ordenados por id, JSON byte-estable */
+  ],
+  "edges": [
+    /* ordenadas por (from,to,type) */
+  ]
 }
 ```
 
 ### Tipos de nodo y arista que produce
 
-| Nodo       | Cuándo aparece                                                                  |
-| ---------- | ------------------------------------------------------------------------------- |
-| `file`     | Uno por cada archivo del scan (`code`/`test`/`doc`/`config`/`asset`)            |
-| `symbol`   | Por cada función/clase/interface/type/var/enum exportada o interna              |
-| `folder`   | Sintético, derivado de los paths (anidación completa)                           |
-| `package`  | Por cada **import externo único** (`react`, `node:path`, `@anthropic-ai/sdk`, …) |
+| Nodo      | Cuándo aparece                                                                   |
+| --------- | -------------------------------------------------------------------------------- |
+| `file`    | Uno por cada archivo del scan (`code`/`test`/`doc`/`config`/`asset`)             |
+| `symbol`  | Por cada función/clase/interface/type/var/enum exportada o interna               |
+| `folder`  | Sintético, derivado de los paths (anidación completa)                            |
+| `package` | Por cada **import externo único** (`react`, `node:path`, `@anthropic-ai/sdk`, …) |
 
-| Arista       | De qué                                       | Cuándo se emite                                                 |
-| ------------ | -------------------------------------------- | --------------------------------------------------------------- |
-| `defines`    | `file → symbol`                              | Siempre que el archivo contiene un símbolo                      |
-| `imports`    | `file → file` o `file → package`             | Relativos · alias workspace (pnpm) · alias `tsconfig.paths` · externos |
-| `tests`      | `file:test → file:impl`                      | Convención `*.test.ts` ↔ `*.ts`                                 |
-| `extends`    | `symbol → symbol`                            | Clase/interface extiende un símbolo del mismo file o de un import |
-| `implements` | `symbol → symbol`                            | `class A implements B` resuelto                                 |
-| `contains`   | `folder → folder` y `folder → file`          | Estructura de carpetas                                          |
-| `calls`      | `file → symbol`                              | **Solo con `--with-calls`** (heurística regex, ruido aceptado)  |
-| `references` | `file → symbol`                              | **Solo con `--with-refs`** (PascalCase, fuera de imports/defines) |
+| Arista       | De qué                              | Cuándo se emite                                                        |
+| ------------ | ----------------------------------- | ---------------------------------------------------------------------- |
+| `defines`    | `file → symbol`                     | Siempre que el archivo contiene un símbolo                             |
+| `imports`    | `file → file` o `file → package`    | Relativos · alias workspace (pnpm) · alias `tsconfig.paths` · externos |
+| `tests`      | `file:test → file:impl`             | Convención `*.test.ts` ↔ `*.ts`                                        |
+| `extends`    | `symbol → symbol`                   | Clase/interface extiende un símbolo del mismo file o de un import      |
+| `implements` | `symbol → symbol`                   | `class A implements B` resuelto                                        |
+| `contains`   | `folder → folder` y `folder → file` | Estructura de carpetas                                                 |
+| `calls`      | `file → symbol`                     | **Solo con `--with-calls`** (heurística regex, ruido aceptado)         |
+| `references` | `file → symbol`                     | **Solo con `--with-refs`** (PascalCase, fuera de imports/defines)      |
 
 **Lenguajes parseables** hoy (heurística regex, no tree-sitter WASM): TypeScript, TSX, JavaScript, JSX, Python, Go, Rust, Java. El resto se incluye como `file` pero sin símbolos.
 
@@ -394,14 +398,14 @@ El agente **nunca** lee el repo a ciegas. Lee artefactos derivados, en este orde
 
 **El grafo no se inyecta entero al prompt**. El agente lo consulta puntualmente:
 
-| Pregunta del agente                              | Cómo responde el grafo                                                |
-| ------------------------------------------------ | --------------------------------------------------------------------- |
-| "¿Qué archivos tocan a `Foo`?"                   | Edges `defines`/`imports` entrantes del símbolo                       |
-| "¿Quién testea esto?"                            | Edges `tests` entrantes del file                                      |
-| "¿De qué hereda `Bar`?"                          | Edge `extends` saliente del símbolo                                   |
-| "¿En qué carpeta vive este archivo?"             | Edge `contains` entrante del file                                     |
-| "Dame el subgrafo de mi tarea"                   | Lo entrega `forge context` ya filtrado (PageRank + BFS + budget)      |
-| "Que nada se salga del scope"                    | `implement-plan.json::allowedFiles[]` derivado del pack               |
+| Pregunta del agente                  | Cómo responde el grafo                                           |
+| ------------------------------------ | ---------------------------------------------------------------- |
+| "¿Qué archivos tocan a `Foo`?"       | Edges `defines`/`imports` entrantes del símbolo                  |
+| "¿Quién testea esto?"                | Edges `tests` entrantes del file                                 |
+| "¿De qué hereda `Bar`?"              | Edge `extends` saliente del símbolo                              |
+| "¿En qué carpeta vive este archivo?" | Edge `contains` entrante del file                                |
+| "Dame el subgrafo de mi tarea"       | Lo entrega `forge context` ya filtrado (PageRank + BFS + budget) |
+| "Que nada se salga del scope"        | `implement-plan.json::allowedFiles[]` derivado del pack          |
 
 **Vía MCP** — los agentes que hablen MCP pueden llamar tools sin tocar disco:
 
@@ -415,17 +419,17 @@ El agente **nunca** lee el repo a ciegas. Lee artefactos derivados, en este orde
 
 ### Vs. Understand-Anything (qué tomamos, qué no)
 
-| Aspecto                  | Understand-Anything                          | ContextForge                                          |
-| ------------------------ | -------------------------------------------- | ----------------------------------------------------- |
-| Pipeline                 | Tree-sitter + LLM agents (híbrido)           | Regex/tree-sitter, **0 LLM** en el pipeline           |
-| Lenguajes soportados     | 10+ con WASM                                 | 8 con heurística (TS/JS/Py/Go/Rust/Java/TSX/JSX)      |
-| Schema de nodo           | 21 tipos (con dominio + knowledge)           | 4 tipos canónicos (file/symbol/folder/package)        |
-| Schema de arista         | 35 tipos                                     | 8 tipos (los que un agente usa de verdad)             |
-| Enriquecimiento (summary)| LLM agents enriquecen cada nodo              | Determinista: contadores derivados del grafo          |
-| Coste de regenerar       | API key + tiempo + ruido                     | CPU-only · cache por archivo · idempotente            |
-| Visualización            | Dashboard rico, tours guiados                | HTML standalone con tour + dominios + filtros         |
-| Persistencia             | knowledge-graph.json + embeddings            | graph.json + graph.cache.json (BLAKE3)                |
-| Roadmap LLM enrich       | Es la base                                   | Opt-in futuro (`--enrich`), nunca el default          |
+| Aspecto                   | Understand-Anything                | ContextForge                                     |
+| ------------------------- | ---------------------------------- | ------------------------------------------------ |
+| Pipeline                  | Tree-sitter + LLM agents (híbrido) | Regex/tree-sitter, **0 LLM** en el pipeline      |
+| Lenguajes soportados      | 10+ con WASM                       | 8 con heurística (TS/JS/Py/Go/Rust/Java/TSX/JSX) |
+| Schema de nodo            | 21 tipos (con dominio + knowledge) | 4 tipos canónicos (file/symbol/folder/package)   |
+| Schema de arista          | 35 tipos                           | 8 tipos (los que un agente usa de verdad)        |
+| Enriquecimiento (summary) | LLM agents enriquecen cada nodo    | Determinista: contadores derivados del grafo     |
+| Coste de regenerar        | API key + tiempo + ruido           | CPU-only · cache por archivo · idempotente       |
+| Visualización             | Dashboard rico, tours guiados      | HTML standalone con tour + dominios + filtros    |
+| Persistencia              | knowledge-graph.json + embeddings  | graph.json + graph.cache.json (BLAKE3)           |
+| Roadmap LLM enrich        | Es la base                         | Opt-in futuro (`--enrich`), nunca el default     |
 
 **La filosofía**: el grafo de ContextForge **no intenta entender el código**, intenta darte un índice rápido y barato. La inteligencia semántica vive en el agente, no en el pipeline. Por eso es reproducible y por eso el output sirve de input al prompt cache de Claude (descuento del 90 % en iteraciones 2+ del SDD).
 
@@ -547,21 +551,21 @@ Eso instala las **instrucciones canónicas de OpenSpec** para los 3 agentes (las
 
 ## Comandos completos
 
-| Comando                                             | Qué hace                                                                    | LLM |
-| --------------------------------------------------- | --------------------------------------------------------------------------- | :-: |
-| `forge init`                                        | `.contextforge/` + `agent-context.md` + `openspec init` (si está)           | No  |
-| `forge scan`                                        | Indexa con BLAKE3 (incremental)                                             | No  |
-| `forge graph [--force] [--with-calls] [--with-refs] [--enrich] [--export=<dot\|graphml>]` | Grafo file/symbol/folder/package con cache por archivo (BLAKE3) | No (¹) |
-| `forge context "<tarea>" [--no-manifest] [--force]` | PageRank + BFS + budget · auto-emite manifest                               | No  |
-| `forge spec <id> [--no-openspec]`                   | spec-input.json + handoff/fallback OpenSpec                                 | No  |
-| `forge implement <id>`                              | Plan con guardrails derivados del pack                                      | No  |
-| `forge implement --check`                           | Valida diff vs guardrails                                                   | No  |
-| `forge skills [--force]`                            | Auto-genera skills por dominio (`ctx-<domain>.md`)                          | No  |
-| `forge manifest [--agents=...] [--force]`           | Re-genera manifest sin re-rankear                                           | No  |
-| `forge sync [--since X] [--rebuild]`                | Reporta delta desde un ref de git                                           | No  |
-| `forge impact`                                      | Health check de artefactos + cobertura                                      | No  |
-| `forge viz`                                         | Visualización HTML interactiva del grafo                                    | No  |
-| `forge docs [--force]`                              | Scaffold Diátaxis (tutorials/how-to/reference/explanation/adr/architecture) | No  |
+| Comando                                                                                   | Qué hace                                                                    |  LLM   |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | :----: |
+| `forge init`                                                                              | `.contextforge/` + `agent-context.md` + `openspec init` (si está)           |   No   |
+| `forge scan`                                                                              | Indexa con BLAKE3 (incremental)                                             |   No   |
+| `forge graph [--force] [--with-calls] [--with-refs] [--enrich] [--export=<dot\|graphml>]` | Grafo file/symbol/folder/package con cache por archivo (BLAKE3)             | No (¹) |
+| `forge context "<tarea>" [--no-manifest] [--force]`                                       | PageRank + BFS + budget · auto-emite manifest                               |   No   |
+| `forge spec <id> [--no-openspec]`                                                         | spec-input.json + handoff/fallback OpenSpec                                 |   No   |
+| `forge implement <id>`                                                                    | Plan con guardrails derivados del pack                                      |   No   |
+| `forge implement --check`                                                                 | Valida diff vs guardrails                                                   |   No   |
+| `forge skills [--force]`                                                                  | Auto-genera skills por dominio (`ctx-<domain>.md`)                          |   No   |
+| `forge manifest [--agents=...] [--force]`                                                 | Re-genera manifest sin re-rankear                                           |   No   |
+| `forge sync [--since X] [--rebuild]`                                                      | Reporta delta desde un ref de git                                           |   No   |
+| `forge impact`                                                                            | Health check de artefactos + cobertura                                      |   No   |
+| `forge viz`                                                                               | Visualización HTML interactiva del grafo                                    |   No   |
+| `forge docs [--force]`                                                                    | Scaffold Diátaxis (tutorials/how-to/reference/explanation/adr/architecture) |   No   |
 
 **Política**: ningún comando llama a un LLM por defecto. Todo es derivable, reproducible, auditable.
 
@@ -607,16 +611,16 @@ openspec list                            # changes activos en SDD
 
 `packages/mcp` expone **8 tools** consumibles por cualquier cliente MCP (Claude Code, OpenCode, etc.).
 
-| Tool                   | Propósito                                                                   |
-| ---------------------- | --------------------------------------------------------------------------- |
-| `forge_status`           | Estado de los artefactos (frescura, conteos, savings)                       |
-| `forge_domain_map`       | Mapa de dominios + dependencias cruzadas                                    |
-| `forge_neighbors`        | Vecinos directos de un archivo en el grafo                                  |
-| `forge_context`          | Selección PageRank para una tarea (con o sin contenido)                     |
-| `forge_check`            | Valida git diff contra guardrails del implement-plan                        |
-| `forge_change_subgraph`  | Subgrafo congelado de un OpenSpec change (`openspec/changes/<id>/graph.subset.json`) |
-| `select_agent_context`   | **Runtime**: computa agent-manifest en memoria para una tarea (cache mtime) |
-| `get_agent_manifest`     | **Offline**: lee `.contextforge/agent-manifest.json` precomputado           |
+| Tool                    | Propósito                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| `forge_status`          | Estado de los artefactos (frescura, conteos, savings)                                |
+| `forge_domain_map`      | Mapa de dominios + dependencias cruzadas                                             |
+| `forge_neighbors`       | Vecinos directos de un archivo en el grafo                                           |
+| `forge_context`         | Selección PageRank para una tarea (con o sin contenido)                              |
+| `forge_check`           | Valida git diff contra guardrails del implement-plan                                 |
+| `forge_change_subgraph` | Subgrafo congelado de un OpenSpec change (`openspec/changes/<id>/graph.subset.json`) |
+| `select_agent_context`  | **Runtime**: computa agent-manifest en memoria para una tarea (cache mtime)          |
+| `get_agent_manifest`    | **Offline**: lee `.contextforge/agent-manifest.json` precomputado                    |
 
 **Wiring (Docker, recomendado):**
 
