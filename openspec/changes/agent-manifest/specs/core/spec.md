@@ -258,12 +258,12 @@ The `forge` CLI MUST expose a `manifest` subcommand alongside the existing `init
 
 ### Requirement: core package exports manifest builder and renderers
 
-The `@alejandro-cedeno-10/contextforge-core` package MUST export `buildAgentManifest`, `renderClaude`, `renderCursor`, `renderOpenCode`, and the related types from its top-level entry point.
+The `@anai-raia-alex/contextforge-core` package MUST export `buildAgentManifest`, `renderClaude`, `renderCursor`, `renderOpenCode`, and the related types from its top-level entry point.
 
 #### Scenario: importing the manifest API works
 
-- **Given** a consumer package depending on `@alejandro-cedeno-10/contextforge-core`
-- **When** they `import { buildAgentManifest, renderCursor } from "@alejandro-cedeno-10/contextforge-core"`
+- **Given** a consumer package depending on `@anai-raia-alex/contextforge-core`
+- **When** they `import { buildAgentManifest, renderCursor } from "@anai-raia-alex/contextforge-core"`
 - **Then** both imports resolve to the implementations in `packages/core/src/manifest/`
 
 ### Requirement: forge skills emits a domains frontmatter field

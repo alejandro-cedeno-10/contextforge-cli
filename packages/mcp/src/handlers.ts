@@ -11,7 +11,7 @@ import {
   type ScanResult,
   type GraphNode,
   type GraphEdge
-} from "@alejandro-cedeno-10/contextforge-core";
+} from "@anai-raia-alex/contextforge-core";
 
 export { getDomain };
 

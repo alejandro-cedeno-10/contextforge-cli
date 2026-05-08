@@ -103,7 +103,7 @@ function resolveImportPath(
   allFiles: ReadonlySet<string>,
   workspaceAliases: Map<string, string>
 ): string | null {
-  // Workspace package alias (e.g. @alejandro-cedeno-10/contextforge-core)
+  // Workspace package alias (e.g. @anai-raia-alex/contextforge-core)
   const aliased = workspaceAliases.get(importSource);
   if (aliased) return aliased;
 

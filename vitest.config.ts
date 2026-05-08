@@ -8,19 +8,19 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      "@alejandro-cedeno-10/contextforge-core/schema/validator": path.resolve(
+      "@anai-raia-alex/contextforge-core/schema/validator": path.resolve(
         here,
         "packages/core/src/schema/validator.ts"
       ),
-      "@alejandro-cedeno-10/contextforge-core/schema/versions": path.resolve(
+      "@anai-raia-alex/contextforge-core/schema/versions": path.resolve(
         here,
         "packages/core/src/schema/versions.ts"
       ),
-      "@alejandro-cedeno-10/contextforge-core/graph/builder": path.resolve(
+      "@anai-raia-alex/contextforge-core/graph/builder": path.resolve(
         here,
         "packages/core/src/graph/builder.ts"
       ),
-      "@alejandro-cedeno-10/contextforge-core": path.resolve(
+      "@anai-raia-alex/contextforge-core": path.resolve(
         here,
         "packages/core/src/index.ts"
       )

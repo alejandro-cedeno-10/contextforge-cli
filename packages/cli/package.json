@@ -1,6 +1,6 @@
 {
-  "name": "@alejandro-cedeno-10/contextforge-cli",
-  "version": "0.2.3",
+  "name": "@anai-raia-alex/contextforge-cli",
+  "version": "0.2.4",
   "type": "module",
   "bin": {
     "forge": "dist/index.js"
@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@alejandro-cedeno-10/contextforge-core": "workspace:*"
+    "@anai-raia-alex/contextforge-core": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"

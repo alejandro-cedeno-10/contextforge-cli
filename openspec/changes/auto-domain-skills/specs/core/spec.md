@@ -130,12 +130,12 @@ The `forge` CLI MUST expose a `skills` subcommand alongside the existing `init`,
 
 ### Requirement: core package exports skills builder
 
-The `@alejandro-cedeno-10/contextforge-core` package MUST export `buildDomainSkills`, `DomainSkillsOptions`, `DomainSkillsResult`, and `DomainSkillFile` from its top-level entry point.
+The `@anai-raia-alex/contextforge-core` package MUST export `buildDomainSkills`, `DomainSkillsOptions`, `DomainSkillsResult`, and `DomainSkillFile` from its top-level entry point.
 
 #### Scenario: importing buildDomainSkills works
 
-- **Given** a consumer package depending on `@alejandro-cedeno-10/contextforge-core`
-- **When** they `import { buildDomainSkills } from "@alejandro-cedeno-10/contextforge-core"`
+- **Given** a consumer package depending on `@anai-raia-alex/contextforge-core`
+- **When** they `import { buildDomainSkills } from "@anai-raia-alex/contextforge-core"`
 - **Then** the import resolves to the function defined in `packages/core/src/skills/skillBuilder.ts`
 
 ## REMOVED Requirements

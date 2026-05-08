@@ -1,6 +1,6 @@
 {
-  "name": "@alejandro-cedeno-10/contextforge-mcp",
-  "version": "0.2.3",
+  "name": "@anai-raia-alex/contextforge-mcp",
+  "version": "0.2.4",
   "type": "module",
   "description": "MCP server exposing ContextForge graph intelligence to AI agents",
   "bin": {
@@ -12,7 +12,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@alejandro-cedeno-10/contextforge-core": "workspace:*",
+    "@anai-raia-alex/contextforge-core": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.22.0"
   },

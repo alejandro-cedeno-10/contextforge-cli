@@ -76,7 +76,7 @@ Hay tres formas de correr el MCP server. Elige según cómo lo instalaste:
 Imagen multi-arch en GHCR (público):
 
 ```bash
-docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0
+docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.4
 ```
 
 `opencode.json`:
@@ -95,7 +95,7 @@ docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0
         "${PWD}:/project",
         "-e",
         "PROJECT_ROOT=/project",
-        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.4"
       ]
     }
   }
@@ -105,7 +105,7 @@ docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0
 ### Opción B — npm package (requiere Node 22+)
 
 ```bash
-pnpm add -D @alejandro-cedeno-10/contextforge-mcp@0.2.0
+pnpm add -D @anai-raia-alex/contextforge-mcp@0.2.4
 ```
 
 ```jsonc
@@ -113,9 +113,7 @@ pnpm add -D @alejandro-cedeno-10/contextforge-mcp@0.2.0
   "mcpServers": {
     "contextforge": {
       "command": "node",
-      "args": [
-        "./node_modules/@alejandro-cedeno-10/contextforge-mcp/dist/index.js"
-      ],
+      "args": ["./node_modules/@anai-raia-alex/contextforge-mcp/dist/index.js"],
       "env": { "PROJECT_ROOT": "." }
     }
   }

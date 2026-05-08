@@ -12,12 +12,12 @@ Token-efficient CLI que convierte cualquier repositorio en un índice consultabl
 
 ```bash
 # CLI (uso diario)
-pnpm add -g @alejandro-cedeno-10/contextforge-cli         # global
+pnpm add -g @anai-raia-alex/contextforge-cli         # global
 # o
-pnpm add -D @alejandro-cedeno-10/contextforge-cli         # por proyecto
+pnpm add -D @anai-raia-alex/contextforge-cli         # por proyecto
 
 # MCP server (para agentes que lo invoquen via Node)
-pnpm add -D @alejandro-cedeno-10/contextforge-mcp
+pnpm add -D @anai-raia-alex/contextforge-mcp
 ```
 
 **Imagen Docker del MCP server** (público, sin token):
@@ -376,8 +376,8 @@ Los artefactos JSON en `.contextforge/` son portables — cualquier agente los p
 
 | Canal                                  | Identificador                                                                    | Cuándo usar                                     |
 | -------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------- |
-| **GitHub Container Registry** (Docker) | `ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0` (multi-arch amd64 + arm64) | No quieres instalar Node — solo Docker          |
-| **GitHub Packages** (npm)              | `@alejandro-cedeno-10/contextforge-mcp@0.2.0`                                    | Tienes Node 22+ y prefieres binarios sin Docker |
+| **GitHub Container Registry** (Docker) | `ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.4` (multi-arch amd64 + arm64) | No quieres instalar Node — solo Docker          |
+| **npmjs.com** (npm)                    | `@anai-raia-alex/contextforge-mcp@0.2.4`                                         | Tienes Node 22+ y prefieres binarios sin Docker |
 
 ```jsonc
 // Opción A — Docker (sin Node)
@@ -389,7 +389,7 @@ Los artefactos JSON en `.contextforge/` son portables — cualquier agente los p
         "run", "--rm", "-i",
         "-v", "${PWD}:/project",
         "-e", "PROJECT_ROOT=/project",
-        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.4"
       ]
     }
   }
@@ -400,7 +400,7 @@ Los artefactos JSON en `.contextforge/` son portables — cualquier agente los p
   "mcpServers": {
     "contextforge": {
       "command": "node",
-      "args": ["./node_modules/@alejandro-cedeno-10/contextforge-mcp/dist/index.js"],
+      "args": ["./node_modules/@anai-raia-alex/contextforge-mcp/dist/index.js"],
       "env": { "PROJECT_ROOT": "." }
     }
   }

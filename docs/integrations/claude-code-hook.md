@@ -58,7 +58,7 @@ La tool computa el manifiesto en memoria y devuelve JSON con `skills[]` y `rules
         "${PWD}:/project",
         "-e",
         "PROJECT_ROOT=/project",
-        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.4"
       ]
     }
   }
@@ -70,7 +70,7 @@ La tool computa el manifiesto en memoria y devuelve JSON con `skills[]` y `rules
     "contextforge": {
       "command": "node",
       "args": [
-        "./node_modules/@alejandro-cedeno-10/contextforge-mcp/dist/index.js"
+        "./node_modules/@anai-raia-alex/contextforge-mcp/dist/index.js"
       ],
       "env": { "PROJECT_ROOT": "." }
     }

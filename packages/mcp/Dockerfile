@@ -25,8 +25,8 @@ COPY packages/mcp/src packages/mcp/src
 COPY docs/schemas docs/schemas
 
 # Build core then mcp (cli is not needed in this image)
-RUN pnpm --filter @alejandro-cedeno-10/contextforge-core build \
- && pnpm --filter @alejandro-cedeno-10/contextforge-mcp build
+RUN pnpm --filter @anai-raia-alex/contextforge-core build \
+ && pnpm --filter @anai-raia-alex/contextforge-mcp build
 
 # ─── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
@@ -51,7 +51,7 @@ COPY --from=builder /workspace/pnpm-workspace.yaml /app/pnpm-workspace.yaml
 COPY --from=builder /workspace/packages/cli/package.json /app/packages/cli/package.json
 
 RUN corepack enable && corepack prepare pnpm@10.0.0 --activate \
- && pnpm install --prod --no-frozen-lockfile --filter @alejandro-cedeno-10/contextforge-mcp... \
+ && pnpm install --prod --no-frozen-lockfile --filter @anai-raia-alex/contextforge-mcp... \
  && pnpm store prune
 
 # Runtime config: default to /project as the working repo (mount with -v)

@@ -13,7 +13,7 @@ import * as cliModule from "../src/index.js";
  *
  * Why a unit test (not just `tsc --noEmit`):
  * 1. Imports the compiled module, so any unresolved peer types from
- *    @alejandro-cedeno-10/contextforge-core would surface at import time.
+ *    @anai-raia-alex/contextforge-core would surface at import time.
  * 2. Pins the public shape of `runCommand`, the only stable export that
  *    consumers rely on.
  */

@@ -30,7 +30,7 @@
 ### Capa CLI
 
 - [x] T4: Modificar `packages/cli/src/index.ts`:
-  - [x] T4.1: Agregar `buildDomainSkills` al import de `@alejandro-cedeno-10/contextforge-core`
+  - [x] T4.1: Agregar `buildDomainSkills` al import de `@anai-raia-alex/contextforge-core`
   - [x] T4.2: Implementar `cmdSkills(args)` siguiendo patrón de `cmdDocs`
   - [x] T4.3: Agregar `case "skills"` en `runCommand`
   - [x] T4.4: Agregar `pnpm forge skills [--force]` en `printUsage`

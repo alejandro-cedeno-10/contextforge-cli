@@ -23,7 +23,7 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 
 **Suite de tests**: 202/202 pasando (20 archivos). **Coverage**: ≥ 80 % global · módulo `manifest/` ≥ 95 %.
 **Ahorro tokens verificado**: 94.4 % (11 988 / 214 606), ratio de compresión 17.9×.
-**Release**: v0.2.0 (paquetes en GitHub Packages).
+**Release**: v0.2.4 (paquetes públicos en npmjs.com bajo `@anai-raia-alex` + imagen Docker MCP en `ghcr.io/alejandro-cedeno-10/contextforge-mcp`).
 
 **Convenciones**:
 
@@ -507,7 +507,7 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 ### S10.T1 - Rename de scope para GitHub Packages ✅
 
 - **Archivos tocados**: 5 package.json + 4 archivos TypeScript + vitest.config.ts.
-- **Implementacion**: `@contextforge/*` → `@alejandro-cedeno-10/contextforge-*` (scope debe coincidir con GitHub username).
+- **Implementacion**: `@contextforge/*` → `@anai-raia-alex/contextforge-*` (scope debe coincidir con GitHub username).
 
 ### S10.T2 - Workflow de publicacion ✅
 

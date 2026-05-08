@@ -33,14 +33,14 @@ pnpm --version    # 10.x.x
 Los paquetes están publicados como **públicos en npmjs.com**, así que no requieren autenticación:
 
 ```bash
-pnpm add -D @alejandro-cedeno-10/contextforge-cli
-pnpm add -D @alejandro-cedeno-10/contextforge-mcp   # opcional, para MCP en agentes
+pnpm add -D @anai-raia-alex/contextforge-cli
+pnpm add -D @anai-raia-alex/contextforge-mcp   # opcional, para MCP en agentes
 ```
 
 O global:
 
 ```bash
-pnpm add -g @alejandro-cedeno-10/contextforge-cli
+pnpm add -g @anai-raia-alex/contextforge-cli
 forge --help
 ```
 
@@ -66,13 +66,13 @@ pnpm test --run      # 202/202 tests pasando
 Si solo necesitas el servidor MCP para tu agente y no quieres instalar Node:
 
 ```bash
-docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0
+docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.4
 
 # Probar (manual, escribe stdin/stdout sobre stdio)
 docker run --rm -i \
   -v "$PWD:/project" \
   -e PROJECT_ROOT=/project \
-  ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0
+  ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.4
 ```
 
 La imagen es multi-arch (amd64 + arm64), pública, ~150 MB. La sección **4** muestra cómo conectarla a cada agente.
@@ -131,7 +131,7 @@ El comando clave es `pnpm forge context "<tarea>"` — emite el agent-manifest a
         "${PWD}:/project",
         "-e",
         "PROJECT_ROOT=/project",
-        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.4"
       ]
     }
   }
@@ -177,7 +177,7 @@ Después de eso, cada prompt regenera `.claude/agent-manifest.md` con las skills
         "${PWD}:/project",
         "-e",
         "PROJECT_ROOT=/project",
-        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.4"
       ]
     }
   }
@@ -216,7 +216,7 @@ import {
   buildAgentManifest,
   selectContext,
   scanProject
-} from "@alejandro-cedeno-10/contextforge-core";
+} from "@anai-raia-alex/contextforge-core";
 
 const scan = await scanProject(".");
 // (graph y selección requieren artefactos previos; para uso programático
@@ -226,7 +226,7 @@ const scan = await scanProject(".");
 El MCP server es el camino programático recomendado:
 
 ```bash
-node node_modules/@alejandro-cedeno-10/contextforge-mcp/dist/index.js
+node node_modules/@anai-raia-alex/contextforge-mcp/dist/index.js
 ```
 
 Cualquier cliente MCP-compatible obtiene las 7 tools (`forge_status`, `forge_domain_map`, `forge_neighbors`, `forge_context`, `forge_check`, `select_agent_context`, `get_agent_manifest`).

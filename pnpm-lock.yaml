@@ -44,7 +44,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@alejandro-cedeno-10/contextforge-core':
+      '@anai-raia-alex/contextforge-core':
         specifier: workspace:*
         version: link:../core
 
@@ -68,7 +68,7 @@ importers:
 
   packages/mcp:
     dependencies:
-      '@alejandro-cedeno-10/contextforge-core':
+      '@anai-raia-alex/contextforge-core':
         specifier: workspace:*
         version: link:../core
       '@modelcontextprotocol/sdk':

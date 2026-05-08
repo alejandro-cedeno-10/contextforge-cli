@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SchemaValidationError } from "@alejandro-cedeno-10/contextforge-core";
+import { SchemaValidationError } from "@anai-raia-alex/contextforge-core";
 
 const workspaces: string[] = [];
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -229,10 +229,10 @@ describe("forge commands", () => {
     const cwd = await workspace();
 
     vi.resetModules();
-    vi.doMock("@alejandro-cedeno-10/contextforge-core", async () => {
+    vi.doMock("@anai-raia-alex/contextforge-core", async () => {
       const actual = await vi.importActual<
-        typeof import("@alejandro-cedeno-10/contextforge-core")
-      >("@alejandro-cedeno-10/contextforge-core");
+        typeof import("@anai-raia-alex/contextforge-core")
+      >("@anai-raia-alex/contextforge-core");
 
       return {
         ...actual,
@@ -249,7 +249,7 @@ describe("forge commands", () => {
         });
       });
     } finally {
-      vi.doUnmock("@alejandro-cedeno-10/contextforge-core");
+      vi.doUnmock("@anai-raia-alex/contextforge-core");
       vi.resetModules();
     }
   });

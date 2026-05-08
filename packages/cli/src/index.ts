@@ -30,7 +30,7 @@ import {
   type SkillEntry,
   type RuleEntry,
   validateOrThrow
-} from "@alejandro-cedeno-10/contextforge-core";
+} from "@anai-raia-alex/contextforge-core";
 
 import { generateVizHtml, type VizNode, type VizEdge } from "./htmlTemplate.js";
 
@@ -349,7 +349,7 @@ async function cmdSpec(changeId = "change-1"): Promise<void> {
       .join("\n");
     throw new Error(
       `OpenSpec output failed conformance check:\n${detail}\n` +
-        `This is a bug in @alejandro-cedeno-10/contextforge-core. Please report it.`
+        `This is a bug in @anai-raia-alex/contextforge-core. Please report it.`
     );
   }
 
