@@ -652,7 +652,7 @@ function showNodeInfo(node) {
     const items = edges.slice(0, MAX).map(e => {
       const oid = e.data('source') === d.id ? e.data('target') : e.data('source');
       const ol = (cy.getElementById(oid).data('label') || oid).split('/').pop();
-      return '<a onclick="cy.getElementById(\'' + oid.replace(/'/g, "\\'") + '\').trigger(\'tap\')">[' + (e.data('etype')||'') + '] ' + escHtml(ol) + '</a>';
+      return '<a class="edge-link" data-oid="' + oid.replace(/"/g,'&quot;') + '">[' + (e.data('etype')||'') + '] ' + escHtml(ol) + '</a>';
     }).join('');
     const more = edges.length > MAX ? '<span style="color:#484f58"> +' + (edges.length - MAX) + ' más</span>' : '';
     return '<strong>' + dirLabel + ' (' + edges.length + ')</strong>' + items + more;
@@ -787,7 +787,7 @@ function buildDomainSidebar() {
     const col = domainColor(domain);
     const packCount = files.filter(n => packSet.has(n.id)).length;
     const shortName = domain.includes('/') ? domain : domain;
-    return '<div class="domain-item" data-domain="' + escHtml(domain) + '" onclick="onDomainItemClick(\'' + escHtml(domain).replace(/'/g,"\\'") + '\')">' +
+    return '<div class="domain-item" data-domain="' + escHtml(domain) + '">' +
       '<span class="domain-dot" style="background:' + col.border + '"></span>' +
       '<span class="domain-name" title="' + escHtml(domain) + '">' + escHtml(shortName) + '</span>' +
       '<span class="domain-count">' + files.length + (packCount ? ' · <span style="color:#f0883e">' + packCount + '</span>' : '') + '</span>' +
@@ -889,6 +889,16 @@ document.addEventListener('DOMContentLoaded', function() {
   initCy(els, false);
   updateStats();
   tourNodes = PACK_FILES.map(f => 'file:' + f.path).filter(id => cy.getElementById(id).length);
+  document.addEventListener('click', function(ev) {
+    const a = ev.target.closest('.edge-link');
+    if (a && a.dataset.oid && cy) {
+      const target = cy.getElementById(a.dataset.oid);
+      if (target && target.length) target.trigger('tap');
+      return;
+    }
+    const di = ev.target.closest('.domain-item');
+    if (di && di.dataset.domain) onDomainItemClick(di.dataset.domain);
+  });
 });
 </script>
 </body>
