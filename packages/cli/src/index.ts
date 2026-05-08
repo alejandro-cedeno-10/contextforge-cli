@@ -109,6 +109,52 @@ async function cmdInit(): Promise<void> {
   console.log(
     "Generado .contextforge/agent-context.md (consulta esto al abrir sesión con un agente IA)."
   );
+
+  await maybeRunOpenSpecInit();
+}
+
+async function maybeRunOpenSpecInit(): Promise<void> {
+  if (!isOpenSpecCliAvailable()) {
+    console.log(
+      "\nTip: instala OpenSpec CLI para activar el modo handoff de `forge spec`:\n" +
+        "  npm i -g @fission-ai/openspec\n" +
+        "  pnpm forge init   # re-corre para terminar el setup OpenSpec"
+    );
+    return;
+  }
+
+  let openspecExists = false;
+  try {
+    await fs.access(path.join(process.cwd(), "openspec"));
+    openspecExists = true;
+  } catch {
+    openspecExists = false;
+  }
+
+  if (openspecExists) {
+    console.log(
+      "\nOpenSpec ya está inicializado en este repo (./openspec/ existe)."
+    );
+    return;
+  }
+
+  const result = safeOpenSpecExec([
+    "init",
+    ".",
+    "--tools",
+    "claude,cursor,opencode",
+    "--force"
+  ]);
+  if (result.ok) {
+    console.log(
+      "\nOpenSpec inicializado (vía `openspec init . --tools=claude,cursor,opencode --force`)."
+    );
+  } else {
+    console.warn(
+      `\n[init] openspec init falló (no es bloqueante):\n  ${result.error}\n` +
+        `[init] puedes correrlo a mano: openspec init .`
+    );
+  }
 }
 
 async function writeAgentContextMd(): Promise<void> {
@@ -155,29 +201,40 @@ ${savingsLine}
   dev que corra \`pnpm forge context "tu nueva tarea"\`.
 - **Para crear/modificar features con SDD**, sigue la receta de abajo.
 
-## Receta SDD (con OpenSpec)
+## Receta SDD completa (ContextForge ⊕ OpenSpec)
 
 \`\`\`bash
-# 1. Indexar (una vez por estado del repo)
+# Setup (una vez)
+pnpm forge init                    # crea .contextforge + corre 'openspec init' si está
+                                   # → instala instrucciones para tu agente (claude/cursor/opencode)
+
+# Indexado (cuando cambian archivos del repo)
 pnpm forge scan
-pnpm forge graph
+pnpm forge graph                   # cache por hash; salta si no cambió
 
-# 2. Por cada tarea / feature / fix
+# Por cada tarea / feature / fix
 pnpm forge context "<descripción de la tarea>"
+                                   # → context-pack + agent-manifest auto
+
 pnpm forge spec mi-feature-id
-# → si OpenSpec CLI está instalado:
-#     genera spec-prompt.md (paste-ready) + esqueleto vía openspec new change
-#   si NO:
-#     genera el scaffold completo (formato moderno Requirement+Scenario)
+                                   # → spec-input.json (siempre)
+                                   # con OpenSpec CLI:
+                                   #   openspec new change <id> + spec-prompt.md
+                                   # sin OpenSpec CLI:
+                                   #   scaffold con formato moderno (Requirement+Scenario)
 
-# 3. El agente llena los .md del change usando el prompt
-# 4. Validar
-openspec validate mi-feature-id
+# El agente llena los .md del change (usando spec-prompt.md o el scaffold)
 
-# 5. Plan con guardrails y trabajar
-pnpm forge implement mi-feature-id
-# ... (trabajas en el código)
-pnpm forge implement --check    # antes del commit
+openspec list                      # ver changes activos
+openspec show mi-feature-id        # inspeccionar uno
+openspec validate mi-feature-id    # validación oficial
+
+pnpm forge implement mi-feature-id # plan con guardrails (allowedFiles del pack)
+# ... (trabajas en el código con el agente)
+pnpm forge implement --check       # gate pre-commit: diff vs guardrails
+
+# Cuando termines y se mergeó
+openspec archive mi-feature-id -y  # mueve a openspec/specs/ y limpia changes/
 \`\`\`
 
 ## Política para agentes que tocan este repo
@@ -186,6 +243,18 @@ pnpm forge implement --check    # antes del commit
 - **No specs a mano**: usa \`forge spec\` y deja que OpenSpec valide.
 - **No bullets en spec.md**: cada Requirement debe tener su \`#### Scenario:\` con Given/When/Then.
 - **Antes de commit**: \`forge implement --check\` debe pasar.
+- **Al cerrar el PR**: \`openspec archive <change-id> -y\` (mueve specs y limpia).
+
+## Comandos clave para agentes en una sesión
+
+| Necesitas... | Corre |
+| --- | --- |
+| Saber qué archivos importan a la tarea | \`cat .contextforge/context-pack.json\` |
+| Saber qué skills/rules aplican | \`cat .contextforge/agent-manifest.json\` |
+| Ver el grafo del repo | \`open .contextforge/graph.html\` |
+| Ver changes OpenSpec activos | \`openspec list\` |
+| Inspeccionar un change | \`openspec show <id>\` |
+| Validar antes de commit | \`pnpm forge implement --check\` |
 `;
 
   await writeText(outputPath("agent-context.md"), body);
