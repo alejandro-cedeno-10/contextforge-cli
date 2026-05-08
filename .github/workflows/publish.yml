@@ -39,16 +39,16 @@ jobs:
         run: pnpm test
 
       - name: Publish @alejandro-cedeno-10/contextforge-core
-        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-core --no-git-checks --access public
+        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-core --no-git-checks --access public --registry https://registry.npmjs.org
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @alejandro-cedeno-10/contextforge-mcp
-        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-mcp --no-git-checks --access public
+        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-mcp --no-git-checks --access public --registry https://registry.npmjs.org
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @alejandro-cedeno-10/contextforge-cli
-        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-cli --no-git-checks --access public
+        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-cli --no-git-checks --access public --registry https://registry.npmjs.org
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
