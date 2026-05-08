@@ -99,7 +99,10 @@ describe("forge commands", () => {
       await runCommand("scan");
       await runCommand("graph");
       await runCommand("context");
-      await runCommand("spec");
+      // Force fallback mode in tests so we can assert the on-disk shape
+      // without depending on whether the openspec CLI is installed on the
+      // runner. The handoff path is covered by separate tests.
+      await runCommand("spec", ["change-1", "--no-openspec"]);
       await runCommand("implement");
     });
 

@@ -18,9 +18,7 @@ export interface OpenSpecResult {
 export function inferDomain(filePaths: string[]): string {
   if (filePaths.length === 0) return "core";
 
-  // packages/<pkg>/src/<domain>/... → domain
   const pkgSrc = /^packages\/[^/]+\/src\/([^/]+)/;
-  // src/<domain>/... → domain
   const srcTop = /^src\/([^/]+)/;
 
   const counts = new Map<string, number>();
@@ -42,6 +40,15 @@ export function inferDomain(filePaths: string[]): string {
   return best;
 }
 
+function titleCase(value: string): string {
+  if (!value) return value;
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export function buildOpenSpec(opts: OpenSpecOptions): OpenSpecResult {
   const { changeId, task, affectedFiles } = opts;
   const domain = opts.domain ?? inferDomain(affectedFiles.map((f) => f.path));
@@ -54,7 +61,6 @@ export function buildOpenSpec(opts: OpenSpecOptions): OpenSpecResult {
           .join("\n")
       : "  - (ninguno)";
 
-  // Tasks only for non-summary files (summary = reference only)
   const nonSummary = affectedFiles.filter((f) => f.mode !== "summary");
   const taskList =
     nonSummary.length > 0
@@ -68,24 +74,30 @@ export function buildOpenSpec(opts: OpenSpecOptions): OpenSpecResult {
   const proposal = `# Proposal: ${changeId}
 
 ## Intent
+
 ${task}
 
 ## Scope
 
 ### In scope
+
 - Archivos del context-pack con mode \`full\` o \`excerpt\`
 
 ### Out of scope
+
 - Archivos con mode \`summary\` (solo referencia)
 - Archivos fuera de \`guardrails.allowedFiles\`
 
 ## Why
+
 Cambio requerido para: ${task}
 
 ## Evidence (context-pack)
+
 ${fileList}
 
 ## Alternatives considered
+
 - No implementar: no resuelve la tarea
 `;
 
@@ -94,22 +106,26 @@ ${fileList}
 ## Technical approach
 
 ### Archivos afectados
+
 ${fileList}
 
 ### Cambios requeridos
+
 - Seguir \`guardrails\` del \`implement-plan.json\`
 - Modificar solo archivos en \`allowedFiles\`
 
 ## Data flow
+
 1. \`forge scan\` → \`.contextforge/scan.json\`
 2. \`forge graph\` → \`.contextforge/graph.json\`
 3. \`forge context\` → \`.contextforge/context-pack.json\`
-4. \`forge spec\` → esta estructura (formato OpenSpec)
+4. \`forge spec\` → esta estructura (formato OpenSpec moderno)
 5. \`forge implement\` → \`.contextforge/implement-plan.json\`
 
 ## Risks
+
 - Cambios fuera de scope pueden introducir regresiones
-- Exceder \`maxLocDelta\` requiere re-aprobacion
+- Exceder \`maxLocDelta\` requiere re-aprobación
 `;
 
   const tasks = `# Tasks: ${changeId}
@@ -119,26 +135,43 @@ ${fileList}
 ${taskList}
 
 ## Validation
+
 - [ ] \`pnpm test\` pasa sin errores
-- [ ] \`forge implement --check\` sale con codigo 0
+- [ ] \`forge implement --check\` sale con código 0
+- [ ] \`openspec validate ${changeId}\` pasa
 - [ ] Schema validation en CI verde
 `;
 
+  const reqTitle = `Implement ${titleCase(changeId)}`;
   const deltaSpec = `# Delta Spec: ${domain}
 
 ## ADDED Requirements
 
-- The system MUST produce \`${changeId}\` changes within context-pack budget.
-- Changes MUST NOT touch files outside \`guardrails.allowedFiles\`.
-- All modified files SHOULD have associated test coverage.
+### Requirement: ${reqTitle}
+
+The system MUST implement the change \`${changeId}\` in scope of the context-pack at \`.contextforge/context-pack.json\`. All modifications MUST stay within \`guardrails.allowedFiles\` from the implement-plan, MUST NOT exceed \`guardrails.maxLocDelta\`, and MUST be covered by tests.
+
+#### Scenario: change is implemented within scope
+
+- **Given** a valid \`.contextforge/context-pack.json\` for the task "${task.replace(/"/g, '\\"')}"
+- **When** the developer runs \`pnpm forge implement ${changeId}\` and modifies the listed files
+- **Then** \`pnpm forge implement --check\` exits with code 0
+- **And** the modified file set is a subset of \`guardrails.allowedFiles\`
+- **And** the LOC delta is within \`guardrails.maxLocDelta\`
+
+#### Scenario: scope violation is rejected
+
+- **Given** the developer modifies a file outside \`guardrails.allowedFiles\`
+- **When** \`pnpm forge implement --check\` runs
+- **Then** the command exits non-zero with an explicit \`forbidden-path\` or \`disallowed-file\` violation
 
 ## MODIFIED Requirements
 
-- (ninguno por ahora)
+(none)
 
 ## REMOVED Requirements
 
-- (ninguno por ahora)
+(none)
 `;
 
   return {
@@ -169,6 +202,10 @@ const OPENSPEC_DELTA_HEADINGS = [
   "## MODIFIED Requirements",
   "## REMOVED Requirements"
 ];
+
+const REQUIREMENT_BLOCK_RE = /^### Requirement:\s+\S/m;
+const SCENARIO_BLOCK_RE = /^#### Scenario:\s+\S/m;
+const LEGACY_BULLET_RE = /^\s*-\s+The system (MUST|SHALL|SHOULD|MAY)/m;
 
 export function validateOpenSpecFiles(
   files: ReadonlyArray<OpenSpecFile>
@@ -215,17 +252,46 @@ export function validateOpenSpecFiles(
       rule: "missing-file",
       detail: "OpenSpec change must include a delta spec under specs/<domain>/"
     });
-  } else {
-    const hasAnyDeltaHeading = OPENSPEC_DELTA_HEADINGS.some((h) =>
-      deltaSpec!.content.includes(h)
-    );
-    if (!hasAnyDeltaHeading) {
-      issues.push({
-        file: deltaSpec.path,
-        rule: "missing-delta-section",
-        detail: `Delta spec must contain at least one of: ${OPENSPEC_DELTA_HEADINGS.join(", ")}`
-      });
-    }
+    return issues;
+  }
+
+  const hasAnyDeltaHeading = OPENSPEC_DELTA_HEADINGS.some((h) =>
+    deltaSpec!.content.includes(h)
+  );
+  if (!hasAnyDeltaHeading) {
+    issues.push({
+      file: deltaSpec.path,
+      rule: "missing-delta-section",
+      detail: `Delta spec must contain at least one of: ${OPENSPEC_DELTA_HEADINGS.join(", ")}`
+    });
+  }
+
+  if (!REQUIREMENT_BLOCK_RE.test(deltaSpec.content)) {
+    issues.push({
+      file: deltaSpec.path,
+      rule: "requirement-block-missing",
+      detail:
+        'Delta spec must contain at least one "### Requirement: <title>" block (legacy bullet format is no longer accepted by openspec validate)'
+    });
+  } else if (!SCENARIO_BLOCK_RE.test(deltaSpec.content)) {
+    issues.push({
+      file: deltaSpec.path,
+      rule: "scenario-block-missing",
+      detail:
+        'Each Requirement must contain at least one "#### Scenario: <name>" block with Given/When/Then bullets'
+    });
+  }
+
+  if (
+    LEGACY_BULLET_RE.test(deltaSpec.content) &&
+    !REQUIREMENT_BLOCK_RE.test(deltaSpec.content)
+  ) {
+    issues.push({
+      file: deltaSpec.path,
+      rule: "legacy-bullet-format",
+      detail:
+        "Delta spec uses legacy bullet-style requirements; rewrite as ### Requirement: + #### Scenario: blocks"
+    });
   }
 
   return issues;

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,7 +23,8 @@ export type SchemaName =
   | "context-pack"
   | "implement-plan"
   | "token-ledger"
-  | "agent-manifest";
+  | "agent-manifest"
+  | "spec-input";
 
 export interface ValidationResult {
   valid: boolean;
@@ -55,13 +56,18 @@ const SCHEMA_FILES: Readonly<Record<SchemaName, string>> = {
   "context-pack": "context-pack.schema.json",
   "implement-plan": "implement-plan.schema.json",
   "token-ledger": "token-ledger.schema.json",
-  "agent-manifest": "agent-manifest.schema.json"
+  "agent-manifest": "agent-manifest.schema.json",
+  "spec-input": "spec-input.schema.json"
 };
 
 function defaultSchemaDir(): string {
-  // Resolves at runtime regardless of src/ vs dist/ layout:
-  // packages/core/{src|dist}/schema/validator.{ts|js} -> ../../../../docs/schemas
   const here = path.dirname(fileURLToPath(import.meta.url));
+  // Published layout: schemas are bundled at <pkg>/dist/schemas, sibling to
+  // <pkg>/dist/schema/validator.js. Prefer that when present so the package
+  // works after `npm install` (the monorepo path doesn't exist there).
+  const packaged = path.resolve(here, "..", "schemas");
+  if (existsSync(packaged)) return packaged;
+  // Monorepo layout: packages/core/{src|dist}/schema/ -> repo/docs/schemas/.
   return path.resolve(here, "..", "..", "..", "..", "docs", "schemas");
 }
 

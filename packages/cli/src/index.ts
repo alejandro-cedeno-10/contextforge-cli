@@ -12,12 +12,14 @@ import {
   buildGraph,
   buildHealthReport,
   buildOpenSpec,
+  buildSpecInput,
   buildSyncReport,
   getDomain,
   renderClaude,
   renderCursor,
   renderOpenCode,
   renderSDD,
+  renderSpecPrompt,
   selectContext,
   validateGuardrails,
   validateOpenSpecFiles,
@@ -101,7 +103,92 @@ async function cmdInit(): Promise<void> {
   await ensureDir(outputPath("structure"));
   await ensureDir("packages/core/src");
   await ensureDir("packages/cli/src");
+
+  await writeAgentContextMd();
   console.log("ContextForge inicializado.");
+  console.log(
+    "Generado .contextforge/agent-context.md (consulta esto al abrir sesión con un agente IA)."
+  );
+}
+
+async function writeAgentContextMd(): Promise<void> {
+  type Ledger = {
+    baseline?: { tokens?: number; filesIncluded?: number };
+    packed?: { tokens?: number; filesIncluded?: number };
+    savings?: { savingsPct?: number; compressionRatio?: number };
+  };
+  const ledger = await tryReadJson<Ledger>(outputPath("token-ledger.json"));
+
+  const savingsLine =
+    ledger?.savings?.savingsPct != null
+      ? `- **Ahorro medido aquí**: ${ledger.savings.savingsPct.toFixed(1)} %  · ratio ${(ledger.savings.compressionRatio ?? 1).toFixed(2)}× ` +
+        `(${ledger.baseline?.tokens ?? "?"} → ${ledger.packed?.tokens ?? "?"} tokens · ${ledger.packed?.filesIncluded ?? "?"} archivos)`
+      : `- **Ahorro medido aquí**: aún no calculado. Corre \`pnpm forge context "<tarea>"\` para obtener métricas reales.`;
+
+  const body = `# Contexto del repo para agentes IA
+
+> **Archivo derivado.** Se regenera con \`forge init\`. No editar a mano.
+
+## Cómo este repo te entrega contexto
+
+Este proyecto usa **ContextForge + OpenSpec** para que un agente IA solo vea
+los archivos relevantes a la tarea actual, en lugar de leer todo el repo.
+
+${savingsLine}
+
+## Artefactos disponibles (orden recomendado de lectura)
+
+1. \`.contextforge/context-pack.json\` — los archivos que importan **para esta tarea**.
+2. \`.contextforge/agent-manifest.json\` — skills/rules relevantes a la tarea.
+3. \`.contextforge/spec-input.json\` — entrada estructurada para crear specs.
+4. \`.contextforge/spec-prompt.md\` — prompt copy-paste para arrancar SDD (handoff).
+5. \`.contextforge/graph.json\` — grafo completo de dependencias (referencia).
+6. \`.contextforge/scan.json\` — inventario con hashes BLAKE3.
+7. \`.contextforge/token-ledger.json\` — métricas auditables del ahorro.
+8. \`.contextforge/implement-plan.json\` — guardrails (allowedFiles, maxLocDelta).
+
+## Cómo consumirlos
+
+- **Para responder preguntas o aplicar fixes**: lee primero \`context-pack.json\`.
+  Si necesitas más, sigue los \`edges\` del grafo desde esos archivos.
+- **NO** leas todo el repo a ciegas. Si crees que falta contexto, pídele al
+  dev que corra \`pnpm forge context "tu nueva tarea"\`.
+- **Para crear/modificar features con SDD**, sigue la receta de abajo.
+
+## Receta SDD (con OpenSpec)
+
+\`\`\`bash
+# 1. Indexar (una vez por estado del repo)
+pnpm forge scan
+pnpm forge graph
+
+# 2. Por cada tarea / feature / fix
+pnpm forge context "<descripción de la tarea>"
+pnpm forge spec mi-feature-id
+# → si OpenSpec CLI está instalado:
+#     genera spec-prompt.md (paste-ready) + esqueleto vía openspec new change
+#   si NO:
+#     genera el scaffold completo (formato moderno Requirement+Scenario)
+
+# 3. El agente llena los .md del change usando el prompt
+# 4. Validar
+openspec validate mi-feature-id
+
+# 5. Plan con guardrails y trabajar
+pnpm forge implement mi-feature-id
+# ... (trabajas en el código)
+pnpm forge implement --check    # antes del commit
+\`\`\`
+
+## Política para agentes que tocan este repo
+
+- **No reload del repo**: confía en \`context-pack.json\`.
+- **No specs a mano**: usa \`forge spec\` y deja que OpenSpec valide.
+- **No bullets en spec.md**: cada Requirement debe tener su \`#### Scenario:\` con Given/When/Then.
+- **Antes de commit**: \`forge implement --check\` debe pasar.
+`;
+
+  await writeText(outputPath("agent-context.md"), body);
 }
 
 async function cmdScan(): Promise<void> {
@@ -323,22 +410,129 @@ async function cmdContext(
 
 function isOpenSpecCliAvailable(): boolean {
   try {
-    execSync("openspec --version", { stdio: "ignore" });
+    execSync("openspec --version", {
+      stdio: "ignore",
+      windowsHide: true
+    });
     return true;
   } catch {
     return false;
   }
 }
 
-async function cmdSpec(changeId = "change-1"): Promise<void> {
-  type PackFile = { path: string; reason: string; mode: string };
-  type ContextPack = { task?: string; files?: PackFile[] };
-  const pack = await tryReadJson<ContextPack>(outputPath("context-pack.json"));
-  const task = pack?.task ?? "Describe la tarea aqui";
-  const affectedFiles: PackFile[] = pack?.files ?? [];
+function safeOpenSpecExec(
+  args: string[]
+): { ok: true; out: string } | { ok: false; error: string } {
+  try {
+    const out = execSync(`openspec ${args.join(" ")}`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true
+    });
+    return { ok: true, out };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: detail };
+  }
+}
 
+async function loadGraphForSpecInput(): Promise<{
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+} | null> {
+  type GraphFile = { nodes?: GraphNode[]; edges?: GraphEdge[] };
+  const raw = await tryReadJson<GraphFile>(outputPath("graph.json"));
+  if (!raw) return null;
+  return { nodes: raw.nodes ?? [], edges: raw.edges ?? [] };
+}
+
+async function cmdSpec(
+  changeId = "change-1",
+  args: string[] = []
+): Promise<void> {
+  const { flags } = parseFlags(args);
+  const forceFallback = flags["no-openspec"] === true;
+
+  type PackFile = {
+    path: string;
+    reason: string;
+    mode: "full" | "excerpt" | "summary";
+  };
+  type ContextPack = {
+    task?: string;
+    files?: PackFile[];
+    budget?: { maxInputTokens?: number; estimatedTokens?: number };
+  };
+
+  const pack = await readRequiredJson<ContextPack>(
+    outputPath("context-pack.json"),
+    'Ejecuta primero: pnpm forge context "<tarea>"'
+  );
+  const task = pack.task ?? "Describe la tarea aqui";
+  const affectedFiles: PackFile[] = pack.files ?? [];
+
+  const graph = await loadGraphForSpecInput();
+  const specInput = buildSpecInput({
+    changeId,
+    contextPack: {
+      task,
+      files: affectedFiles,
+      budget: pack.budget
+    },
+    graph
+  });
+  validateOrThrow("spec-input", specInput);
+  await writeJson(outputPath("spec-input.json"), specInput);
+  console.log("Escrito .contextforge/spec-input.json");
+
+  const cliAvailable = !forceFallback && isOpenSpecCliAvailable();
+
+  if (cliAvailable) {
+    const newChange = safeOpenSpecExec(["new", "change", changeId]);
+    if (!newChange.ok) {
+      console.warn(
+        `[spec] openspec new change ${changeId} falló:\n  ${newChange.error}\n` +
+          `[spec] cayendo al modo fallback (genero el scaffold yo).`
+      );
+      await runFallbackScaffold({ changeId, task, affectedFiles });
+    } else {
+      const instructions = safeOpenSpecExec([
+        "instructions",
+        "proposal",
+        "--change",
+        changeId,
+        "--json"
+      ]);
+      const promptBody = renderSpecPrompt({
+        specInput,
+        openSpecInstructions: instructions.ok ? instructions.out : ""
+      });
+      await writeText(outputPath("spec-prompt.md"), promptBody);
+      console.log("Escrito .contextforge/spec-prompt.md");
+
+      console.log(
+        `\nEsqueleto creado (openspec new change ${changeId}).\n` +
+          `Pega .contextforge/spec-prompt.md en tu agente IA.\n` +
+          `Cuando termine:\n` +
+          `  openspec validate ${changeId}\n` +
+          `  pnpm forge implement ${changeId}`
+      );
+    }
+  } else {
+    await runFallbackScaffold({ changeId, task, affectedFiles });
+  }
+}
+
+async function runFallbackScaffold({
+  changeId,
+  task,
+  affectedFiles
+}: {
+  changeId: string;
+  task: string;
+  affectedFiles: Array<{ path: string; reason: string; mode: string }>;
+}): Promise<void> {
   const result = buildOpenSpec({ changeId, task, affectedFiles });
-
   const issues = validateOpenSpecFiles(result.files);
   if (issues.length > 0) {
     const detail = issues
@@ -348,7 +542,7 @@ async function cmdSpec(changeId = "change-1"): Promise<void> {
       )
       .join("\n");
     throw new Error(
-      `OpenSpec output failed conformance check:\n${detail}\n` +
+      `OpenSpec scaffold failed conformance check:\n${detail}\n` +
         `This is a bug in @anai-raia-alex/contextforge-core. Please report it.`
     );
   }
@@ -357,19 +551,12 @@ async function cmdSpec(changeId = "change-1"): Promise<void> {
     await writeText(path.join(process.cwd(), file.path), file.content);
   }
   console.log(`Escrito ${result.changeDir}/ (proposal, design, tasks, specs)`);
-
-  if (isOpenSpecCliAvailable()) {
-    console.log(
-      `\nSiguiente paso (openspec CLI detectado):\n` +
-        `  openspec validate ${result.changeDir}\n` +
-        `  openspec list`
-    );
-  } else {
-    console.log(
-      `\nOpenSpec CLI no detectado (opcional).\n` +
-        `Para gestionar el ciclo de vida del change instala: npm i -g @fission-ai/openspec`
-    );
-  }
+  console.log(
+    `\nOpenSpec CLI no detectado.\n` +
+      `Tip: instálalo para validación oficial:\n` +
+      `  npm i -g @fission-ai/openspec\n` +
+      `  openspec validate ${changeId}`
+  );
 }
 
 async function cmdImplement(
@@ -1126,7 +1313,7 @@ export async function runCommand(
       await cmdContext(args[0], args.slice(1));
       break;
     case "spec":
-      await cmdSpec(args[0]);
+      await cmdSpec(args[0], args.slice(1));
       break;
     case "implement":
       await cmdImplement(args[0], args.slice(1));

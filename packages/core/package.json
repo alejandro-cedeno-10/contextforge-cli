@@ -1,6 +1,6 @@
 {
   "name": "@anai-raia-alex/contextforge-core",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,7 +23,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json && node ./scripts/copy-schemas.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",

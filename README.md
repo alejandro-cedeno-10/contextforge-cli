@@ -158,23 +158,42 @@ Ver `docs/token-savings-architecture.md` para análisis completo con tabla de co
 
 ---
 
-## Spec OpenSpec (`forge spec`)
+## Integración con OpenSpec (`forge spec`)
 
-`forge spec <id>` siempre emite en formato **OpenSpec** — estructura de cambios accionable y compatible con el estándar:
+> Lectura completa: [`docs/explanation/contextforge-and-openspec.md`](docs/explanation/contextforge-and-openspec.md) — **3 roles, 91 % menos tokens por sesión SDD, ÷28× con prompt caching**.
+
+ContextForge **no compite con OpenSpec**: lo apoya. `forge spec <id>` produce un **input determinista** (`spec-input.json`) y delega la generación de los `.md` a:
+
+- **OpenSpec CLI** (modo handoff, default si está instalado) — `openspec new change <id>` + `openspec instructions ... --json` + un `spec-prompt.md` paste-ready para tu agente.
+- **ContextForge fallback** (si OpenSpec CLI no está) — emite el esqueleto con formato moderno (`### Requirement:` + `#### Scenario:` + Given/When/Then) que pasa `openspec validate` cuando lo instales después.
+
+```bash
+# Pipeline SDD completo
+pnpm forge context "fix race in tokenLedger"   # context-pack (94% menos tokens)
+pnpm forge spec fix-token-race                 # spec-input.json + handoff/fallback
+# (el agente recibe el spec-prompt y llena los .md)
+openspec validate fix-token-race               # validación oficial
+pnpm forge implement fix-token-race            # plan con guardrails
+pnpm forge implement --check                   # gate pre-commit
+```
+
+Forzar el modo fallback (útil para CI o devs sin OpenSpec CLI): `pnpm forge spec mi-id --no-openspec`.
+
+### Salida estructural
 
 ```
-openspec/changes/fix-auth-bug/
-  proposal.md              # contexto y motivación del cambio
+.contextforge/
+  spec-input.json          # entrada neutral (siempre se emite)
+  spec-prompt.md           # prompt copy-paste (solo en handoff)
+
+openspec/changes/<id>/
+  proposal.md              # contexto y motivación
   design.md                # decisiones técnicas respaldadas por el grafo
   tasks.md                 # tareas numeradas T1, T1.1, T2...
-  specs/auth/spec.md       # delta spec con secciones:
-                           #   ## ADDED Requirements
-                           #   ## MODIFIED Requirements
-                           #   ## REMOVED Requirements
+  specs/<domain>/spec.md   # delta spec con ### Requirement: + #### Scenario:
 ```
 
-Cada requirement usa formato **Given/When/Then + RFC 2119** (MUST/SHALL/SHOULD/MAY).
-Los archivos referenciados en `design.md` y `tasks.md` vienen directamente del `context-pack` — evidencia trazable del grafo.
+Cada requirement usa formato **Given/When/Then + RFC 2119** (MUST/SHALL/SHOULD/MAY). Los archivos referenciados en `design.md` y `tasks.md` vienen del `context-pack` — evidencia trazable.
 
 ---
 
@@ -421,17 +440,18 @@ Los artefactos JSON en `.contextforge/` son portables — cualquier agente los p
 
 ## Documentación
 
-| Documento                               | Descripción                                                           |
-| --------------------------------------- | --------------------------------------------------------------------- |
-| `docs/token-savings-architecture.md`    | Análisis de ahorro de tokens por capas con tabla de costos            |
-| `docs/EXAMPLES/end-to-end-flow.md`      | Walkthrough completo del pipeline con outputs reales                  |
-| `docs/IMPLEMENTATION_TASKS.md`          | Backlog de sprints con criterios verificables                         |
-| `docs/CHANGELOG-schemas.md`             | Historial de cambios de schemas                                       |
-| `docs/integrations/claude-code-hook.md` | Snippet copy-paste para activar manifest en runtime en Claude Code    |
-| `docs/integrations/cursor-rules.md`     | Los 3 modos de rules en Cursor + estrategia recomendada               |
-| `docs/integrations/opencode-mcp.md`     | Ejemplo de `select_agent_context` desde OpenCode                      |
-| `openspec/changes/agent-manifest/`      | Spec OpenSpec del feature agent-manifest (proposal/design/tasks/spec) |
-| `CONTEXTFORGE_SOURCE_OF_TRUTH.md`       | Decisiones de diseño, arquitectura, roadmap y análisis competitivo    |
+| Documento                                       | Descripción                                                                             |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `docs/explanation/contextforge-and-openspec.md` | **Lectura clave**: 3 roles (CF / OpenSpec / agente), ahorro medido, prompt caching ÷28× |
+| `docs/token-savings-architecture.md`            | Análisis de ahorro de tokens por capas con tabla de costos                              |
+| `docs/EXAMPLES/end-to-end-flow.md`              | Walkthrough completo del pipeline con outputs reales                                    |
+| `docs/IMPLEMENTATION_TASKS.md`                  | Backlog de sprints con criterios verificables                                           |
+| `docs/CHANGELOG-schemas.md`                     | Historial de cambios de schemas                                                         |
+| `docs/integrations/claude-code-hook.md`         | Snippet copy-paste para activar manifest en runtime en Claude Code                      |
+| `docs/integrations/cursor-rules.md`             | Los 3 modos de rules en Cursor + estrategia recomendada                                 |
+| `docs/integrations/opencode-mcp.md`             | Ejemplo de `select_agent_context` desde OpenCode                                        |
+| `openspec/changes/agent-manifest/`              | Spec OpenSpec del feature agent-manifest (proposal/design/tasks/spec)                   |
+| `CONTEXTFORGE_SOURCE_OF_TRUTH.md`               | Decisiones de diseño, arquitectura, roadmap y análisis competitivo                      |
 
 ---
 

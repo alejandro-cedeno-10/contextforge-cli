@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextforge.dev/schemas/spec-input.schema.json",
+  "title": "SpecInput",
+  "description": "Entrada determinista para OpenSpec o un agente IA. Producto de `forge spec`. Combina la tarea, el dominio inferido, archivos del context-pack y referencias auditables al grafo.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "changeId",
+    "task",
+    "domain",
+    "affectedFiles",
+    "crossDomainDeps",
+    "evidence",
+    "generatedAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0.0" },
+    "changeId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Slug del cambio (kebab-case) usado como nombre de directorio en openspec/changes/<changeId>/."
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Dominio inferido a partir de los paths del context-pack (ej. 'packages/core', 'auth')."
+    },
+    "affectedFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason", "mode"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string" },
+          "mode": { "type": "string", "enum": ["full", "excerpt", "summary"] },
+          "purpose": { "type": "string" }
+        }
+      }
+    },
+    "crossDomainDeps": {
+      "type": "object",
+      "required": ["dependsOn", "usedBy"],
+      "additionalProperties": false,
+      "properties": {
+        "dependsOn": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "usedBy": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "contextPackRef",
+        "graphRef",
+        "tokenBudget",
+        "estimatedTokens"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "contextPackRef": { "type": "string", "minLength": 1 },
+        "graphRef": { "type": "string", "minLength": 1 },
+        "tokenBudget": { "type": "integer", "minimum": 1 },
+        "estimatedTokens": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "generatedAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -160,7 +160,7 @@ describe("validateOpenSpecFiles", () => {
     expect(issues.some((i) => i.rule === "missing-delta-section")).toBe(true);
   });
 
-  it("accepts a delta spec that has ADDED Requirements only", () => {
+  it("accepts a delta spec with modern Requirement+Scenario blocks", () => {
     const minimal = [
       {
         path: "openspec/changes/x/proposal.md",
@@ -176,9 +176,79 @@ describe("validateOpenSpecFiles", () => {
       },
       {
         path: "openspec/changes/x/specs/core/spec.md",
-        content: "# S\n## ADDED Requirements\n- foo MUST bar"
+        content: [
+          "# S",
+          "## ADDED Requirements",
+          "### Requirement: Do thing",
+          "The system MUST do thing.",
+          "#### Scenario: it does thing",
+          "- **Given** something",
+          "- **When** doing it",
+          "- **Then** it works"
+        ].join("\n")
       }
     ];
     expect(validateOpenSpecFiles(minimal)).toEqual([]);
+  });
+
+  it("flags delta spec that uses legacy bullet-style requirements", () => {
+    const files = [
+      {
+        path: "openspec/changes/x/proposal.md",
+        content: "# P\n## Intent\nx\n## Scope\ny"
+      },
+      {
+        path: "openspec/changes/x/design.md",
+        content: "# D\n## Technical approach\nz"
+      },
+      {
+        path: "openspec/changes/x/tasks.md",
+        content: "# T\n## Implementation checklist\n- [ ] T1"
+      },
+      {
+        path: "openspec/changes/x/specs/core/spec.md",
+        content:
+          "# S\n## ADDED Requirements\n- The system MUST do thing.\n- The system SHALL do another thing."
+      }
+    ];
+    const issues = validateOpenSpecFiles(files);
+    const rules = issues.map((i) => i.rule);
+    expect(rules).toContain("requirement-block-missing");
+    expect(rules).toContain("legacy-bullet-format");
+  });
+
+  it("flags delta spec with Requirement but missing Scenario", () => {
+    const files = [
+      {
+        path: "openspec/changes/x/proposal.md",
+        content: "# P\n## Intent\nx\n## Scope\ny"
+      },
+      {
+        path: "openspec/changes/x/design.md",
+        content: "# D\n## Technical approach\nz"
+      },
+      {
+        path: "openspec/changes/x/tasks.md",
+        content: "# T\n## Implementation checklist\n- [ ] T1"
+      },
+      {
+        path: "openspec/changes/x/specs/core/spec.md",
+        content:
+          "# S\n## ADDED Requirements\n### Requirement: Do thing\nThe system MUST do thing."
+      }
+    ];
+    const issues = validateOpenSpecFiles(files);
+    expect(issues.some((i) => i.rule === "scenario-block-missing")).toBe(true);
+  });
+
+  it("buildOpenSpec output passes validateOpenSpecFiles (modern format)", () => {
+    const result = buildOpenSpec({
+      changeId: "feat-something",
+      task: "do the thing",
+      affectedFiles: [
+        { path: "packages/core/src/scanner.ts", reason: "seed", mode: "full" }
+      ]
+    });
+    expect(validateOpenSpecFiles(result.files)).toEqual([]);
   });
 });

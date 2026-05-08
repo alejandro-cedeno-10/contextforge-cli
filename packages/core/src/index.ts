@@ -59,6 +59,23 @@ export {
 } from "./spec/openspec.js";
 
 export {
+  buildSpecInput,
+  type SpecInput,
+  type SpecInputOptions,
+  type SpecInputAffectedFile,
+  type SpecInputCrossDomain,
+  type SpecInputEvidence,
+  type ContextPackInput,
+  type ContextPackFile,
+  type GraphInput
+} from "./spec/specInput.js";
+
+export {
+  renderSpecPrompt,
+  type SpecPromptOptions
+} from "./spec/promptRenderer.js";
+
+export {
   validateGuardrails,
   type GuardrailViolation,
   type ValidatorResult,
