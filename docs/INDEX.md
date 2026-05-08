@@ -34,7 +34,8 @@ _Crea archivos en `tutorials/` siguiendo la convención de frontmatter._
 
 Recetas enfocadas en una sola tarea, asumiendo conocimiento básico del repo.
 
-_Crea archivos en `how-to/`._
+- [`use-contextforge.md`](./how-to/use-contextforge.md) — Pipeline completo: instalar, escanear, generar context-pack y conectar agentes.
+- [`agent-manifest-y-skills.md`](./how-to/agent-manifest-y-skills.md) — Cómo el manifest activa skills/rules selectivamente por tarea en Claude Code, Cursor y OpenCode.
 
 ## 📚 Reference (consultar)
 
