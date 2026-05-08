@@ -1,6 +1,6 @@
 {
   "name": "@anai-raia-alex/contextforge-mcp",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "type": "module",
   "description": "MCP server exposing ContextForge graph intelligence to AI agents",
   "bin": {

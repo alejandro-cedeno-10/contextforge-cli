@@ -20,11 +20,14 @@ RUN pnpm install --no-frozen-lockfile
 # Source layer
 COPY packages/core/tsconfig.json packages/core/
 COPY packages/core/src packages/core/src
+COPY packages/core/scripts packages/core/scripts
 COPY packages/mcp/tsconfig.json packages/mcp/
 COPY packages/mcp/src packages/mcp/src
 COPY docs/schemas docs/schemas
 
-# Build core then mcp (cli is not needed in this image)
+# Build core then mcp (cli is not needed in this image).
+# core's build script runs `tsc && node ./scripts/copy-schemas.mjs`, so the
+# scripts dir must be present in the build context — see COPY above.
 RUN pnpm --filter @anai-raia-alex/contextforge-core build \
  && pnpm --filter @anai-raia-alex/contextforge-mcp build
 
