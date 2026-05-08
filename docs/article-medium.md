@@ -18,11 +18,11 @@ Imagínate que cada vez que abres tu IDE, antes de que puedas escribir una líne
 
 Hice la cuenta sobre el repo donde estoy trabajando:
 
-| Acción | Tokens (input) | Costo Claude Sonnet 4.6 |
-|---|---:|---:|
-| Le pides "fix race en tokenLedger writer" | 217 600 | **$0.65** |
-| Lo iteras 3 veces (proposal → review → ajustes) | 652 800 | **$1.96** |
-| 10 features en un sprint | 6 528 000 | **$19.60** |
+| Acción                                          | Tokens (input) | Costo Claude Sonnet 4.6 |
+| ----------------------------------------------- | -------------: | ----------------------: |
+| Le pides "fix race en tokenLedger writer"       |        217 600 |               **$0.65** |
+| Lo iteras 3 veces (proposal → review → ajustes) |        652 800 |               **$1.96** |
+| 10 features en un sprint                        |      6 528 000 |              **$19.60** |
 
 Multiplicalo por tu equipo de 6 personas. Y por el mes. Te llega la factura como un puñetazo cordial.
 
@@ -77,10 +77,10 @@ Edge multipliers: tests pesan más que imports (`tests=1.2`, `imports=0.8`) porq
 
 ¿Resultado en mi repo?
 
-| Sin ContextForge | Con context-pack |
-|---|---|
-| 214 600 tokens | 11 988 tokens |
-| ~$0.64 / sesión | ~$0.036 / sesión |
+| Sin ContextForge      | Con context-pack          |
+| --------------------- | ------------------------- |
+| 214 600 tokens        | 11 988 tokens             |
+| ~$0.64 / sesión       | ~$0.036 / sesión          |
 | 128 archivos enviados | 50 archivos seleccionados |
 
 El agente recibe **50 archivos** específicos en lugar de 128 a ciegas. Y la cuenta de Anthropic respira.
@@ -122,14 +122,14 @@ forge spec mi-feature-id
 
 Y la integración no se queda solo en `validate`. Mi `forge` ahora referencia **6 comandos de OpenSpec** en lugares concretos del flujo:
 
-| Comando OpenSpec | Quién lo invoca / dónde |
-|---|---|
-| `openspec init` | `forge init` lo ejecuta si está y `./openspec/` falta. Idempotente. |
-| `openspec new change <id>` | `forge spec` modo handoff |
-| `openspec instructions <art> --json` | embebido en `spec-prompt.md` |
-| `openspec validate <id>` | step recomendado tras llenar los .md |
-| `openspec list` / `show <id>` | inspección durante el SDD |
-| `openspec archive <id> -y` | al cerrar el PR |
+| Comando OpenSpec                     | Quién lo invoca / dónde                                             |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| `openspec init`                      | `forge init` lo ejecuta si está y `./openspec/` falta. Idempotente. |
+| `openspec new change <id>`           | `forge spec` modo handoff                                           |
+| `openspec instructions <art> --json` | embebido en `spec-prompt.md`                                        |
+| `openspec validate <id>`             | step recomendado tras llenar los .md                                |
+| `openspec list` / `show <id>`        | inspección durante el SDD                                           |
+| `openspec archive <id> -y`           | al cerrar el PR                                                     |
 
 ContextForge se queda con **PageRank + grafo + selección + manifest**. OpenSpec con **estructura + validación + lifecycle**. Tres roles, cero pisones.
 
@@ -156,11 +156,11 @@ Las reglas de matching (priorizadas):
 
 Y la activación es distinta por agente:
 
-| Agente | Cómo se carga | Setup |
-|---|---|---|
-| Claude Code | Hook `UserPromptSubmit` regenera el manifest en cada prompt | Pegar snippet en `.claude/settings.json` |
-| OpenCode | El agente llama tool MCP `select_agent_context({task})` al inicio. **Live, sin disco** | `opencode.json` ya configurado |
-| Cursor | Rule Auto-Attached con `globs:` por dominio. Se activa al abrir un archivo del dominio | Sin setup |
+| Agente      | Cómo se carga                                                                          | Setup                                    |
+| ----------- | -------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Claude Code | Hook `UserPromptSubmit` regenera el manifest en cada prompt                            | Pegar snippet en `.claude/settings.json` |
+| OpenCode    | El agente llama tool MCP `select_agent_context({task})` al inicio. **Live, sin disco** | `opencode.json` ya configurado           |
+| Cursor      | Rule Auto-Attached con `globs:` por dominio. Se activa al abrir un archivo del dominio | Sin setup                                |
 
 ---
 
@@ -322,17 +322,17 @@ Pero un feature normal pasa por **3 iteraciones** (proposal → review → ajust
 
 Claude descuenta 90 % del precio de tokens cacheados. ContextForge mete un boost porque su output **es determinista byte-a-byte**: mismo `forge context` con misma tarea + repo igual → mismo `context-pack.json`. Mismo `forge spec` → mismo `spec-prompt.md`. Eso significa que **entre iteraciones 2, 3 y N, el agente cachea todo el prompt**. Solo paga full por el delta.
 
-| 3 iteraciones de un feature | Costo |
-|---|---:|
-| Sin ContextForge | $1.96 |
-| Con ContextForge + caching | **$0.07** (÷28×) |
+| 3 iteraciones de un feature |            Costo |
+| --------------------------- | ---------------: |
+| Sin ContextForge            |            $1.96 |
+| Con ContextForge + caching  | **$0.07** (÷28×) |
 
 10 features de tamaño medio en un sprint:
 
-| Setup | Costo input tokens |
-|---|---:|
-| Sin ContextForge | ~$20 |
-| Con ContextForge + caching | ~$0.70 |
+| Setup                      | Costo input tokens |
+| -------------------------- | -----------------: |
+| Sin ContextForge           |               ~$20 |
+| Con ContextForge + caching |             ~$0.70 |
 
 Sin lock-in: los `.contextforge/*.json` son JSON validados por schema. Si mañana sale otra herramienta SDD o IDE, los puede consumir igual.
 
@@ -379,6 +379,6 @@ Si tu equipo lo prueba en un sprint y lo medís, **avísame los números** — a
 
 ---
 
-*¿Te sirvió este artículo? Dale clap, compártelo, y dime en los comentarios cuántos tokens ahorraste tú. Lo que me dejen acá termina puliendo el roadmap del proyecto.*
+_¿Te sirvió este artículo? Dale clap, compártelo, y dime en los comentarios cuántos tokens ahorraste tú. Lo que me dejen acá termina puliendo el roadmap del proyecto._
 
-*Repo: [contextforge-cli](https://github.com/alejandro-cedeno-10/contextforge-cli) · npm: [@anai-raia-alex/contextforge-cli](https://www.npmjs.com/package/@anai-raia-alex/contextforge-cli) · Docker: `ghcr.io/alejandro-cedeno-10/contextforge-mcp:latest`*
+_Repo: [contextforge-cli](https://github.com/alejandro-cedeno-10/contextforge-cli) · npm: [@anai-raia-alex/contextforge-cli](https://www.npmjs.com/package/@anai-raia-alex/contextforge-cli) · Docker: `ghcr.io/alejandro-cedeno-10/contextforge-mcp:latest`_

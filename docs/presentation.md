@@ -96,7 +96,7 @@ footer: ContextForge · github.com/alejandro-cedeno-10/contextforge-cli
 <br>
 
 `@anai-raia-alex/contextforge-cli@0.3.3`
-*Alejandro Cedeño · MIT*
+_Alejandro Cedeño · MIT_
 
 ---
 
@@ -123,12 +123,12 @@ Aunque solo vas a tocar uno. Aunque ya lo hicieron ayer.
 
 <br>
 
-| Acción | Tokens (input) | Costo Sonnet 4.6 |
-|---|---:|---:|
-| 1 sesión `fix race en tokenLedger` | 217 600 | **$0.65** |
-| 3 iteraciones (proposal → review → ajustes) | 652 800 | **$1.96** |
-| 10 features en un sprint | 6 528 000 | **$19.60** |
-| × 6 personas del equipo, × 1 mes | ~78M | **~$235** |
+| Acción                                      | Tokens (input) | Costo Sonnet 4.6 |
+| ------------------------------------------- | -------------: | ---------------: |
+| 1 sesión `fix race en tokenLedger`          |        217 600 |        **$0.65** |
+| 3 iteraciones (proposal → review → ajustes) |        652 800 |        **$1.96** |
+| 10 features en un sprint                    |      6 528 000 |       **$19.60** |
+| × 6 personas del equipo, × 1 mes            |           ~78M |        **~$235** |
 
 <br>
 
@@ -197,11 +197,11 @@ forge context "fix race en tokenLedger writer"
 
 <br>
 
-| | Sin ContextForge | Con context-pack |
-|---|---:|---:|
-| Tokens | 214 600 | **11 988** |
-| Costo / sesión | $0.64 | **$0.036** |
-| Archivos | 128 enviados | **50 seleccionados** |
+|                | Sin ContextForge |     Con context-pack |
+| -------------- | ---------------: | -------------------: |
+| Tokens         |          214 600 |           **11 988** |
+| Costo / sesión |            $0.64 |           **$0.036** |
+| Archivos       |     128 enviados | **50 seleccionados** |
 
 <br>
 
@@ -262,14 +262,14 @@ openspec archive mi-feature-id -y  # al cerrar el PR
 
 <br>
 
-| Comando OpenSpec | Quién lo invoca / dónde |
-|---|---|
-| `openspec init` | `forge init` (idempotente) |
-| `openspec new change <id>` | `forge spec` modo handoff |
+| Comando OpenSpec                     | Quién lo invoca / dónde      |
+| ------------------------------------ | ---------------------------- |
+| `openspec init`                      | `forge init` (idempotente)   |
+| `openspec new change <id>`           | `forge spec` modo handoff    |
 | `openspec instructions <art> --json` | embebido en `spec-prompt.md` |
-| `openspec validate <id>` | tras llenar los .md |
-| `openspec list` / `show` | inspección durante el SDD |
-| `openspec archive <id> -y` | al cerrar el PR |
+| `openspec validate <id>`             | tras llenar los .md          |
+| `openspec list` / `show`             | inspección durante el SDD    |
+| `openspec archive <id> -y`           | al cerrar el PR              |
 
 <br>
 
@@ -305,11 +305,11 @@ OpenSpec: **estructura + validación + lifecycle**.
 
 <br>
 
-| Agente | Cómo se carga | Setup |
-|---|---|---|
-| **Claude Code** | Hook `UserPromptSubmit` regenera el manifest en cada prompt | Pegar snippet en `.claude/settings.json` |
-| **OpenCode** | El agente llama tool MCP `select_agent_context({task})` al inicio. **Live, sin disco** | `opencode.json` ya configurado |
-| **Cursor** | Rule Auto-Attached con `globs:` por dominio | Sin setup; `forge context` regenera la rule |
+| Agente          | Cómo se carga                                                                          | Setup                                       |
+| --------------- | -------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **Claude Code** | Hook `UserPromptSubmit` regenera el manifest en cada prompt                            | Pegar snippet en `.claude/settings.json`    |
+| **OpenCode**    | El agente llama tool MCP `select_agent_context({task})` al inicio. **Live, sin disco** | `opencode.json` ya configurado              |
+| **Cursor**      | Rule Auto-Attached con `globs:` por dominio                                            | Sin setup; `forge context` regenera la rule |
 
 <br>
 
@@ -354,10 +354,10 @@ ContextForge produce output **determinista byte-a-byte**:
 
 <br>
 
-| 3 iteraciones de un feature | Costo |
-|---|---:|
-| Sin ContextForge | $1.96 |
-| Con ContextForge + caching | **$0.07** |
+| 3 iteraciones de un feature |     Costo |
+| --------------------------- | --------: |
+| Sin ContextForge            |     $1.96 |
+| Con ContextForge + caching  | **$0.07** |
 
 <div class="big-number" style="font-size: 80px; margin-top: 20px;">÷28×</div>
 
@@ -367,18 +367,18 @@ ContextForge produce output **determinista byte-a-byte**:
 
 <br>
 
-| Métrica | Valor |
-|---|---|
-| Tests | **221 / 221** verde (22 archivos) |
-| Coverage | ≥ 80 % global · `manifest/` y `spec/` ≥ 95 % |
-| Token savings | **94.4 %** vs baseline |
-| Compresión | **17.9×** sesión · **÷28×** SDD con caching |
-| Archivos del repo | 128 |
-| Archivos en pack | 50 |
-| Tokens del pack | 11 988 |
-| Grafo | 368 nodos, 267 edges |
-| Comandos `forge` | 13 |
-| Tools MCP | 7 |
+| Métrica           | Valor                                        |
+| ----------------- | -------------------------------------------- |
+| Tests             | **221 / 221** verde (22 archivos)            |
+| Coverage          | ≥ 80 % global · `manifest/` y `spec/` ≥ 95 % |
+| Token savings     | **94.4 %** vs baseline                       |
+| Compresión        | **17.9×** sesión · **÷28×** SDD con caching  |
+| Archivos del repo | 128                                          |
+| Archivos en pack  | 50                                           |
+| Tokens del pack   | 11 988                                       |
+| Grafo             | 368 nodos, 267 edges                         |
+| Comandos `forge`  | 13                                           |
+| Tools MCP         | 7                                            |
 
 ---
 
@@ -386,11 +386,11 @@ ContextForge produce output **determinista byte-a-byte**:
 
 <br>
 
-| Canal | Identificador |
-|---|---|
-| **npmjs.com** (sin token) | `@anai-raia-alex/contextforge-cli@0.3.3` (también `-core` y `-mcp`) |
+| Canal                         | Identificador                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| **npmjs.com** (sin token)     | `@anai-raia-alex/contextforge-cli@0.3.3` (también `-core` y `-mcp`)            |
 | **GitHub Container Registry** | `ghcr.io/alejandro-cedeno-10/contextforge-mcp:latest` (multi-arch amd64+arm64) |
-| **Repo público** | `github.com/alejandro-cedeno-10/contextforge-cli` |
+| **Repo público**              | `github.com/alejandro-cedeno-10/contextforge-cli`                              |
 
 <br>
 
@@ -431,5 +431,5 @@ forge init
 
 <br>
 
-*Probadlo en un sprint. Avísenme los números.*
-*Las métricas reales son lo único que vende esto al CTO.*
+_Probadlo en un sprint. Avísenme los números._
+_Las métricas reales son lo único que vende esto al CTO._
