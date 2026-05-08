@@ -1,26 +1,26 @@
 ---
-title: "Verificar instalación y features — v0.3.5"
-description: "Comandos para actualizar a v0.3.5 y probar todas las features: viz con agrupación, forge init pipeline, manifest por herramienta, token savings."
+title: "Verificar instalación y features — v0.3.6"
+description: "Comandos para actualizar a v0.3.6 y probar todas las features: viz con agrupación, forge init pipeline con detección de IDEs, manifest por herramienta, token savings."
 audience: dev
 type: how-to
-tags: [release, verification, v0.3.5, install]
+tags: [release, verification, v0.3.6, install]
 updated: 2026-05-08
 ---
 
-# Verificar instalación y features — v0.3.5
+# Verificar instalación y features — v0.3.6
 
-Guía paso a paso para actualizar a `v0.3.5` y confirmar que cada feature
+Guía paso a paso para actualizar a `v0.3.6` y confirmar que cada feature
 funciona correctamente en tu repo.
 
 ## 1. Actualizar
 
 ```bash
 # Global (recomendado para usar `forge` en cualquier repo)
-pnpm add -g @anai-raia-alex/contextforge-cli@0.3.5
+pnpm add -g @anai-raia-alex/contextforge-cli@0.3.6
 
 # Verificar versión
 forge --version
-# → 0.3.5
+# → 0.3.6
 ```
 
 Si usás Docker para el MCP server, actualiza la imagen también:
@@ -45,9 +45,15 @@ forge init
 ContextForge inicializado.
 Generado .contextforge/agent-context.md ...
 
+Herramientas detectadas: claude, cursor, opencode → openspec init usará --tools=claude,cursor,opencode
+OpenSpec inicializado (vía `openspec init . --tools=claude,cursor,opencode --force`).
+
 Indexando repo...
   Escaneados N archivos → .contextforge/scan.json
   Grafo construido → .contextforge/graph.json (X nodos, Y edges)
+
+Generando skills por dominio...
+  Escrito .claude/skills/ctx-<dominio>.md  (una por dominio)
 
 Generando context-pack inicial...
   Context-pack → .contextforge/context-pack.json
@@ -61,6 +67,10 @@ Generando visualización...
 
 Listo. Abre .contextforge/graph.html para ver el grafo del proyecto.
 ```
+
+> **Nota**: `forge init` detecta automáticamente qué AI IDEs están en PATH
+> (`claude`, `cursor`, `opencode`) y le pasa solo esos a `openspec init`.
+> Si no tenés alguno instalado, simplemente no aparece en `--tools`.
 
 **Verificar artefactos generados:**
 

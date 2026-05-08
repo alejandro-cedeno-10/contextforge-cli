@@ -115,6 +115,9 @@ async function cmdInit(): Promise<void> {
   await cmdGraph();
 
   const projectName = path.basename(process.cwd());
+  console.log("\nGenerando skills por dominio...");
+  await cmdSkills(["--force"]);
+
   console.log("\nGenerando context-pack inicial...");
   await cmdContext(projectName + " — initial overview");
 
@@ -135,6 +138,20 @@ async function maybeRunOpenSpecInit(): Promise<void> {
     return;
   }
 
+  const detectedTools = detectInstalledAiTools();
+  const toolsFlag =
+    detectedTools.length > 0 ? detectedTools.join(",") : "claude";
+
+  if (detectedTools.length > 0) {
+    console.log(
+      `\nHerramientas detectadas: ${detectedTools.join(", ")} → openspec init usará --tools=${toolsFlag}`
+    );
+  } else {
+    console.log(
+      "\nNo se detectó ningún AI IDE en PATH. Usando --tools=claude por defecto."
+    );
+  }
+
   let openspecExists = false;
   try {
     await fs.access(path.join(process.cwd(), "openspec"));
@@ -145,26 +162,25 @@ async function maybeRunOpenSpecInit(): Promise<void> {
 
   if (openspecExists) {
     console.log(
-      "\nOpenSpec ya está inicializado en este repo (./openspec/ existe)."
+      "\nOpenSpec ya está inicializado (./openspec/ existe). Re-corriendo init para sincronizar tools..."
     );
-    return;
   }
 
   const result = safeOpenSpecExec([
     "init",
     ".",
     "--tools",
-    "claude,cursor,opencode",
+    toolsFlag,
     "--force"
   ]);
   if (result.ok) {
     console.log(
-      "\nOpenSpec inicializado (vía `openspec init . --tools=claude,cursor,opencode --force`)."
+      `\nOpenSpec inicializado (vía \`openspec init . --tools=${toolsFlag} --force\`).`
     );
   } else {
     console.warn(
       `\n[init] openspec init falló (no es bloqueante):\n  ${result.error}\n` +
-        `[init] puedes correrlo a mano: openspec init .`
+        `[init] puedes correrlo a mano: openspec init . --tools=${toolsFlag}`
     );
   }
 }
@@ -489,16 +505,25 @@ async function cmdContext(
   }
 }
 
-function isOpenSpecCliAvailable(): boolean {
+function isCliAvailable(cmd: string): boolean {
   try {
-    execSync("openspec --version", {
-      stdio: "ignore",
-      windowsHide: true
-    });
+    execSync(`${cmd} --version`, { stdio: "ignore", windowsHide: true });
     return true;
   } catch {
     return false;
   }
+}
+
+function isOpenSpecCliAvailable(): boolean {
+  return isCliAvailable("openspec");
+}
+
+function detectInstalledAiTools(): string[] {
+  const tools: string[] = [];
+  if (isCliAvailable("claude")) tools.push("claude");
+  if (isCliAvailable("cursor")) tools.push("cursor");
+  if (isCliAvailable("opencode")) tools.push("opencode");
+  return tools;
 }
 
 function safeOpenSpecExec(

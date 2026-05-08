@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.3.6] — 2026-05-08
+
+### Added
+
+- **`forge init` — detección automática de AI IDEs instalados.**
+  `openspec init` ahora recibe solo los tools que están en PATH
+  (`claude`, `cursor`, `opencode`). Si ninguno se detecta, usa `claude`
+  como fallback. Muestra en consola qué herramientas encontró.
+
+### Changed
+
+- **`forge init` — siempre regenera skills (`--force`) y re-corre `openspec init`.**
+  Antes saltaba `openspec init` si `./openspec/` ya existía; ahora lo vuelve a
+  correr con `--force` para sincronizar los tools detectados.
+  Las skills se sobreescriben en cada `forge init` para reflejar el grafo actual.
+
+---
+
 ## [0.3.5] — 2026-05-08
 
 ### Added
@@ -20,9 +38,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   dominio → sub-carpetas → archivos (★ si está en el context-pack).
 
 - **`forge init` — pipeline completo automático.**
-  Un solo `forge init` ejecuta `scan → graph → context → viz` en secuencia.
-  Ideal para onboarding en un repo nuevo. Los comandos individuales siguen
-  existiendo para uso incremental.
+  Un solo `forge init` ejecuta `scan → graph → skills → context → viz` en
+  secuencia. Incluye generación de skills por dominio, por lo que el manifest
+  queda con skills activas desde el primer run. Los comandos individuales
+  siguen existiendo para uso incremental.
 
 - **`docs/how-to/agent-manifest-y-skills.md`** — nueva guía que explica la
   activación selectiva de skills por tarea, los archivos escritos por
