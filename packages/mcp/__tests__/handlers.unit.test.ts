@@ -415,3 +415,32 @@ describe("forgeChangeSubgraph", () => {
     expect(result.content[0].text).toContain("Invalid change_id");
   });
 });
+
+describe("forgeStatus — change subgraph awareness", () => {
+  it("lists OpenSpec changes that ship a frozen subgraph", async () => {
+    const root = await newWorkspace();
+    await writeArtifacts(root); // creates basic .contextforge artifacts
+    const changeDir = path.join(root, "openspec", "changes", "demo-change");
+    await mkdir(changeDir, { recursive: true });
+    await writeFile(
+      path.join(changeDir, "graph.subset.json"),
+      JSON.stringify({
+        stats: { nodesTotal: 42, edgesTotal: 17 }
+      })
+    );
+    // Another directory without subgraph — should not be listed.
+    await mkdir(path.join(root, "openspec", "changes", "no-subgraph"), {
+      recursive: true
+    });
+
+    const { forgeStatus } = createHandlers(root);
+    const result = await forgeStatus();
+    const text = result.content[0].text;
+
+    expect(text).toContain("OpenSpec changes with frozen subgraph");
+    expect(text).toContain("demo-change");
+    expect(text).toContain("42 nodes");
+    expect(text).toContain('forge_change_subgraph({ change_id: "demo-change" })');
+    expect(text).not.toContain("no-subgraph");
+  });
+});

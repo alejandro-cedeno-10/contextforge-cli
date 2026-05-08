@@ -588,6 +588,48 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
       }
     }
 
+    // Active OpenSpec changes that ship with a frozen subgraph — agents
+    // should prefer these over the global graph for change-scoped work.
+    try {
+      const changesDir = path.join(root, "openspec", "changes");
+      const entries = await fs.readdir(changesDir, { withFileTypes: true });
+      const withSubgraph: Array<{ id: string; nodes: number; edges: number }> = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const subgraphPath = path.join(
+          changesDir,
+          entry.name,
+          "graph.subset.json"
+        );
+        try {
+          const raw = await fs.readFile(subgraphPath, "utf8");
+          const parsed = JSON.parse(raw) as {
+            stats?: { nodesTotal?: number; edgesTotal?: number };
+          };
+          withSubgraph.push({
+            id: entry.name,
+            nodes: parsed.stats?.nodesTotal ?? 0,
+            edges: parsed.stats?.edgesTotal ?? 0
+          });
+        } catch {
+          // change without subgraph — skip
+        }
+      }
+      if (withSubgraph.length > 0) {
+        lines.push(``, `## OpenSpec changes with frozen subgraph`);
+        lines.push(
+          `**Prefer \`forge_change_subgraph\` for these — it's cheaper and self-contained.**`
+        );
+        for (const c of withSubgraph) {
+          lines.push(
+            `- \`${c.id}\` — ${c.nodes} nodes, ${c.edges} edges → \`forge_change_subgraph({ change_id: "${c.id}" })\``
+          );
+        }
+      }
+    } catch {
+      // no openspec/changes dir — skip
+    }
+
     lines.push(
       ``,
       `## Quick start`,

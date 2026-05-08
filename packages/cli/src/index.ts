@@ -688,6 +688,50 @@ async function cmdSpec(
 
   const changeDir = path.join(process.cwd(), "openspec", "changes", changeId);
   await fs.mkdir(changeDir, { recursive: true });
+
+  const cliAvailable = !forceFallback && isOpenSpecCliAvailable();
+  let openSpecScaffolded = false;
+
+  if (cliAvailable) {
+    const newChange = safeOpenSpecExec(["new", "change", changeId]);
+    if (!newChange.ok) {
+      console.warn(
+        `[spec] openspec new change ${changeId} falló:\n  ${newChange.error}\n` +
+          `[spec] cayendo al modo fallback (genero el scaffold yo).`
+      );
+      await runFallbackScaffold({ changeId, task, affectedFiles, subset });
+    } else {
+      openSpecScaffolded = true;
+      const instructions = safeOpenSpecExec([
+        "instructions",
+        "proposal",
+        "--change",
+        changeId,
+        "--json"
+      ]);
+      const promptBody = renderSpecPrompt({
+        specInput,
+        openSpecInstructions: instructions.ok ? instructions.out : ""
+      });
+      await writeText(outputPath("spec-prompt.md"), promptBody);
+      console.log("Escrito .contextforge/spec-prompt.md");
+
+      console.log(
+        `\nEsqueleto creado (openspec new change ${changeId}).\n` +
+          `Pega .contextforge/spec-prompt.md en tu agente IA.\n` +
+          `Cuando termine:\n` +
+          `  openspec validate ${changeId}\n` +
+          `  pnpm forge implement ${changeId}`
+      );
+    }
+  } else {
+    await runFallbackScaffold({ changeId, task, affectedFiles, subset });
+  }
+
+  // Subgraph + context.md are written AFTER OpenSpec's `new change` so that
+  // any scaffolding side-effects (directory recreation, file overwrites)
+  // can't clobber them. They are the contract that lets agents working on
+  // openspec/changes/<id>/ stay self-contained.
   if (subset) {
     const generatedAt = new Date().toISOString();
     const subgraphPayload = {
@@ -722,44 +766,94 @@ async function cmdSpec(
     console.log(
       `Escrito openspec/changes/${changeId}/graph.subset.html (visualizable en navegador)`
     );
-  }
 
-  const cliAvailable = !forceFallback && isOpenSpecCliAvailable();
-
-  if (cliAvailable) {
-    const newChange = safeOpenSpecExec(["new", "change", changeId]);
-    if (!newChange.ok) {
-      console.warn(
-        `[spec] openspec new change ${changeId} falló:\n  ${newChange.error}\n` +
-          `[spec] cayendo al modo fallback (genero el scaffold yo).`
-      );
-      await runFallbackScaffold({ changeId, task, affectedFiles, subset });
-    } else {
-      const instructions = safeOpenSpecExec([
-        "instructions",
-        "proposal",
-        "--change",
+    await writeText(
+      path.join(changeDir, "context.md"),
+      renderChangeContextMd({
         changeId,
-        "--json"
-      ]);
-      const promptBody = renderSpecPrompt({
-        specInput,
-        openSpecInstructions: instructions.ok ? instructions.out : ""
-      });
-      await writeText(outputPath("spec-prompt.md"), promptBody);
-      console.log("Escrito .contextforge/spec-prompt.md");
-
-      console.log(
-        `\nEsqueleto creado (openspec new change ${changeId}).\n` +
-          `Pega .contextforge/spec-prompt.md en tu agente IA.\n` +
-          `Cuando termine:\n` +
-          `  openspec validate ${changeId}\n` +
-          `  pnpm forge implement ${changeId}`
-      );
-    }
-  } else {
-    await runFallbackScaffold({ changeId, task, affectedFiles, subset });
+        task,
+        focus: subset.focus,
+        stats: subset.stats,
+        scaffoldedBy: openSpecScaffolded ? "openspec" : "fallback"
+      })
+    );
+    console.log(
+      `Escrito openspec/changes/${changeId}/context.md (mapa para agentes)`
+    );
   }
+}
+
+function renderChangeContextMd(args: {
+  changeId: string;
+  task: string;
+  focus: string[];
+  stats: {
+    nodesTotal: number;
+    edgesTotal: number;
+    depth: number;
+    nodesByType: Record<string, number>;
+    edgesByType: Record<string, number>;
+  };
+  scaffoldedBy: "openspec" | "fallback";
+}): string {
+  const { changeId, task, focus, stats, scaffoldedBy } = args;
+  const focusList = focus
+    .slice(0, 12)
+    .map((f) => `- \`${f}\``)
+    .join("\n");
+  const focusMore =
+    focus.length > 12 ? `\n- _… y ${focus.length - 12} más en \`./graph.subset.json:focus\`_` : "";
+
+  return `# Contexto del change \`${changeId}\`
+
+> Mapa rápido para agentes IA y revisores. Generado por \`forge spec\`.
+> Scaffold por: **${scaffoldedBy}**.
+
+## Tarea
+
+${task}
+
+## Lectura recomendada (en orden)
+
+| # | Archivo | Para qué |
+| - | ------- | -------- |
+| 1 | \`./proposal.md\` | Intent, scope, evidencia. Lectura humana. |
+| 2 | \`./design.md\` | Decisiones técnicas. Incluye sección "Context graph (subset)". |
+| 3 | \`./graph.subset.json\` | **Subgrafo del change** (${stats.nodesTotal} nodos, ${stats.edgesTotal} aristas, depth ${stats.depth}). Self-contained, validado por JSON Schema. |
+| 4 | \`./graph.subset.html\` | Misma data, visualizable en navegador (Cytoscape standalone). |
+| 5 | \`./tasks.md\` | Checklist de implementación. |
+| 6 | \`./specs/<domain>/spec.md\` | Requirement+Scenario formal. \`openspec validate\` lo lee. |
+
+## Artefactos globales referenciados
+
+Solo si necesitas más allá del subgrafo del change:
+
+| Path | Qué es |
+| ---- | ------ |
+| \`../../.contextforge/graph.json\` | Grafo completo del repo en el momento del spec. \`scanRef\` en el subset apunta a este hash. |
+| \`../../.contextforge/context-pack.json\` | Selección PageRank que originó \`focus\`. |
+| \`../../.contextforge/agent-manifest.json\` | Skills/rules activas para esta tarea. |
+| \`../../.contextforge/implement-plan.json\` | Guardrails (\`allowedFiles\`, \`maxLocDelta\`) — generado por \`forge implement\`. |
+
+## Vía MCP (preferido para agentes)
+
+\`\`\`jsonc
+// Lectura programática del subgrafo de este change:
+{ "tool": "forge_change_subgraph", "arguments": { "change_id": "${changeId}" } }
+
+// Solo si el subgrafo no responde lo que necesitas:
+{ "tool": "forge_neighbors",       "arguments": { "file_path": "<path>" } }
+{ "tool": "forge_context",         "arguments": { "task": "<refinamiento>" } }
+\`\`\`
+
+## Focus files (semilla del subgrafo)
+
+${focusList}${focusMore}
+
+---
+
+**Política**: empieza siempre por \`./graph.subset.json\` (o el tool MCP). Solo cae a \`.contextforge/graph.json\` global cuando el subgrafo demuestre ser insuficiente para tu pregunta concreta.
+`;
 }
 
 async function runFallbackScaffold({

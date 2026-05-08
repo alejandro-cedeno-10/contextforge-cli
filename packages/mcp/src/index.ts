@@ -40,7 +40,7 @@ const server = new McpServer(
 
 server.tool(
   "forge_context",
-  "Ranks and selects the most relevant source files for a given task using the pre-built ContextForge dependency graph and Personalized PageRank. Returns a prioritized file list with mode (full/excerpt/summary) that fits a token budget. Use this instead of loading the entire codebase.",
+  "Ranks and selects the most relevant source files for a given task using the pre-built ContextForge dependency graph and Personalized PageRank. Returns a prioritized file list with mode (full/excerpt/summary) that fits a token budget. Use this instead of loading the entire codebase. NOTE: if you are working on an existing OpenSpec change (you see openspec/changes/<id>/), prefer `forge_change_subgraph` first — it returns the frozen, change-scoped subgraph and is much cheaper than recomputing context.",
   {
     task: z
       .string()
@@ -74,7 +74,7 @@ server.tool(
 
 server.tool(
   "forge_neighbors",
-  "Returns the direct neighbors of a file in the dependency graph: what it imports, what imports it, what tests it, and what symbols it defines. Use this to navigate the codebase without reading files.",
+  "Returns the direct neighbors of a file in the dependency graph: what it imports, what imports it, what tests it, and what symbols it defines. Use this to navigate the codebase without reading files. NOTE: when implementing/reviewing an OpenSpec change, call `forge_change_subgraph` FIRST — it gives you the entire frozen scope of the change in one call. Only use `forge_neighbors` after that if you need to walk one specific edge further.",
   {
     file_path: z
       .string()
@@ -111,7 +111,7 @@ server.tool(
 
 server.tool(
   "forge_status",
-  "Returns the current state of all ContextForge artifacts: scan freshness, graph stats, context pack summary, and implement-plan status. Use this at the start of a session to understand what's already been prepared.",
+  "Returns the current state of all ContextForge artifacts: scan freshness, graph stats, context pack summary, implement-plan status, AND a list of OpenSpec changes that have a frozen subgraph (openspec/changes/<id>/graph.subset.json). Use this at the start of a session — if it lists active changes, your next call should usually be `forge_change_subgraph` for the relevant one.",
   {},
   handlers.forgeStatus
 );
@@ -125,13 +125,13 @@ server.tool(
 
 server.tool(
   "forge_change_subgraph",
-  "Returns the frozen subgraph stored alongside an OpenSpec change at openspec/changes/<id>/graph.subset.json. Use this when reviewing or implementing a change to see exactly which files, symbols and dependencies were in scope when the spec was authored — without re-reading the global graph.",
+  "PRIMARY tool when working on an OpenSpec change. Returns the frozen subgraph stored at openspec/changes/<id>/graph.subset.json — exactly the files, symbols, packages and dependencies that were in scope when the spec was authored. Always call this BEFORE forge_context / forge_neighbors when implementing or reviewing a change: it is one cheap call that already answers \"what does this change touch and what does it depend on?\". The companion artefacts in the same directory (proposal.md, design.md, tasks.md, specs/<domain>/spec.md, context.md, graph.subset.html) are the canonical reading order — see context.md for the map.",
   {
     change_id: z
       .string()
       .min(1)
       .describe(
-        "OpenSpec change identifier (the directory name under openspec/changes/)"
+        "OpenSpec change identifier (the directory name under openspec/changes/, e.g. \"fix-token-race\")"
       )
   },
   handlers.forgeChangeSubgraph
