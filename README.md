@@ -2,7 +2,7 @@
 
 Token-efficient CLI que convierte cualquier repositorio en un índice consultable de conocimiento. Produce artefactos JSON validados — grafo de dependencias, paquete de contexto, spec OpenSpec, plan de implementación — listos para ser consumidos por cualquier agente de IA (Claude Code, OpenCode, Cursor, Codex).
 
-**Ahorro verificado:** 90 % de tokens vs. carga completa del repo (`full_repo_dump`).
+**Ahorro verificado:** 94.4 % de tokens vs. carga completa del repo (`full_repo_dump`) · ratio de compresión 17.9×.
 
 ---
 
@@ -50,26 +50,32 @@ pnpm forge docs
 
 # 10. Auto-generar skills por dominio para Claude Code
 pnpm forge skills
+
+# 11. Generar agent-manifest (skills/rules relevantes a la tarea actual)
+#     Nota: forge context ya lo genera automáticamente. Este comando lo regenera
+#     a partir del context-pack actual sin re-rankear archivos.
+pnpm forge manifest
 ```
 
 ---
 
 ## Comandos
 
-| Comando                              | Descripción                                                                                  | LLM requerido |
-| ------------------------------------ | -------------------------------------------------------------------------------------------- | ------------- |
-| `forge init`                         | Inicializa `.contextforge/` con directorios y plantillas                                     | No            |
-| `forge scan`                         | Indexa archivos con hashes BLAKE3, detecta lenguaje y tipo                                   | No            |
-| `forge graph`                        | Construye grafo de dependencias (nodos file/symbol, 5 edge types)                            | No            |
-| `forge context "<tarea>"`            | Selecciona archivos relevantes via PageRank + BFS + presupuesto                              | No            |
-| `forge spec <id>`                    | Genera spec en formato OpenSpec (`changes/<id>/`) con evidencia del grafo                    | No            |
-| `forge implement <id>`               | Produce plan con guardrails derivados del context-pack                                       | No            |
-| `forge implement --check`            | Valida cambios del agente contra guardrails                                                  | No            |
-| `forge viz`                          | Genera visualización HTML interactiva del grafo                                              | No            |
-| `forge docs [--force]`               | Scaffold de documentación Diátaxis (tutorials/how-to/reference/explanation/adr/architecture) | No            |
-| `forge skills [--force]`             | Auto-genera skills por dominio en `.claude/skills/ctx-*.md` para auto-loading en Claude Code | No            |
-| `forge sync [--since X] [--rebuild]` | Reporta delta desde un ref de git (por defecto `HEAD~1`) y dominios afectados                | No            |
-| `forge impact`                       | Health check de artifacts + cobertura de skills por dominio                                  | No            |
+| Comando                                             | Descripción                                                                                                                | LLM requerido |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `forge init`                                        | Inicializa `.contextforge/` con directorios y plantillas                                                                   | No            |
+| `forge scan`                                        | Indexa archivos con hashes BLAKE3, detecta lenguaje y tipo                                                                 | No            |
+| `forge graph`                                       | Construye grafo de dependencias (nodos file/symbol, 5 edge types)                                                          | No            |
+| `forge context "<tarea>" [--no-manifest] [--force]` | Selecciona archivos relevantes via PageRank + BFS + presupuesto · genera agent-manifest auto (opt-out con `--no-manifest`) | No            |
+| `forge spec <id>`                                   | Genera spec en formato OpenSpec (`changes/<id>/`) con evidencia del grafo                                                  | No            |
+| `forge implement <id>`                              | Produce plan con guardrails derivados del context-pack                                                                     | No            |
+| `forge implement --check`                           | Valida cambios del agente contra guardrails                                                                                | No            |
+| `forge viz`                                         | Genera visualización HTML interactiva del grafo                                                                            | No            |
+| `forge docs [--force]`                              | Scaffold de documentación Diátaxis (tutorials/how-to/reference/explanation/adr/architecture)                               | No            |
+| `forge skills [--force]`                            | Auto-genera skills por dominio en `.claude/skills/ctx-*.md` para auto-loading en Claude Code                               | No            |
+| `forge manifest [--agents=...] [--force]`           | Selecciona skills/rules relevantes a la tarea + emite renderers Claude/Cursor/OpenCode                                     | No            |
+| `forge sync [--since X] [--rebuild]`                | Reporta delta desde un ref de git (por defecto `HEAD~1`) y dominios afectados                                              | No            |
+| `forge impact`                                      | Health check de artifacts + cobertura de skills por dominio                                                                | No            |
 
 ---
 
@@ -79,12 +85,17 @@ Todos los JSON son validados con JSON Schema 2020-12 antes de escribirse.
 
 ```
 .contextforge/
-  scan.json            # archivos indexados con hashes BLAKE3
-  graph.json           # nodos (file + symbol) y edges tipados
-  context-pack.json    # archivos seleccionados dentro del presupuesto
-  token-ledger.json    # métricas de ahorro de tokens vs baseline
-  implement-plan.json  # guardrails: allowedFiles, maxLocDelta, etc.
-  graph.html           # visualización interactiva (Cytoscape.js)
+  scan.json                  # archivos indexados con hashes BLAKE3
+  graph.json                 # nodos (file + symbol) y edges tipados
+  context-pack.json          # archivos seleccionados dentro del presupuesto
+  token-ledger.json          # métricas de ahorro de tokens vs baseline
+  implement-plan.json        # guardrails: allowedFiles, maxLocDelta, etc.
+  agent-manifest.json        # skills/rules relevantes a la tarea (neutral)
+  graph.html                 # visualización interactiva (Cytoscape.js)
+  manifests/opencode-readme.md  # instrucciones MCP para OpenCode
+
+.claude/agent-manifest.md           # manifest renderer Claude Code
+.cursor/rules/contextforge-active.mdc  # rule auto-attached por dominios tocados
 
 openspec/changes/<id>/
   proposal.md          # intent, scope, por qué
@@ -93,7 +104,7 @@ openspec/changes/<id>/
   specs/<domain>/spec.md  # delta spec: ADDED / MODIFIED / REMOVED requirements
 ```
 
-Resultado real en este repo: 70 archivos → 30 seleccionados → 11 700 tokens (ahorro 90.3 %).
+Resultado real en este repo (medido sobre el commit actual): **128 archivos → 50 seleccionados → 11 988 tokens** (ahorro 94.4 %, ratio 17.9×). Grafo: 368 nodos, 267 edges.
 
 ### Schemas
 
@@ -104,6 +115,7 @@ Resultado real en este repo: 70 archivos → 30 seleccionados → 11 700 tokens 
 | `context-pack.json`   | `docs/schemas/context-pack.schema.json`   |
 | `implement-plan.json` | `docs/schemas/implement-plan.schema.json` |
 | `token-ledger.json`   | `docs/schemas/token-ledger.schema.json`   |
+| `agent-manifest.json` | `docs/schemas/agent-manifest.schema.json` |
 
 ---
 
@@ -118,8 +130,8 @@ CAPA 1 — Preparación (una vez, 0 tokens):
   forge context → PageRank + BFS + presupuesto
 
 CAPA 2 — Context pack (por sesión del agente):
-  Sin ContextForge:  ~121 000 tokens  →  ~$0.36/sesión
-  Con context-pack:  ~11 700 tokens   →  ~$0.035/sesión  (90% ahorro)
+  Sin ContextForge:  ~214 600 tokens  →  ~$0.64/sesión (Claude Sonnet 4.6)
+  Con context-pack:  ~11 988 tokens   →  ~$0.036/sesión (94.4 % ahorro, 17.9× compresión)
 ```
 
 Ver `docs/token-savings-architecture.md` para análisis completo con tabla de costos por modelo.
@@ -212,6 +224,40 @@ tags: [packages/core, domain-skill]
 
 ---
 
+## Agent manifest por tarea (`forge manifest`)
+
+`forge context "<tarea>"` ya emite **automáticamente** un agent-manifest derivado del context-pack. El manifest declara qué skills y rules son relevantes para esa tarea, computado de forma determinista a partir de los dominios tocados.
+
+```bash
+pnpm forge context "fix race en tokenLedger"
+# → .contextforge/context-pack.json
+# → .contextforge/agent-manifest.json    (neutral, validado contra schema)
+# → .claude/agent-manifest.md            (Claude Code)
+# → .cursor/rules/contextforge-active.mdc  (Cursor Auto Attached)
+# → .contextforge/manifests/opencode-readme.md  (OpenCode MCP)
+
+pnpm forge manifest --force                       # regenera sin re-rankear
+pnpm forge manifest --agents=cursor               # solo Cursor
+pnpm forge context "..." --no-manifest            # opt-out
+```
+
+**Cómo se activa por sesión** (sin pasos manuales):
+
+- **Claude Code**: hook `UserPromptSubmit` (ver `docs/integrations/claude-code-hook.md`) inyecta el manifest en el contexto de cada prompt.
+- **OpenCode**: el agente llama `select_agent_context({ task })` como primera tool MCP — manifest computado live, sin tocar disco.
+- **Cursor**: `.cursor/rules/contextforge-active.mdc` se activa automáticamente cuando abres un archivo de los dominios tocados (Auto Attached).
+
+**Reglas de matching** (priorizadas):
+
+1. `alwaysApply: true` → siempre incluida.
+2. `domains: [...]` (frontmatter) ∩ dominios tocados → `matchType: domain`.
+3. Skill llamada `ctx-<slug>` cuyo slug deslugificado matchea un dominio tocado → `matchType: explicit` (retrocompatible con `forge skills`).
+4. Sin match → cae en `skipped` con razón.
+
+Frontmatter mal formado nunca crashea: el archivo cae en `skipped` con `frontmatter parse error`.
+
+---
+
 ## Grafo interactivo (`forge viz`)
 
 `forge viz` genera `.contextforge/graph.html` — abre en cualquier navegador, sin servidor.
@@ -249,15 +295,18 @@ Edge multipliers: `tests=1.2 · defines=1.0 · calls=1.0 · imports=0.8 · refer
 
 ```
 packages/
-  core/         → scanner, parser tree-sitter, graph builder,
-                  selector PageRank, packer, schema validator
-  cli/          → comandos forge, orquestación del pipeline
-  mcp/          → servidor MCP con 5 tools para agentes
-  integrations/ → adaptadores (OpenCode como referencia)
+  core/   → scanner, parser tree-sitter, graph builder, selector PageRank,
+            packer, schema validator, skill builder, agent-manifest builder + renderers
+  cli/    → comandos forge, orquestación del pipeline (cmdContext, cmdManifest...)
+  mcp/    → servidor MCP con 7 tools para agentes
 
-.claude/skills/    → 3 skills concisas para Claude Code
-.cursor/rules/     → reglas para que Cursor use los artifacts
+.claude/skills/    → 3 skills task-oriented (contextforge-*) +
+                     N skills auto-generadas por dominio (ctx-*) +
+                     agent-manifest.md (per-task)
+.cursor/rules/     → contextforge.mdc (alwaysApply) +
+                     contextforge-active.mdc (Auto Attached, regenerada por tarea)
 opencode.json      → configuración MCP para OpenCode
+docs/integrations/ → guías de wiring por agente (claude-code-hook, cursor-rules, opencode-mcp)
 ```
 
 ---
@@ -269,9 +318,9 @@ pnpm test               # todos los tests
 pnpm test --coverage    # con cobertura
 ```
 
-Suite actual: **120/120 tests pasando**, coverage ≥ 80 % en todas las métricas.
+Suite actual: **202/202 tests pasando** (20 archivos), coverage global ≥ 80 % · módulo `manifest/` ≥ 95 %.
 
-Áreas cubiertas: scanner · graph builder · selector PageRank · packer · schema validator · spec render · OpenSpec · treeSitter parser · scanCache · implementValidator · MCP handlers.
+Áreas cubiertas: scanner · graph builder · selector PageRank · packer · schema validator · spec render · OpenSpec · treeSitter parser · scanCache · implementValidator · MCP handlers · skill builder · agent manifest + 3 renderers · CLI type-surface anti-regression.
 
 ---
 
@@ -288,46 +337,58 @@ Suite actual: **120/120 tests pasando**, coverage ≥ 80 % en todas las métrica
 
 ## Integración con agentes de IA
 
-| Agente            | Configuración                                          | Estado        |
-| ----------------- | ------------------------------------------------------ | ------------- |
-| **Claude Code**   | `.claude/skills/contextforge-*.md` (3 skills concisas) | ✅ Listo      |
-| **Cursor**        | `.cursor/rules/contextforge.mdc` (alwaysApply)         | ✅ Listo      |
-| **OpenCode**      | `opencode.json` con MCP server registrado              | ✅ Listo      |
-| **Codex / otros** | Leen `.contextforge/*.json` directamente               | ✅ Compatible |
+| Agente            | Configuración                                                                                          | Selección por tarea                               | Estado        |
+| ----------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------- | ------------- |
+| **Claude Code**   | `.claude/skills/` (3 task-oriented + N auto-generadas) · hook `UserPromptSubmit` (ver docs)            | ✅ Hook inyecta manifest live + JSON precomputado | ✅ Listo      |
+| **Cursor**        | `.cursor/rules/contextforge.mdc` (alwaysApply) + `contextforge-active.mdc` (Auto Attached por dominio) | ⚠️ Limitada (sin hooks reactivos al prompt)       | ✅ Listo      |
+| **OpenCode**      | `opencode.json` con MCP server registrado                                                              | ✅ Tool MCP `select_agent_context({task})` live   | ✅ Listo      |
+| **Codex / otros** | Leen `.contextforge/*.json` directamente                                                               | Lectura directa de `agent-manifest.json`          | ✅ Compatible |
 
-Los artefactos JSON en `.contextforge/` son portables — cualquier agente los puede consumir sin modificación.
+Los artefactos JSON en `.contextforge/` son portables — cualquier agente los puede consumir sin modificación. Ver `docs/integrations/` para guías de wiring por agente.
 
 ---
 
-## Próximamente
+## Servidor MCP
 
-**MCP Server** — queries quirúrgicas al grafo durante la implementación (97 % de ahorro adicional):
+`packages/mcp` expone **7 tools** consumibles por cualquier cliente MCP (Claude Code, OpenCode, etc.):
 
 ```json
 {
   "mcpServers": {
     "contextforge": {
-      "command": "npx",
-      "args": ["@alejandro-cedeno-10/contextforge-mcp"],
+      "command": "node",
+      "args": ["packages/mcp/dist/index.js"],
       "env": { "PROJECT_ROOT": "." }
     }
   }
 }
 ```
 
-Tools: `forge_status` · `forge_domain_map` · `forge_neighbors` · `forge_context` · `forge_check`
+| Tool                   | Propósito                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `forge_status`         | Estado de los artefactos (frescura, conteos, savings)                                     |
+| `forge_domain_map`     | Mapa de dominios + dependencias cruzadas                                                  |
+| `forge_neighbors`      | Vecinos directos de un archivo en el grafo                                                |
+| `forge_context`        | Selección PageRank para una tarea (con o sin contenido)                                   |
+| `forge_check`          | Valida git diff contra guardrails del implement-plan                                      |
+| `select_agent_context` | **Runtime**: computa agent-manifest en memoria para una tarea (cache mtime de scan/graph) |
+| `get_agent_manifest`   | **Offline**: lee `.contextforge/agent-manifest.json` precomputado                         |
 
 ---
 
 ## Documentación
 
-| Documento                            | Descripción                                                        |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| `docs/token-savings-architecture.md` | Análisis de ahorro de tokens por capas con tabla de costos         |
-| `docs/EXAMPLES/end-to-end-flow.md`   | Walkthrough completo del pipeline con outputs reales               |
-| `docs/IMPLEMENTATION_TASKS.md`       | Backlog de sprints con criterios verificables                      |
-| `docs/CHANGELOG-schemas.md`          | Historial de cambios de schemas                                    |
-| `CONTEXTFORGE_SOURCE_OF_TRUTH.md`    | Decisiones de diseño, arquitectura, roadmap y análisis competitivo |
+| Documento                               | Descripción                                                           |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `docs/token-savings-architecture.md`    | Análisis de ahorro de tokens por capas con tabla de costos            |
+| `docs/EXAMPLES/end-to-end-flow.md`      | Walkthrough completo del pipeline con outputs reales                  |
+| `docs/IMPLEMENTATION_TASKS.md`          | Backlog de sprints con criterios verificables                         |
+| `docs/CHANGELOG-schemas.md`             | Historial de cambios de schemas                                       |
+| `docs/integrations/claude-code-hook.md` | Snippet copy-paste para activar manifest en runtime en Claude Code    |
+| `docs/integrations/cursor-rules.md`     | Los 3 modos de rules en Cursor + estrategia recomendada               |
+| `docs/integrations/opencode-mcp.md`     | Ejemplo de `select_agent_context` desde OpenCode                      |
+| `openspec/changes/agent-manifest/`      | Spec OpenSpec del feature agent-manifest (proposal/design/tasks/spec) |
+| `CONTEXTFORGE_SOURCE_OF_TRUTH.md`       | Decisiones de diseño, arquitectura, roadmap y análisis competitivo    |
 
 ---
 
