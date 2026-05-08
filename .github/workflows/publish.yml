@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Type-check (project references)
+        run: pnpm typecheck
+
       - name: Build all packages
         run: pnpm build
 

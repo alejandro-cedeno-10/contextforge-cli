@@ -218,11 +218,19 @@ async function cmdContext(
     budget: BUDGET
   });
 
-  const allFileNodes = graphRaw.nodes.filter((n) => n.type === "file");
-  const baselineTokens = allFileNodes.reduce((sum, n) => {
-    const scan = scanRaw.files.find((f) => f.path === n.path);
-    return sum + Math.max(20, Math.ceil((scan?.size ?? 500) / 4));
-  }, 0);
+  type GraphFileNode = (typeof graphRaw.nodes)[number];
+  type ScanFileEntry = (typeof scanRaw.files)[number];
+
+  const allFileNodes = graphRaw.nodes.filter(
+    (n: GraphFileNode) => n.type === "file"
+  );
+  const baselineTokens = allFileNodes.reduce(
+    (sum: number, n: GraphFileNode) => {
+      const scan = scanRaw.files.find((f: ScanFileEntry) => f.path === n.path);
+      return sum + Math.max(20, Math.ceil((scan?.size ?? 500) / 4));
+    },
+    0
+  );
 
   const packedTokens = selected.estimatedTokens;
   const absoluteTokens = baselineTokens - packedTokens;
@@ -243,7 +251,7 @@ async function cmdContext(
       maxInputTokens: BUDGET,
       estimatedTokens: packedTokens
     },
-    files: selected.files.map((f) => ({
+    files: selected.files.map((f: (typeof selected.files)[number]) => ({
       path: f.path,
       reason: f.reason,
       mode: f.mode,
@@ -252,7 +260,10 @@ async function cmdContext(
   };
 
   const byMode = selected.files.reduce(
-    (counts, f) => ({
+    (
+      counts: { full: number; excerpt: number; summary: number },
+      f: (typeof selected.files)[number]
+    ) => ({
       ...counts,
       [f.mode]: (counts[f.mode as keyof typeof counts] ?? 0) + 1
     }),
@@ -304,7 +315,7 @@ async function cmdContext(
     console.log("");
     await generateAgentManifest({
       task,
-      packedFiles: pack.files.map((f) => ({ path: f.path })),
+      packedFiles: pack.files.map((f: { path: string }) => ({ path: f.path })),
       force: manifestForce
     });
   }
@@ -331,7 +342,10 @@ async function cmdSpec(changeId = "change-1"): Promise<void> {
   const issues = validateOpenSpecFiles(result.files);
   if (issues.length > 0) {
     const detail = issues
-      .map((i) => `  - [${i.rule}] ${i.file}: ${i.detail}`)
+      .map(
+        (i: { rule: string; file: string; detail: string }) =>
+          `  - [${i.rule}] ${i.file}: ${i.detail}`
+      )
       .join("\n");
     throw new Error(
       `OpenSpec output failed conformance check:\n${detail}\n` +
@@ -784,7 +798,7 @@ async function cmdManifest(args: string[] = []): Promise<void> {
 
   await generateAgentManifest({
     task: pack.task ?? "tarea sin descripcion",
-    packedFiles: (pack.files ?? []).map((f) => ({ path: f.path })),
+    packedFiles: (pack.files ?? []).map((f: PackFile) => ({ path: f.path })),
     agents,
     force
   });
@@ -1147,7 +1161,8 @@ const isDirectRun =
 if (isDirectRun) {
   runCommand(process.argv[2], process.argv.slice(3)).catch((error: unknown) => {
     if (error instanceof SchemaValidationError) {
-      console.error(`[forge] schema validation failed: ${error.message}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[forge] schema validation failed: ${msg}`);
       process.exit(2);
     }
     console.error(error);
