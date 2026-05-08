@@ -18,13 +18,17 @@ export { blake3Hex, blake3HexFromFile } from "./hash.js";
 export {
   detectLanguageFromPath,
   parseFile,
+  PARSER_VERSION,
   type ParseFileResult,
   type ParserCapture,
   type ImportStatement,
   type ParserEngine,
   type ParserLanguage,
   type ParseFileOptions,
-  type FallbackReason
+  type FallbackReason,
+  type HeritageRelation,
+  type HeritageKind,
+  type CallSite
 } from "./parser/treeSitter.js";
 
 export {
@@ -32,8 +36,46 @@ export {
   type BuildGraphResult,
   type GraphNode,
   type GraphEdge,
-  type EdgeType
+  type EdgeType,
+  type ParserEngineLabel
 } from "./graph/builder.js";
+
+export {
+  loadCache as loadGraphCache,
+  saveCache as saveGraphCache,
+  emptyCache as emptyGraphCache,
+  GRAPH_CACHE_FILE,
+  type GraphCache,
+  type FileGraphFragment,
+  type FileParseFragment
+} from "./graph/cache.js";
+
+export {
+  exportToDot,
+  exportToGraphML,
+  type ExportableGraph
+} from "./graph/exporters.js";
+
+export {
+  loadTsconfigPaths,
+  resolveTsconfigAlias,
+  type TsconfigPaths,
+  type TsconfigPathRule
+} from "./graph/tsconfigPaths.js";
+
+export {
+  enrichGraphSymbols,
+  selectEnrichmentTargets,
+  type EnrichmentEntry,
+  type EnrichmentOptions,
+  type EnrichmentResult
+} from "./graph/enrich.js";
+
+export {
+  extractChangeSubgraph,
+  type SubgraphResult,
+  type ExtractSubgraphOptions
+} from "./graph/subset.js";
 
 export {
   selectContext,

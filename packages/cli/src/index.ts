@@ -14,12 +14,18 @@ import {
   buildOpenSpec,
   buildSpecInput,
   buildSyncReport,
+  enrichGraphSymbols,
+  exportToDot,
+  exportToGraphML,
+  extractChangeSubgraph,
   getDomain,
+  loadGraphCache,
   renderClaude,
   renderCursor,
   renderOpenCode,
   renderSDD,
   renderSpecPrompt,
+  saveGraphCache,
   selectContext,
   validateGuardrails,
   validateOpenSpecFiles,
@@ -34,7 +40,12 @@ import {
   validateOrThrow
 } from "@anai-raia-alex/contextforge-core";
 
-import { generateVizHtml, type VizNode, type VizEdge } from "./htmlTemplate.js";
+import {
+  generateSubsetHtml,
+  generateVizHtml,
+  type VizNode,
+  type VizEdge
+} from "./htmlTemplate.js";
 
 async function ensureDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
@@ -82,6 +93,12 @@ function parseFlags(args: string[]): {
   while (i < args.length) {
     const arg = args[i];
     if (arg.startsWith("--")) {
+      const eq = arg.indexOf("=");
+      if (eq !== -1) {
+        flags[arg.slice(2, eq)] = arg.slice(eq + 1);
+        i++;
+        continue;
+      }
       const key = arg.slice(2);
       if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
         flags[key] = args[i + 1];
@@ -295,7 +312,25 @@ async function cmdScan(): Promise<void> {
   console.log("Escrito .contextforge/scan.json");
 }
 
-async function cmdGraph(): Promise<void> {
+async function cmdGraph(args: string[] = []): Promise<void> {
+  const { flags } = parseFlags(args);
+  const force = flags["force"] === true;
+  const withCalls = flags["with-calls"] === true;
+  const withRefs = flags["with-refs"] === true;
+  const enrich = flags["enrich"] === true;
+  const exportFormatRaw = flags["export"];
+  const exportFormat =
+    typeof exportFormatRaw === "string" ? exportFormatRaw.toLowerCase() : null;
+  if (exportFormat && exportFormat !== "dot" && exportFormat !== "graphml") {
+    throw new Error(
+      `--export expects "dot" or "graphml" (got "${exportFormat}")`
+    );
+  }
+  const useStderr = exportFormat !== null;
+  const log = useStderr
+    ? (msg: string): void => console.error(msg)
+    : (msg: string): void => console.log(msg);
+
   const scanPath = outputPath("scan.json");
   let scanRaw: string;
   try {
@@ -310,43 +345,80 @@ async function cmdGraph(): Promise<void> {
   validateOrThrow("scan", scan);
   const scanHash = blake3Hex(scanRaw);
 
-  try {
-    const existingGraphRaw = await fs.readFile(
-      outputPath("graph.json"),
-      "utf8"
-    );
-    const existingGraph = JSON.parse(existingGraphRaw) as {
-      scanRef?: { path?: string; scanHash?: string };
-    };
-    validateOrThrow("graph", existingGraph);
-    if (existingGraph.scanRef?.scanHash === scanHash) {
-      console.log("[graph] unchanged scan hash; skipping rebuild");
-      return;
-    }
-  } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      (error as { code?: string }).code === "ENOENT"
-    ) {
-      // Missing previous graph: continue and rebuild.
-    } else if (
-      error instanceof SyntaxError ||
-      error instanceof SchemaValidationError
-    ) {
-      // Invalid previous graph: continue and rebuild.
-    } else {
-      throw error;
+  if (!force) {
+    try {
+      const existingGraphRaw = await fs.readFile(
+        outputPath("graph.json"),
+        "utf8"
+      );
+      const existingGraph = JSON.parse(existingGraphRaw) as {
+        scanRef?: { path?: string; scanHash?: string };
+      };
+      validateOrThrow("graph", existingGraph);
+      if (
+        existingGraph.scanRef?.scanHash === scanHash &&
+        !enrich &&
+        !exportFormat
+      ) {
+        log("[graph] unchanged scan hash; skipping rebuild");
+        return;
+      }
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        (error as { code?: string }).code === "ENOENT"
+      ) {
+        // Missing previous graph: continue and rebuild.
+      } else if (
+        error instanceof SyntaxError ||
+        error instanceof SchemaValidationError
+      ) {
+        // Invalid previous graph: continue and rebuild.
+      } else {
+        throw error;
+      }
     }
   }
 
-  const graphData = await buildGraph({ root: process.cwd(), scan });
+  const root = process.cwd();
+  const cache = force ? null : await loadGraphCache(root);
+  const graphData = await buildGraph({
+    root,
+    scan,
+    cache,
+    withCalls,
+    withRefs
+  });
+
+  if (enrich) {
+    const apiKey = process.env["ANTHROPIC_API_KEY"];
+    if (!apiKey) {
+      throw new Error(
+        "--enrich requires ANTHROPIC_API_KEY in the environment."
+      );
+    }
+    log("[graph] enriching symbols via Anthropic API...");
+    const enrichment = await enrichGraphSymbols(graphData.nodes, { apiKey });
+    let applied = 0;
+    for (const node of graphData.nodes) {
+      const entry = enrichment.entries[node.id];
+      if (!entry) continue;
+      node.summary = entry.summary;
+      node.tags = entry.tags;
+      node.complexity = entry.complexity;
+      applied++;
+    }
+    log(
+      `[graph] enriched ${applied}/${enrichment.symbolsProcessed} symbols in ${enrichment.apiCalls} API call(s)`
+    );
+  }
 
   const graph = {
     schemaVersion: SCHEMA_VERSIONS.graph,
     project: {
-      name: path.basename(process.cwd()),
+      name: path.basename(root),
       root: "."
     },
     generatedAt: new Date().toISOString(),
@@ -362,7 +434,20 @@ async function cmdGraph(): Promise<void> {
 
   validateOrThrow("graph", graph);
   await writeJson(outputPath("graph.json"), graph);
-  console.log("Escrito .contextforge/graph.json");
+  await saveGraphCache(root, graphData.cacheUpdate);
+  log(
+    `Escrito .contextforge/graph.json (cache: ${graphData.cacheStats.reused} reutilizados, ${graphData.cacheStats.reparsed} reparseados)`
+  );
+
+  if (exportFormat === "dot") {
+    process.stdout.write(
+      exportToDot({ nodes: graphData.nodes, edges: graphData.edges })
+    );
+  } else if (exportFormat === "graphml") {
+    process.stdout.write(
+      exportToGraphML({ nodes: graphData.nodes, edges: graphData.edges })
+    );
+  }
 }
 
 async function cmdContext(
@@ -591,6 +676,54 @@ async function cmdSpec(
   await writeJson(outputPath("spec-input.json"), specInput);
   console.log("Escrito .contextforge/spec-input.json");
 
+  // Build a self-contained subgraph for the change so the OpenSpec change
+  // directory carries its own context (skills/prompts reading
+  // openspec/changes/<id>/ don't need to also load .contextforge/graph.json).
+  const subset = graph
+    ? extractChangeSubgraph(graph, {
+        focusFiles: affectedFiles.map((f) => f.path),
+        depth: 1
+      })
+    : null;
+
+  const changeDir = path.join(process.cwd(), "openspec", "changes", changeId);
+  await fs.mkdir(changeDir, { recursive: true });
+  if (subset) {
+    const generatedAt = new Date().toISOString();
+    const subgraphPayload = {
+      schemaVersion: SCHEMA_VERSIONS.graphSubset,
+      changeId,
+      generatedAt,
+      graphRef: ".contextforge/graph.json",
+      focus: subset.focus,
+      stats: subset.stats,
+      nodes: subset.nodes,
+      edges: subset.edges
+    };
+    validateOrThrow("graph-subset", subgraphPayload);
+    await writeJson(
+      path.join(changeDir, "graph.subset.json"),
+      subgraphPayload
+    );
+    console.log(
+      `Escrito openspec/changes/${changeId}/graph.subset.json (${subset.stats.nodesTotal} nodos, ${subset.stats.edgesTotal} aristas)`
+    );
+
+    const subsetHtml = generateSubsetHtml({
+      changeId,
+      generatedAt,
+      task,
+      nodes: subset.nodes,
+      edges: subset.edges,
+      stats: subset.stats,
+      focus: subset.focus
+    });
+    await writeText(path.join(changeDir, "graph.subset.html"), subsetHtml);
+    console.log(
+      `Escrito openspec/changes/${changeId}/graph.subset.html (visualizable en navegador)`
+    );
+  }
+
   const cliAvailable = !forceFallback && isOpenSpecCliAvailable();
 
   if (cliAvailable) {
@@ -600,7 +733,7 @@ async function cmdSpec(
         `[spec] openspec new change ${changeId} falló:\n  ${newChange.error}\n` +
           `[spec] cayendo al modo fallback (genero el scaffold yo).`
       );
-      await runFallbackScaffold({ changeId, task, affectedFiles });
+      await runFallbackScaffold({ changeId, task, affectedFiles, subset });
     } else {
       const instructions = safeOpenSpecExec([
         "instructions",
@@ -625,20 +758,35 @@ async function cmdSpec(
       );
     }
   } else {
-    await runFallbackScaffold({ changeId, task, affectedFiles });
+    await runFallbackScaffold({ changeId, task, affectedFiles, subset });
   }
 }
 
 async function runFallbackScaffold({
   changeId,
   task,
-  affectedFiles
+  affectedFiles,
+  subset
 }: {
   changeId: string;
   task: string;
   affectedFiles: Array<{ path: string; reason: string; mode: string }>;
+  subset?: {
+    stats: {
+      nodesTotal: number;
+      edgesTotal: number;
+      nodesByType: Record<string, number>;
+      edgesByType: Record<string, number>;
+      depth: number;
+    };
+  } | null;
 }): Promise<void> {
-  const result = buildOpenSpec({ changeId, task, affectedFiles });
+  const result = buildOpenSpec({
+    changeId,
+    task,
+    affectedFiles,
+    graphSubset: subset ?? undefined
+  });
   const issues = validateOpenSpecFiles(result.files);
   if (issues.length > 0) {
     const detail = issues
@@ -1387,7 +1535,7 @@ function printUsage(): void {
   console.log(`Uso:
   pnpm forge init
   pnpm forge scan
-  pnpm forge graph
+  pnpm forge graph [--force] [--with-calls] [--with-refs] [--enrich] [--export=<dot|graphml>]
   pnpm forge context [task] [--no-manifest] [--force]
   pnpm forge spec [change-id]
   pnpm forge implement [change-id]
@@ -1413,7 +1561,7 @@ export async function runCommand(
       await cmdScan();
       break;
     case "graph":
-      await cmdGraph();
+      await cmdGraph(args);
       break;
     case "context":
       await cmdContext(args[0], args.slice(1));

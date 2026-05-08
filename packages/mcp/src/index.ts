@@ -124,6 +124,20 @@ server.tool(
 );
 
 server.tool(
+  "forge_change_subgraph",
+  "Returns the frozen subgraph stored alongside an OpenSpec change at openspec/changes/<id>/graph.subset.json. Use this when reviewing or implementing a change to see exactly which files, symbols and dependencies were in scope when the spec was authored — without re-reading the global graph.",
+  {
+    change_id: z
+      .string()
+      .min(1)
+      .describe(
+        "OpenSpec change identifier (the directory name under openspec/changes/)"
+      )
+  },
+  handlers.forgeChangeSubgraph
+);
+
+server.tool(
   "select_agent_context",
   "Computes the agent manifest in-memory for the given task — no files written. Returns skills and rules relevant to the task based on the project graph. Use at the start of a conversation or when the task changes.",
   {

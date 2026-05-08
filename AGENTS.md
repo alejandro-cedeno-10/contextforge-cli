@@ -28,6 +28,13 @@ Build and maintain a token-efficient CLI that generates:
 
 - `forge scan` must not call any LLM.
 - `forge graph` should stay deterministic by default.
+  - `--force`: rebuilds from scratch, ignoring scan-hash cache and per-file
+    cache. Use it after editing the parser or to debug.
+  - `--with-calls`: opt-in detection of `calls` edges via regex. The default
+    output never includes `calls` — keep it that way unless the consumer
+    explicitly asked for them; the heuristic is noisier than `imports`.
+  - The per-file cache lives at `.contextforge/graph.cache.json` and is
+    invalidated automatically when the parser version bumps. Don't commit it.
 - `forge context` may summarize only when budget requires it.
 - `forge spec` **prepares the input** for OpenSpec — it does not duplicate
   OpenSpec's logic. With `openspec` CLI in PATH it delegates scaffolding to

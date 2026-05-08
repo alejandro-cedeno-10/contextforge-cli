@@ -143,7 +143,10 @@ interface PlanArtifact {
   tasks: unknown[];
 }
 
-type ToolResult = { content: [{ type: "text"; text: string }] };
+type ToolResult = {
+  content: [{ type: "text"; text: string }];
+  isError?: boolean;
+};
 
 // ─── pure helpers ─────────────────────────────────────────────────────────────
 
@@ -678,6 +681,46 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     };
   }
 
+  async function forgeChangeSubgraph({
+    change_id
+  }: {
+    change_id: string;
+  }): Promise<ToolResult> {
+    if (!/^[a-zA-Z0-9._-]+$/.test(change_id)) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Invalid change_id: ${change_id}. Allowed: [a-zA-Z0-9._-]`
+          }
+        ],
+        isError: true
+      };
+    }
+    const subsetPath = path.join(
+      root,
+      "openspec",
+      "changes",
+      change_id,
+      "graph.subset.json"
+    );
+    let raw: string;
+    try {
+      raw = await fs.readFile(subsetPath, "utf8");
+    } catch {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `No subgraph found at ${subsetPath}. Run \`forge spec ${change_id}\` first.`
+          }
+        ],
+        isError: true
+      };
+    }
+    return { content: [{ type: "text", text: raw }] };
+  }
+
   return {
     forgeContext,
     forgeNeighbors,
@@ -685,6 +728,7 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     forgeCheck,
     forgeStatus,
     getAgentManifest,
-    selectAgentContext
+    selectAgentContext,
+    forgeChangeSubgraph
   };
 }

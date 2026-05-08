@@ -59,7 +59,12 @@ describe("parseFile", () => {
     expect(result.language).toBe("typescript");
     expect(result.ast).toMatchObject({ engine: "heuristic" });
     expect(result.captures).toEqual([
-      { type: "function_declaration", name: "buildGraph", line: 1 }
+      {
+        type: "function_declaration",
+        name: "buildGraph",
+        line: 1,
+        exported: true
+      }
     ]);
   });
 
@@ -101,7 +106,12 @@ describe("parseFile", () => {
     expect(result.ok).toBe(true);
     expect(result.language).toBe("python");
     expect(result.captures).toEqual([
-      { type: "class_definition", name: "Agent", line: 1 }
+      {
+        type: "class_definition",
+        name: "Agent",
+        line: 1,
+        exported: true
+      }
     ]);
   });
 

@@ -5,6 +5,147 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Added — Subgrafo por OpenSpec change (`forge spec`)
+
+- **`openspec/changes/<id>/graph.subset.json`.**
+  `forge spec` ahora extrae un subgrafo limitado al context-pack del change
+  (1-hop por aristas `imports`/`extends`/`implements`/`tests`/`calls`/`references`)
+  y lo escribe **dentro del directorio del change**, junto a
+  `proposal/design/tasks/specs`. El subset es self-contained y byte-estable.
+
+- **`openspec/changes/<id>/graph.subset.html`.**
+  Viewer interactivo standalone con los archivos del change resaltados. Reusa
+  el motor de `forge viz` (Cytoscape vía CDN, sin servidor). Abrirlo en el
+  navegador da revisión visual instantánea: qué tocó este change, sus deps
+  directas, símbolos exportados vs internos, paquetes externos. Sustituye al
+  dashboard rico de Understand-Anything pero determinista.
+
+- **`design.md` incluye sección "Context graph (subset)".**
+  Stats tabulares + referencias al `graph.subset.json` (datos), al
+  `graph.subset.html` (visual) y al tool MCP. Las skills y prompts que leen
+  `openspec/changes/<id>/` no necesitan saltar a `.contextforge/graph.json`.
+
+- **MCP tool `forge_change_subgraph({ change_id })`.**
+  Octavo tool del servidor MCP. Lee el subset y lo devuelve crudo, ideal para
+  agentes que arrancan una sesión de implementación con el contexto exacto
+  congelado al momento de la autorización del spec.
+
+- **Schema `graph-subset.schema.json`.**
+  Nuevo schema JSON registrado en el validator
+  (`SCHEMA_VERSIONS.graphSubset = "1.0.0"`). Valida `changeId`, `focus`,
+  `stats`, `nodes`, `edges`, `graphRef`.
+
+- **+11 tests** entre `graphSubset.unit.test.ts`, `handlers.unit.test.ts` y
+  el nuevo `subsetHtml.unit.test.ts`. Suite total: **260/260** (26 archivos).
+
+### Why
+
+Sin esto, el spec capturaba un momento del repo pero el grafo (la prueba de
+ese momento) vivía fuera del change y mutaba libremente. Si alguien
+refactorizaba el grafo seis meses después, no se podía reproducir cómo se
+veía cuando el spec fue aprobado. El subset cierra la trazabilidad.
+
+---
+
+## [0.3.7] — 2026-05-08
+
+### Added — Phase A · B · C (capa estructural)
+
+- **`forge graph` — flag `--force`.**
+  Ignora el cache global por hash del scan y el cache por archivo. Reconstruye
+  desde cero. Útil al editar el parser o para depurar.
+
+- **`forge graph` — flag `--with-calls`.**
+  Detección opt-in de aristas `calls` con regex (heurística, ruido aceptado).
+  El default queda determinista y limpio; los `calls` solo aparecen cuando se
+  pide explícitamente.
+
+- **`forge graph` — cache por archivo.**
+  Nuevo `.contextforge/graph.cache.json` con fragments parseados por archivo
+  (key = hash BLAKE3 del archivo). Las aristas cross-file (`imports`,
+  `extends`, `implements`, `calls`) se recomputan siempre. Invalidación
+  automática cuando el `parserVersion` o el `schemaVersion` del grafo bumpea.
+
+- **Aristas `extends` / `implements`.**
+  Se emiten cuando el parent se resuelve en el mismo archivo o en uno
+  importado. TS, JS, JSX, TSX, Java, Python.
+
+- **Nodos `folder` y aristas `contains`.**
+  Sintéticos, derivados del path. Permiten navegación jerárquica en el HTML
+  viewer (toggle `+ Carpetas`).
+
+- **`exported` real por símbolo.**
+  Antes hardcodeado a `true`. Ahora viene del análisis: detecta `export` /
+  `pub` / mayúscula inicial (Go) / `_` (Python).
+
+- **`parser.engine` real.**
+  Reporta `"heuristic"` cuando hubo archivos parseados, `"none"` cuando no
+  hubo nada code/test parseable. Antes era constante.
+
+- **HTML viewer — folders + símbolos internos.**
+  Estilo dedicado para nodos `folder` (cuadrado tenue) y para símbolos
+  `exported:false` (dashed con opacidad reducida). Toggle "+ Carpetas" en la
+  barra de filtros (off por defecto). Leyenda extendida con conteo.
+
+### Added — Tier 4 (resolución, exports, LLM opt-in)
+
+- **`forge graph` — flag `--with-refs`.**
+  Aristas `references` opt-in (PascalCase, fuera de imports/definiciones).
+  Resolución igual que `calls`: símbolo local primero, luego vía `imports`.
+
+- **`forge graph` — flag `--export=<dot|graphml>`.**
+  Imprime el grafo a stdout en formato Graphviz DOT o GraphML para Gephi.
+  Combinable con `--force`/`--with-*`. Logs pasan a stderr en modo export.
+
+- **Resolución por `tsconfig.paths`.**
+  Lee `tsconfig.json` (con soporte JSONC: comentarios y trailing commas) y
+  resuelve alias como `@/foo`, `~lib/util`, etc. usando `compilerOptions.paths`
+  + `baseUrl`.
+
+- **Nodos `package` para imports externos.**
+  Cada import que no resuelve a workspace ni a path relativo emite un nodo
+  `type=package` único (ej. `react`, `node:fs`, `@scope/lib`) y una arista
+  `imports`. Permite ver las deps externas reales desde el grafo.
+
+- **`forge graph --enrich` (opt-in).**
+  Capa LLM **opt-in** (única excepción al default determinista). Llama la
+  Anthropic API directamente con `fetch` (sin SDK) y agrega `summary`,
+  `tags[1-3]`, `complexity` a símbolos exportados (clases/interfaces/funciones).
+  Selecciona hasta 100 símbolos priorizando arquitectura. Requiere
+  `ANTHROPIC_API_KEY`. Usa prompt caching para amortizar instrucciones
+  repetidas entre batches.
+
+- **Schema graph.json — campos opcionales `summary` / `tags` / `complexity`.**
+  Aditivo, backward-compatible. Solo aparecen cuando se corrió `--enrich`.
+
+### Performance
+
+- **Parsing paralelo en `forge graph`.**
+  El bucle secuencial `for…await parseFile` se reemplazó por `pLimit` interno
+  con concurrencia `min(cpus, 8)`. Solo aplica a archivos no cacheados.
+
+- **Output byte-estable run a run.**
+  Nodos y aristas se ordenan al final por `id` y `(from, to, type)`. Dos
+  corridas del mismo scan producen JSON byte-idéntico (excluyendo
+  `generatedAt`), lo que mantiene el prompt cache de Claude válido entre
+  iteraciones del SDD.
+
+### Roadmap restante
+
+- **Tree-sitter WASM real** sigue como roadmap futuro. Hoy el parser es
+  heurístico (regex). Migrar a `web-tree-sitter` con grammars descargables
+  permitiría detectar más casos (closures, decorators, JSX, generics complejos)
+  sin tocar la API pública del builder. Es trabajo dedicado, no incluido aquí.
+
+### Tests
+
+- **+28 tests** entre `graphBuilder`, `graphCache` y `graphTier4`.
+  Suite total: **248/248** (24 archivos).
+
+---
+
 ## [0.3.6] — 2026-05-08
 
 ### Added

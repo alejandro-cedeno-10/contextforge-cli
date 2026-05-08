@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextforge.dev/schemas/graph-subset.schema.json",
+  "title": "GraphSubset",
+  "description": "Subgrafo congelado para un OpenSpec change. Producido por `forge spec` y vive en openspec/changes/<id>/graph.subset.json.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "changeId",
+    "generatedAt",
+    "graphRef",
+    "focus",
+    "stats",
+    "nodes",
+    "edges"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "changeId": { "type": "string" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "graphRef": {
+      "type": "string",
+      "description": "Path al graph.json global del cual se derivó este subset."
+    },
+    "focus": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths del context-pack que sirvieron como semilla."
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodesTotal", "edgesTotal", "depth"],
+      "properties": {
+        "nodesTotal": { "type": "integer", "minimum": 0 },
+        "edgesTotal": { "type": "integer", "minimum": 0 },
+        "depth": { "type": "integer", "minimum": 0 },
+        "nodesByType": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "edgesByType": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "label"],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(file|symbol|folder|package):.+"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["file", "symbol", "folder", "package"]
+        },
+        "label": { "type": "string" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["from", "to", "type"],
+      "additionalProperties": true,
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "defines",
+            "imports",
+            "calls",
+            "references",
+            "tests",
+            "contains",
+            "extends",
+            "implements"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -121,6 +121,21 @@
             "startLine": { "type": "integer", "minimum": 1 },
             "endLine": { "type": "integer", "minimum": 1 }
           }
+        },
+        "summary": {
+          "type": "string",
+          "description": "Solo con --enrich: resumen LLM (1 oracion, <=200 chars)."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Solo con --enrich: 1-3 tags lowercase del catalogo.",
+          "items": { "type": "string" },
+          "maxItems": 3
+        },
+        "complexity": {
+          "type": "string",
+          "description": "Solo con --enrich: complejidad inferida.",
+          "enum": ["low", "medium", "high"]
         }
       }
     },

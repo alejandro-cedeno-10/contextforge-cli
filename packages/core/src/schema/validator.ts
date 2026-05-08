@@ -24,7 +24,8 @@ export type SchemaName =
   | "implement-plan"
   | "token-ledger"
   | "agent-manifest"
-  | "spec-input";
+  | "spec-input"
+  | "graph-subset";
 
 export interface ValidationResult {
   valid: boolean;
@@ -57,7 +58,8 @@ const SCHEMA_FILES: Readonly<Record<SchemaName, string>> = {
   "implement-plan": "implement-plan.schema.json",
   "token-ledger": "token-ledger.schema.json",
   "agent-manifest": "agent-manifest.schema.json",
-  "spec-input": "spec-input.schema.json"
+  "spec-input": "spec-input.schema.json",
+  "graph-subset": "graph-subset.schema.json"
 };
 
 function defaultSchemaDir(): string {

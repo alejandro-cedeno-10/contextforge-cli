@@ -5,6 +5,7 @@ export interface VizNode {
   path?: string;
   kind?: string;
   lang?: string;
+  exported?: boolean;
 }
 
 export interface VizEdge {
@@ -218,6 +219,7 @@ main{flex:1;position:relative;overflow:hidden}
         <div class="filter-row">
           <button class="btn active" id="btn-pack-only" onclick="togglePackOnly()">Solo pack</button>
           <button class="btn" id="btn-symbols" onclick="toggleSymbols()">+ Simbolos</button>
+          <button class="btn" id="btn-folders" onclick="toggleFolders()">+ Carpetas</button>
           <button class="btn" id="btn-groups" onclick="toggleGroups()">Agrupar</button>
         </div>
         <div class="filter-row">
@@ -316,6 +318,7 @@ const packMap = new Map(PACK_FILES.map(f => ['file:' + f.path, f]));
 // ─── state ───────────────────────────────────────────────────────────────────
 
 let showSymbols = false;
+let showFolders = false;
 let showPackOnly = true;
 let currentView = 'graph';
 let cy = null;
@@ -469,6 +472,7 @@ function buildElements() {
     const inPack = packSet.has(n.id);
     if (showPackOnly && n.type === 'file' && !inPack) continue;
     if (!showSymbols && n.type === 'symbol') continue;
+    if (!showFolders && n.type === 'folder') continue;
 
     if (showGroups && n.type === 'file' && n.path) {
       const domain = getDomain(n.path);
@@ -497,6 +501,7 @@ function buildElements() {
       kind: n.kind || 'unknown',
       lang: n.lang || '',
       ntype: n.type,
+      exported: n.exported,
       inPack,
       packReason: pf ? pf.reason : '',
       packMode:   pf ? pf.mode : '',
@@ -508,9 +513,11 @@ function buildElements() {
       nodeData.parent = sub ? 'grp:' + domain + '/' + sub : 'grp:' + domain;
     }
 
+    const classNames = [n.type, n.kind || 'unknown', inPack ? 'in-pack' : ''];
+    if (n.type === 'symbol' && n.exported === false) classNames.push('unexported');
     els.push({
       data: nodeData,
-      classes: [n.type, n.kind || 'unknown', inPack ? 'in-pack' : ''].join(' ').trim(),
+      classes: classNames.filter(Boolean).join(' ').trim(),
     });
     visibleIds.add(n.id);
   }
@@ -574,6 +581,14 @@ function makeGraphStyle() {
     { selector: 'node.symbol', style: {
       'shape': 'round-rectangle', 'width': '14px', 'height': '14px',
       'font-size': '8px', 'background-color': '#21262d', 'border-color': '#30363d', 'border-width': '1px',
+    }},
+    { selector: 'node.folder', style: {
+      'shape': 'round-rectangle', 'width': '34px', 'height': '20px',
+      'background-color': '#161b22', 'border-color': '#484f58', 'border-width': '1px',
+      'font-size': '9px', 'font-weight': 'bold', 'color': '#c9d1d9',
+    }},
+    { selector: 'node.symbol.unexported', style: {
+      'opacity': 0.55, 'border-style': 'dashed',
     }},
     { selector: 'node.in-pack', style: {
       'border-width': '3px', 'border-color': '#f0883e',
@@ -802,6 +817,12 @@ function toggleSymbols() {
   refresh();
 }
 
+function toggleFolders() {
+  showFolders = !showFolders;
+  document.getElementById('btn-folders').classList.toggle('active', showFolders);
+  refresh();
+}
+
 function toggleGroups() {
   showGroups = !showGroups;
   document.getElementById('btn-groups').classList.toggle('active', showGroups);
@@ -987,12 +1008,27 @@ function updateStats() {
 
 function buildLegends() {
   const nodeEl = document.getElementById('legend-nodes');
-  nodeEl.innerHTML = Object.entries(KINDS).map(([k, v]) => {
+  const kindHtml = Object.entries(KINDS).map(([k, v]) => {
     const count = RAW_GRAPH.nodes.filter(n => n.kind === k).length;
     if (!count) return '';
     return '<div class="legend-item"><span class="dot" style="background:' + v.color + ';border:2px solid ' + v.border + '"></span><span>' + v.label + '</span><span class="legend-count">' + count + '</span></div>';
-  }).join('') +
-  '<div class="legend-item"><span class="dot" style="background:#161b22;border:3px solid #f0883e"></span><span>En context-pack</span><span class="legend-count">' + PACK_FILES.length + '</span></div>';
+  }).join('');
+
+  const folderCount = RAW_GRAPH.nodes.filter(n => n.type === 'folder').length;
+  const folderHtml = folderCount
+    ? '<div class="legend-item"><span class="dot" style="background:#161b22;border:2px solid #484f58;border-radius:3px"></span><span>Carpeta</span><span class="legend-count">' + folderCount + '</span></div>'
+    : '';
+
+  const unexportedCount = RAW_GRAPH.nodes.filter(n => n.type === 'symbol' && n.exported === false).length;
+  const unexportedHtml = unexportedCount
+    ? '<div class="legend-item"><span class="dot" style="background:#21262d;border:2px dashed #30363d"></span><span>Símbolo interno</span><span class="legend-count">' + unexportedCount + '</span></div>'
+    : '';
+
+  const packHtml = PACK_FILES.length
+    ? '<div class="legend-item"><span class="dot" style="background:#161b22;border:3px solid #f0883e"></span><span>En context-pack</span><span class="legend-count">' + PACK_FILES.length + '</span></div>'
+    : '';
+
+  nodeEl.innerHTML = kindHtml + folderHtml + unexportedHtml + packHtml;
 
   document.getElementById('legend-edges').innerHTML = Object.entries(EDGE_COLORS).map(([t, c]) => {
     const count = RAW_GRAPH.edges.filter(e => e.type === t).length;
@@ -1042,4 +1078,46 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function escHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export interface SubsetHtmlParams {
+  changeId: string;
+  generatedAt: string;
+  task?: string;
+  nodes: VizNode[];
+  edges: VizEdge[];
+  stats: Record<string, unknown>;
+  focus: string[];
+}
+
+/**
+ * Standalone HTML viewer for an OpenSpec change subgraph. Reuses the project
+ * viewer (`generateVizHtml`) but seeds it with subset data and labels the
+ * header so reviewers see "Change: <id>" instead of the global project name.
+ *
+ * Persisted alongside `graph.subset.json` inside `openspec/changes/<id>/` so
+ * the change directory is fully self-describing.
+ */
+export function generateSubsetHtml(p: SubsetHtmlParams): string {
+  // Mark focus files as "in pack" so the viewer highlights them in orange —
+  // it's a natural fit for "files this change actually touches".
+  const packFiles: VizPackFile[] = p.focus.map((f) => ({
+    path: f,
+    reason: "change focus",
+    mode: "full"
+  }));
+
+  const taskLine = p.task
+    ? `Change "${p.changeId}" · ${p.task}`
+    : `Change "${p.changeId}" — subgrafo congelado`;
+
+  return generateVizHtml({
+    projectName: `Change: ${p.changeId}`,
+    generatedAt: p.generatedAt,
+    nodes: p.nodes,
+    edges: p.edges,
+    stats: p.stats,
+    packFiles,
+    task: taskLine
+  });
 }

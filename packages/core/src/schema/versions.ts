@@ -10,7 +10,8 @@ export const SCHEMA_VERSIONS = {
   implementPlan: "0.2.0",
   tokenLedger: "0.2.0",
   agentManifest: "1.0.0",
-  specInput: "1.0.0"
+  specInput: "1.0.0",
+  graphSubset: "1.0.0"
 } as const;
 
 export type SchemaVersionKey = keyof typeof SCHEMA_VERSIONS;

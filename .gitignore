@@ -17,9 +17,12 @@ coverage/
 # Templates/examples under .contextforge/{templates,structure}/ remain tracked.
 .contextforge/scan.json
 .contextforge/graph.json
+.contextforge/graph.cache.json
 .contextforge/graph.html
 .contextforge/context-pack.json
 .contextforge/spec.sdd.md
+.contextforge/spec-input.json
+.contextforge/spec-prompt.md
 .contextforge/implement-plan.json
 .contextforge/token-ledger.json
 

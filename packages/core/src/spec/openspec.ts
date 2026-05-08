@@ -8,6 +8,15 @@ export interface OpenSpecOptions {
   task: string;
   affectedFiles: Array<{ path: string; reason: string; mode: string }>;
   domain?: string;
+  graphSubset?: {
+    stats: {
+      nodesTotal: number;
+      edgesTotal: number;
+      nodesByType: Record<string, number>;
+      edgesByType: Record<string, number>;
+      depth: number;
+    };
+  };
 }
 
 export interface OpenSpecResult {
@@ -40,6 +49,14 @@ export function inferDomain(filePaths: string[]): string {
   return best;
 }
 
+function formatTypeCounts(counts: Record<string, number>): string {
+  const entries = Object.entries(counts).sort((a, b) =>
+    a[0] < b[0] ? -1 : 1
+  );
+  if (entries.length === 0) return "(ninguno)";
+  return entries.map(([k, v]) => `${k}=${v}`).join(", ");
+}
+
 function titleCase(value: string): string {
   if (!value) return value;
   return value
@@ -50,7 +67,7 @@ function titleCase(value: string): string {
 }
 
 export function buildOpenSpec(opts: OpenSpecOptions): OpenSpecResult {
-  const { changeId, task, affectedFiles } = opts;
+  const { changeId, task, affectedFiles, graphSubset } = opts;
   const domain = opts.domain ?? inferDomain(affectedFiles.map((f) => f.path));
   const changeDir = `openspec/changes/${changeId}`;
 
@@ -101,6 +118,32 @@ ${fileList}
 - No implementar: no resuelve la tarea
 `;
 
+  const subsetSection = graphSubset
+    ? `
+## Context graph (subset)
+
+Subgrafo congelado al momento de crear este change, derivado del context-pack
+y expandido ${graphSubset.stats.depth}-hop por aristas (\`imports\`,
+\`extends\`, \`implements\`, \`tests\`, \`calls\`, \`references\`).
+
+| Artefacto | Para qué |
+| --------- | -------- |
+| \`./graph.subset.json\` | Datos planos · validados por JSON Schema · diff-friendly en review |
+| \`./graph.subset.html\` | Viewer interactivo standalone · abre en cualquier navegador · tour por archivos del change |
+| MCP \`forge_change_subgraph({ changeId: "${changeId}" })\` | Lectura programática para agentes |
+
+| Métrica | Valor |
+| ------- | ----- |
+| Nodos   | ${graphSubset.stats.nodesTotal} |
+| Aristas | ${graphSubset.stats.edgesTotal} |
+| Por tipo (nodos) | ${formatTypeCounts(graphSubset.stats.nodesByType)} |
+| Por tipo (aristas) | ${formatTypeCounts(graphSubset.stats.edgesByType)} |
+
+Las skills/prompts del agente que lean \`openspec/changes/${changeId}/\`
+tienen acceso al subgrafo sin necesidad de reabrir \`.contextforge/graph.json\`.
+`
+    : "";
+
   const design = `# Design: ${changeId}
 
 ## Technical approach
@@ -119,9 +162,9 @@ ${fileList}
 1. \`forge scan\` → \`.contextforge/scan.json\`
 2. \`forge graph\` → \`.contextforge/graph.json\`
 3. \`forge context\` → \`.contextforge/context-pack.json\`
-4. \`forge spec\` → esta estructura (formato OpenSpec moderno)
+4. \`forge spec\` → esta estructura (formato OpenSpec moderno) + \`graph.subset.json\` adyacente
 5. \`forge implement\` → \`.contextforge/implement-plan.json\`
-
+${subsetSection}
 ## Risks
 
 - Cambios fuera de scope pueden introducir regresiones

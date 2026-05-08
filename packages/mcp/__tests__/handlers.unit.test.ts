@@ -367,3 +367,51 @@ describe("forgeNeighbors — no similar files found", () => {
     expect(text).toContain("none");
   });
 });
+
+describe("forgeChangeSubgraph", () => {
+  it("returns the subgraph JSON when the change directory has one", async () => {
+    const root = await newWorkspace();
+    const changeDir = path.join(root, "openspec", "changes", "test-change");
+    await mkdir(changeDir, { recursive: true });
+    const subgraph = {
+      schemaVersion: "1.0.0",
+      changeId: "test-change",
+      generatedAt: "2026-05-08T00:00:00Z",
+      graphRef: ".contextforge/graph.json",
+      focus: ["src/a.ts"],
+      stats: { nodesTotal: 1, edgesTotal: 0, nodesByType: {}, edgesByType: {}, depth: 1 },
+      nodes: [
+        { id: "file:src/a.ts", type: "file", label: "a.ts", path: "src/a.ts" }
+      ],
+      edges: []
+    };
+    await writeFile(
+      path.join(changeDir, "graph.subset.json"),
+      JSON.stringify(subgraph),
+      "utf8"
+    );
+
+    const { forgeChangeSubgraph } = createHandlers(root);
+    const result = await forgeChangeSubgraph({ change_id: "test-change" });
+    expect(result.isError).toBeFalsy();
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.changeId).toBe("test-change");
+    expect(parsed.focus).toEqual(["src/a.ts"]);
+  });
+
+  it("returns an error when the change directory has no subgraph", async () => {
+    const root = await newWorkspace();
+    const { forgeChangeSubgraph } = createHandlers(root);
+    const result = await forgeChangeSubgraph({ change_id: "missing" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("No subgraph found");
+  });
+
+  it("rejects unsafe change_id values", async () => {
+    const root = await newWorkspace();
+    const { forgeChangeSubgraph } = createHandlers(root);
+    const result = await forgeChangeSubgraph({ change_id: "../etc/passwd" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Invalid change_id");
+  });
+});
