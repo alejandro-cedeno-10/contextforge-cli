@@ -1,0 +1,86 @@
+name: Docker (MCP image)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to use for the image (defaults to current git ref short sha if empty)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image tags
+        id: meta
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            TAGS="ghcr.io/alejandro-cedeno-10/contextforge-mcp:${VERSION},ghcr.io/alejandro-cedeno-10/contextforge-mcp:v${VERSION},ghcr.io/alejandro-cedeno-10/contextforge-mcp:latest"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${INPUT_TAG}" ]]; then
+            TAGS="ghcr.io/alejandro-cedeno-10/contextforge-mcp:${INPUT_TAG}"
+            echo "version=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            SHA="${GITHUB_SHA::7}"
+            TAGS="ghcr.io/alejandro-cedeno-10/contextforge-mcp:sha-${SHA}"
+            echo "version=sha-${SHA}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/mcp/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/alejandro-cedeno-10/contextforge-cli
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.title=contextforge-mcp
+            org.opencontainers.image.description=ContextForge MCP server (graph + agent-manifest tools over stdio)
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image summary
+        run: |
+          echo "### Image published 🐳" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tags:" >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n' | sed 's|^|- `|; s|$|`|' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pull with:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+          echo "docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:${{ steps.meta.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

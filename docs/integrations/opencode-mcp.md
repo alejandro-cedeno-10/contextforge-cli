@@ -69,7 +69,60 @@ Devuelve el contenido de `.contextforge/agent-manifest.json`. Si el archivo no e
 
 ## Configuración requerida
 
-`opencode.json` ya está configurado. No requiere cambios adicionales:
+Hay tres formas de correr el MCP server. Elige según cómo lo instalaste:
+
+### Opción A — Docker (recomendado, sin instalar Node)
+
+Imagen multi-arch en GHCR (público):
+
+```bash
+docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0
+```
+
+`opencode.json`:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.schema.json",
+  "mcpServers": {
+    "contextforge": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "${PWD}:/project",
+        "-e",
+        "PROJECT_ROOT=/project",
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+      ]
+    }
+  }
+}
+```
+
+### Opción B — npm package (requiere Node 22+)
+
+```bash
+pnpm add -D @alejandro-cedeno-10/contextforge-mcp@0.2.0
+```
+
+```jsonc
+{
+  "mcpServers": {
+    "contextforge": {
+      "command": "node",
+      "args": [
+        "./node_modules/@alejandro-cedeno-10/contextforge-mcp/dist/index.js"
+      ],
+      "env": { "PROJECT_ROOT": "." }
+    }
+  }
+}
+```
+
+### Opción C — desde el monorepo clonado
 
 ```json
 {

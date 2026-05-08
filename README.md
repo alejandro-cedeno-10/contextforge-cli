@@ -8,9 +8,29 @@ Token-efficient CLI que convierte cualquier repositorio en un índice consultabl
 
 ## Instalación
 
+**Desde npmjs.com** (público, sin token):
+
+```bash
+# CLI (uso diario)
+pnpm add -g @alejandro-cedeno-10/contextforge-cli         # global
+# o
+pnpm add -D @alejandro-cedeno-10/contextforge-cli         # por proyecto
+
+# MCP server (para agentes que lo invoquen via Node)
+pnpm add -D @alejandro-cedeno-10/contextforge-mcp
+```
+
+**Imagen Docker del MCP server** (público, sin token):
+
+```bash
+docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:latest
+```
+
+**Desde fuente** (desarrollo en este repo):
+
 ```bash
 # Requisitos: Node.js >= 22, pnpm
-git clone <repo>
+git clone https://github.com/alejandro-cedeno-10/contextforge-cli.git
 cd contextforge-cli
 pnpm install
 pnpm build
@@ -350,14 +370,37 @@ Los artefactos JSON en `.contextforge/` son portables — cualquier agente los p
 
 ## Servidor MCP
 
-`packages/mcp` expone **7 tools** consumibles por cualquier cliente MCP (Claude Code, OpenCode, etc.):
+`packages/mcp` expone **7 tools** consumibles por cualquier cliente MCP (Claude Code, OpenCode, etc.).
 
-```json
+**Distribución:** dos canales oficiales.
+
+| Canal                                  | Identificador                                                                    | Cuándo usar                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **GitHub Container Registry** (Docker) | `ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0` (multi-arch amd64 + arm64) | No quieres instalar Node — solo Docker          |
+| **GitHub Packages** (npm)              | `@alejandro-cedeno-10/contextforge-mcp@0.2.0`                                    | Tienes Node 22+ y prefieres binarios sin Docker |
+
+```jsonc
+// Opción A — Docker (sin Node)
+{
+  "mcpServers": {
+    "contextforge": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-v", "${PWD}:/project",
+        "-e", "PROJECT_ROOT=/project",
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+      ]
+    }
+  }
+}
+
+// Opción B — npm
 {
   "mcpServers": {
     "contextforge": {
       "command": "node",
-      "args": ["packages/mcp/dist/index.js"],
+      "args": ["./node_modules/@alejandro-cedeno-10/contextforge-mcp/dist/index.js"],
       "env": { "PROJECT_ROOT": "." }
     }
   }

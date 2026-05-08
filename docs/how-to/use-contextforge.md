@@ -28,24 +28,21 @@ pnpm --version    # 10.x.x
 
 ## 2. Instalación
 
-### Opción A — desde GitHub Packages (recomendado para consumir)
+### Opción A — desde npmjs.com (recomendado para consumir)
 
-Configurar el registry para tu scope:
-
-```bash
-# .npmrc en tu proyecto
-@alejandro-cedeno-10:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-Instalar:
+Los paquetes están publicados como **públicos en npmjs.com**, así que no requieren autenticación:
 
 ```bash
 pnpm add -D @alejandro-cedeno-10/contextforge-cli
 pnpm add -D @alejandro-cedeno-10/contextforge-mcp   # opcional, para MCP en agentes
 ```
 
-`GITHUB_TOKEN` necesita scope `read:packages`. Crear uno en https://github.com/settings/tokens.
+O global:
+
+```bash
+pnpm add -g @alejandro-cedeno-10/contextforge-cli
+forge --help
+```
 
 ### Opción B — clonar y construir localmente (recomendado para desarrollo)
 
@@ -63,6 +60,22 @@ Verificar:
 pnpm forge --help    # debería listar todos los comandos
 pnpm test --run      # 202/202 tests pasando
 ```
+
+### Opción C — solo el MCP server vía Docker (sin Node)
+
+Si solo necesitas el servidor MCP para tu agente y no quieres instalar Node:
+
+```bash
+docker pull ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0
+
+# Probar (manual, escribe stdin/stdout sobre stdio)
+docker run --rm -i \
+  -v "$PWD:/project" \
+  -e PROJECT_ROOT=/project \
+  ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0
+```
+
+La imagen es multi-arch (amd64 + arm64), pública, ~150 MB. La sección **4** muestra cómo conectarla a cada agente.
 
 ## 3. Pipeline end-to-end (uso manual)
 
@@ -102,7 +115,30 @@ El comando clave es `pnpm forge context "<tarea>"` — emite el agent-manifest a
 
 ### 4.1. Claude Code
 
-**Setup una sola vez**: pegar en `.claude/settings.json`:
+**MCP server** (si quieres las 7 tools incluidas `select_agent_context`):
+
+```jsonc
+// .claude/settings.json — Docker (no requiere Node)
+{
+  "mcpServers": {
+    "contextforge": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "${PWD}:/project",
+        "-e",
+        "PROJECT_ROOT=/project",
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+      ]
+    }
+  }
+}
+```
+
+**Hook UserPromptSubmit** (regenera el manifest en cada prompt — opcional, complementa el MCP):
 
 ```jsonc
 {
@@ -126,7 +162,29 @@ Después de eso, cada prompt regenera `.claude/agent-manifest.md` con las skills
 
 ### 4.2. OpenCode
 
-`opencode.json` ya está configurado (apunta al MCP server). Cuando arrancas conversación, OpenCode (o cualquier cliente MCP) llama:
+```jsonc
+// opencode.json — Docker (recomendado)
+{
+  "$schema": "https://opencode.ai/config.schema.json",
+  "mcpServers": {
+    "contextforge": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "${PWD}:/project",
+        "-e",
+        "PROJECT_ROOT=/project",
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+      ]
+    }
+  }
+}
+```
+
+Cuando arrancas conversación, OpenCode (o cualquier cliente MCP) llama:
 
 ```json
 {

@@ -42,6 +42,42 @@ El agente llama la tool MCP `select_agent_context` al inicio de la conversación
 
 La tool computa el manifiesto en memoria y devuelve JSON con `skills[]` y `rules[]` relevantes. Sin archivos escritos, sin latencia de disco.
 
+**Wiring en `.claude/settings.json`** — tres opciones:
+
+```jsonc
+// A) Docker (más simple, sin instalar Node)
+{
+  "mcpServers": {
+    "contextforge": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "${PWD}:/project",
+        "-e",
+        "PROJECT_ROOT=/project",
+        "ghcr.io/alejandro-cedeno-10/contextforge-mcp:v0.2.0"
+      ]
+    }
+  }
+}
+
+// B) npm (Node 22+)
+{
+  "mcpServers": {
+    "contextforge": {
+      "command": "node",
+      "args": [
+        "./node_modules/@alejandro-cedeno-10/contextforge-mcp/dist/index.js"
+      ],
+      "env": { "PROJECT_ROOT": "." }
+    }
+  }
+}
+```
+
 ## Comportamiento del hook
 
 - Si `scan.json`/`graph.json` no existen: produce una nota visible pero **no aborta el prompt** (exit 0 siempre).

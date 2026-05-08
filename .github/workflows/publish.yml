@@ -1,4 +1,4 @@
-name: Publish packages
+name: Publish packages (npmjs.com)
 
 on:
   push:
@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   publish:
@@ -19,11 +18,11 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
-      - name: Setup Node.js
+      - name: Setup Node.js (npmjs.com registry)
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          registry-url: "https://npm.pkg.github.com"
+          registry-url: "https://registry.npmjs.org"
           scope: "@alejandro-cedeno-10"
           cache: "pnpm"
 
@@ -40,16 +39,16 @@ jobs:
         run: pnpm test
 
       - name: Publish @alejandro-cedeno-10/contextforge-core
-        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-core --no-git-checks
+        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-core --no-git-checks --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @alejandro-cedeno-10/contextforge-mcp
-        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-mcp --no-git-checks
+        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-mcp --no-git-checks --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @alejandro-cedeno-10/contextforge-cli
-        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-cli --no-git-checks
+        run: pnpm publish --filter @alejandro-cedeno-10/contextforge-cli --no-git-checks --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

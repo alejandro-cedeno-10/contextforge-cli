@@ -1,0 +1,54 @@
+# Build artifacts
+**/node_modules
+**/dist
+**/coverage
+**/tsconfig.tsbuildinfo
+
+# Generated forge artifacts
+.contextforge/
+.claude/agent-manifest.md
+.cursor/rules/contextforge-active.mdc
+
+# VCS / CI
+.git
+.github
+.gitignore
+
+# IDE / editor
+.vscode
+.idea
+.opencode
+.fleet
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# Tests / docs not needed in image
+**/__tests__
+*.test.ts
+*.spec.ts
+docs/EXAMPLES
+docs/integrations
+docs/how-to
+docs/architecture
+docs/tutorials
+docs/reference
+docs/explanation
+docs/adr
+
+# Other packages we don't ship in the MCP image
+packages/cli/src
+packages/cli/__tests__
+packages/cli/dist
+packages/cli/tsconfig.tsbuildinfo
+
+# Misc
+*.log
+*.tgz
