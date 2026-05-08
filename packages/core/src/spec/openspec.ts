@@ -15,6 +15,7 @@ export interface OpenSpecOptions {
       nodesByType: Record<string, number>;
       edgesByType: Record<string, number>;
       depth: number;
+      mode?: "compact" | "full";
     };
   };
 }
@@ -125,6 +126,7 @@ ${fileList}
 Subgrafo congelado al momento de crear este change, derivado del context-pack
 y expandido ${graphSubset.stats.depth}-hop por aristas (\`imports\`,
 \`extends\`, \`implements\`, \`tests\`, \`calls\`, \`references\`).
+Modo: \`${graphSubset.stats.mode ?? "compact"}\` ${graphSubset.stats.mode === "full" ? "(--subgraph-full)" : "(default — solo símbolos exportados de focus files)"}.
 
 | Artefacto | Para qué |
 | --------- | -------- |

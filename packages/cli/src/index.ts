@@ -643,6 +643,8 @@ async function cmdSpec(
 ): Promise<void> {
   const { flags } = parseFlags(args);
   const forceFallback = flags["no-openspec"] === true;
+  const subgraphMode: "compact" | "full" =
+    flags["subgraph-full"] === true ? "full" : "compact";
 
   type PackFile = {
     path: string;
@@ -682,7 +684,8 @@ async function cmdSpec(
   const subset = graph
     ? extractChangeSubgraph(graph, {
         focusFiles: affectedFiles.map((f) => f.path),
-        depth: 1
+        depth: 1,
+        mode: subgraphMode
       })
     : null;
 
@@ -750,7 +753,7 @@ async function cmdSpec(
       subgraphPayload
     );
     console.log(
-      `Escrito openspec/changes/${changeId}/graph.subset.json (${subset.stats.nodesTotal} nodos, ${subset.stats.edgesTotal} aristas)`
+      `Escrito openspec/changes/${changeId}/graph.subset.json (${subset.stats.nodesTotal} nodos, ${subset.stats.edgesTotal} aristas, mode=${subset.stats.mode})`
     );
 
     const subsetHtml = generateSubsetHtml({
@@ -1631,7 +1634,7 @@ function printUsage(): void {
   pnpm forge scan
   pnpm forge graph [--force] [--with-calls] [--with-refs] [--enrich] [--export=<dot|graphml>]
   pnpm forge context [task] [--no-manifest] [--force]
-  pnpm forge spec [change-id]
+  pnpm forge spec [change-id] [--no-openspec] [--subgraph-full]
   pnpm forge implement [change-id]
   pnpm forge implement --check
   pnpm forge implement --approve

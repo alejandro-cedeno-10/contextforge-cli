@@ -41,7 +41,7 @@ const EDGES: GraphEdge[] = [
 ];
 
 describe("extractChangeSubgraph", () => {
-  it("returns the focus file plus 1-hop neighbours by default", () => {
+  it("compact mode (default): focus files + 1-hop file neighbours, symbols ONLY from focus", () => {
     const result = extractChangeSubgraph(
       { nodes: NODES, edges: EDGES },
       { focusFiles: ["src/a.ts"] }
@@ -49,12 +49,45 @@ describe("extractChangeSubgraph", () => {
     const ids = result.nodes.map((n) => n.id).sort();
     expect(ids).toContain("file:src/a.ts");
     expect(ids).toContain("file:src/b.ts");
+    // Focus symbol comes along (Foo is exported in src/a.ts).
     expect(ids).toContain("symbol:src/a.ts#Foo");
-    // 1-hop neighbour b → its symbol comes along too.
-    expect(ids).toContain("symbol:src/b.ts#Bar");
+    // Neighbour file's symbol does NOT come along in compact mode — that's
+    // the whole point of compact: keep the prompt small.
+    expect(ids).not.toContain("symbol:src/b.ts#Bar");
+    expect(result.stats.mode).toBe("compact");
     // c is 2 hops away — should not appear.
     expect(ids).not.toContain("file:src/c.ts");
-    expect(ids).not.toContain("symbol:src/c.ts#Baz");
+  });
+
+  it("full mode (legacy): pulls every symbol from every reachable file", () => {
+    const result = extractChangeSubgraph(
+      { nodes: NODES, edges: EDGES },
+      { focusFiles: ["src/a.ts"], mode: "full" }
+    );
+    const ids = result.nodes.map((n) => n.id).sort();
+    expect(ids).toContain("symbol:src/a.ts#Foo");
+    expect(ids).toContain("symbol:src/b.ts#Bar");
+    expect(result.stats.mode).toBe("full");
+  });
+
+  it("compact mode skips internal (exported:false) symbols of focus files", () => {
+    const internalNodes = [
+      ...NODES,
+      {
+        id: "symbol:src/a.ts#privateHelper",
+        type: "symbol" as const,
+        label: "privateHelper",
+        path: "src/a.ts",
+        exported: false
+      }
+    ];
+    const result = extractChangeSubgraph(
+      { nodes: internalNodes, edges: EDGES },
+      { focusFiles: ["src/a.ts"] }
+    );
+    const ids = result.nodes.map((n) => n.id);
+    expect(ids).toContain("symbol:src/a.ts#Foo");
+    expect(ids).not.toContain("symbol:src/a.ts#privateHelper");
   });
 
   it("respects depth=2", () => {

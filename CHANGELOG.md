@@ -7,6 +7,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed — Subgrafo `compact` por defecto (token savings)
+
+- **`graph.subset.json` ahora es ~50% más pequeño por defecto.**
+  En el smoke de este repo: 2851 → 1306 nodos, 2258 → 1382 aristas.
+  Antes el subgrafo arrastraba TODOS los símbolos (incluidos internos) de
+  cada archivo alcanzable 1-hop. Ahora arrastra solo los **símbolos
+  exportados de los focus files**; los archivos vecinos entran como nodos
+  `file` sin sus símbolos. Si necesitas ver internos de un vecino, usa
+  `forge_neighbors` sobre ese archivo en vez de inflar el subgrafo.
+
+- **Flag `--subgraph-full` (opt-in legacy).**
+  Restaura el comportamiento de v0.3.7: cada símbolo de cada archivo del
+  subgrafo. Útil cuando estás depurando o haciendo análisis estático
+  exhaustivo del change.
+
+- **`stats.mode` en `graph.subset.json`** (`"compact"` | `"full"`) para que
+  el consumidor sepa qué tan exhaustivo es el subgrafo que está leyendo.
+
+### Added — Skill resumida `contextforge-openspec-change`
+
+- **`.claude/skills/contextforge-openspec-change.md`** — task-oriented,
+  concisa. Dice al agente cómo trabajar un change con el subgrafo
+  congelado, en qué orden leer el directorio, qué tools MCP llamar y en
+  qué orden, y cuándo escalar al grafo global. La idea: léelo una vez al
+  inicio de la sesión y deja de explorar el repo a ciegas.
+
+### Changed — Cierra el loop subgrafo↔OpenSpec
+
+- **`graph.subset.{json,html}` se escriben DESPUÉS de `openspec new change`.**
+  Antes se escribían antes, así que un scaffold destructivo de OpenSpec
+  podía pisarlos. Ahora sobreviven sí o sí.
+
+- **Nuevo `openspec/changes/<id>/context.md`** — mapa human/agent-friendly
+  del directorio del change: orden de lectura, paths globales referenciados
+  con `../../.contextforge/...`, ejemplos copy-paste de tools MCP. Pone
+  por escrito la regla "subgrafo primero, global solo como fallback".
+
+- **MCP descriptions reforzadas** para que el agente prefiera el subgrafo:
+  - `forge_change_subgraph` se marca PRIMARY para changes activos.
+  - `forge_context` y `forge_neighbors` añaden notas: "call
+    forge_change_subgraph FIRST when working on a change".
+  - `forge_status` ahora lista todo change con `graph.subset.json` con
+    nodes/edges + el comando MCP literal a copiar.
+
 ### Added — Subgrafo por OpenSpec change (`forge spec`)
 
 - **`openspec/changes/<id>/graph.subset.json`.**

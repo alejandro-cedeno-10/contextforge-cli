@@ -1,8 +1,11 @@
 import type { GraphEdge, GraphNode } from "./builder.js";
 
+export type SubgraphMode = "compact" | "full";
+
 export interface ExtractSubgraphOptions {
   focusFiles: readonly string[];
   depth?: number;
+  mode?: SubgraphMode;
 }
 
 export interface SubgraphResult {
@@ -15,6 +18,7 @@ export interface SubgraphResult {
     nodesByType: Record<string, number>;
     edgesByType: Record<string, number>;
     depth: number;
+    mode: SubgraphMode;
   };
 }
 
@@ -29,23 +33,29 @@ export function extractChangeSubgraph(
   options: ExtractSubgraphOptions
 ): SubgraphResult {
   const depth = Math.max(0, options.depth ?? 1);
+  const mode: SubgraphMode = options.mode ?? "compact";
   const focus = options.focusFiles.map((p) => p.replace(/\\/g, "/"));
+  const focusSet = new Set(focus);
 
-  // Index nodes for quick lookup.
-  const nodeById = new Map<string, GraphNode>();
-  for (const n of fullGraph.nodes) nodeById.set(n.id, n);
-
-  // Seed: file nodes for each focus path + every symbol that lives in those
-  // files (defines edges) + every folder that contains them (contains edges).
+  // Seed: file nodes for each focus path. Symbols are added below in
+  // mode-specific ways — this is the single biggest knob for token cost.
   const seed = new Set<string>();
   for (const f of focus) seed.add(`file:${f}`);
-  for (const node of fullGraph.nodes) {
-    if (node.type === "symbol" && node.path && focus.includes(node.path)) {
-      seed.add(node.id);
+
+  // In `full` mode we seed every symbol whose file is in the focus set so
+  // BFS can ride defines/extends/calls edges out of those symbols.
+  // In `compact` mode we postpone symbol selection until after BFS so the
+  // expansion only follows file-level edges (imports, contains, tests).
+  if (mode === "full") {
+    for (const node of fullGraph.nodes) {
+      if (node.type === "symbol" && node.path && focusSet.has(node.path)) {
+        seed.add(node.id);
+      }
     }
   }
 
-  // BFS expansion.
+  // Adjacency list (undirected) — symmetric BFS gives the agent the same
+  // view whether they're walking imports forward or backward.
   const adjacency = new Map<string, Set<string>>();
   for (const e of fullGraph.edges) {
     if (!adjacency.has(e.from)) adjacency.set(e.from, new Set());
@@ -71,12 +81,23 @@ export function extractChangeSubgraph(
     frontier = next;
   }
 
-  // Pull symbols defined in any reachable file (so the subgraph is useful for
-  // the agent reading the change, even without a full +1 hop).
+  // Symbol attach policy.
+  // - compact (default): only EXPORTED symbols, only from FOCUS files. The
+  //   subgraph stays small enough for prompt context — agents working on
+  //   the change need to know "what does this file export" not "every
+  //   internal helper across every neighbour".
+  // - full: every symbol whose file is in the reachable set (legacy v0.3.7
+  //   behaviour, opt-in via --subgraph-full).
   for (const node of fullGraph.nodes) {
     if (node.type !== "symbol" || !node.path) continue;
-    const fileId = `file:${node.path}`;
-    if (reachable.has(fileId)) reachable.add(node.id);
+    if (mode === "compact") {
+      if (focusSet.has(node.path) && node.exported === true) {
+        reachable.add(node.id);
+      }
+    } else {
+      const fileId = `file:${node.path}`;
+      if (reachable.has(fileId)) reachable.add(node.id);
+    }
   }
 
   const nodes = fullGraph.nodes.filter((n) => reachable.has(n.id));
@@ -110,7 +131,8 @@ export function extractChangeSubgraph(
       edgesTotal: sortedEdges.length,
       nodesByType,
       edgesByType,
-      depth
+      depth,
+      mode
     }
   };
 }
