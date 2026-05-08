@@ -147,6 +147,20 @@ main{flex:1;position:relative;overflow:hidden}
 .domain-files-list{max-height:200px;overflow-y:auto;margin-top:6px}
 .domain-file-item{font-size:10px;padding:2px 0;display:flex;align-items:center;gap:5px;color:#8b949e}
 .domain-file-item.in-pack{color:#f0883e}
+
+/* Compound group expand/collapse */
+.domain-tree-toggle{font-size:9px;width:12px;color:#484f58;flex-shrink:0;transition:transform .15s;display:inline-block}
+.domain-sub-folder .domain-sub-files{display:none;padding-left:14px}
+.domain-sub-folder.open .domain-tree-toggle{transform:rotate(90deg)}
+.domain-sub-folder.open .domain-sub-files{display:block}
+.domain-sub-header{display:flex;align-items:center;gap:5px;padding:3px 5px;border-radius:4px;cursor:pointer;font-size:10px;color:#8b949e;margin-bottom:1px}
+.domain-sub-header:hover{background:#21262d;color:#e6edf3}
+.domain-sub-name{flex:1;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.domain-tree-file{font-size:10px;padding:2px 4px;border-radius:3px;color:#8b949e;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.domain-tree-file.in-pack{color:#f0883e}
+.domain-files-tree{display:none;padding:3px 0 6px 12px}
+.domain-item.open + .domain-files-tree{display:block}
+.domain-item .domain-tree-toggle{margin-right:2px}
 </style>
 </head>
 <body>
@@ -204,6 +218,7 @@ main{flex:1;position:relative;overflow:hidden}
         <div class="filter-row">
           <button class="btn active" id="btn-pack-only" onclick="togglePackOnly()">Solo pack</button>
           <button class="btn" id="btn-symbols" onclick="toggleSymbols()">+ Simbolos</button>
+          <button class="btn" id="btn-groups" onclick="toggleGroups()">Agrupar</button>
         </div>
         <div class="filter-row">
           <button class="btn" onclick="fitGraph()">&#8982; Centrar</button>
@@ -306,6 +321,8 @@ let currentView = 'graph';
 let cy = null;
 let tourIndex = -1;
 let tourNodes = [];
+let showGroups = false;
+const collapsedGroupIds = new Set();
 
 // ─── domain helpers ──────────────────────────────────────────────────────────
 
@@ -314,6 +331,14 @@ function getDomain(nodePath) {
   const parts = nodePath.split('/');
   if (parts[0] === 'packages' && parts.length > 1) return 'packages/' + parts[1];
   return parts[0] || 'root';
+}
+
+function getSubFolder(filePath, domain) {
+  if (!filePath || !domain) return null;
+  const rest = filePath.slice(domain.length + 1);
+  const parts = rest.split('/');
+  if (parts.length <= 1) return null;
+  return parts.slice(0, -1).join('/');
 }
 
 function buildDomainData() {
@@ -438,25 +463,53 @@ function buildDomainElements() {
 function buildElements() {
   const els = [];
   const visibleIds = new Set();
+  const addedGroups = new Set();
 
   for (const n of RAW_GRAPH.nodes) {
     const inPack = packSet.has(n.id);
     if (showPackOnly && n.type === 'file' && !inPack) continue;
     if (!showSymbols && n.type === 'symbol') continue;
-    const k = KINDS[n.kind] || KINDS.unknown;
+
+    if (showGroups && n.type === 'file' && n.path) {
+      const domain = getDomain(n.path);
+      const domainGrpId = 'grp:' + domain;
+      if (!addedGroups.has(domainGrpId)) {
+        const shortName = domain.split('/').pop() || domain;
+        els.push({ data: { id: domainGrpId, label: shortName, fullLabel: shortName, domain, ntype: 'domain-group' }, classes: 'domain-group' });
+        addedGroups.add(domainGrpId);
+      }
+      const sub = getSubFolder(n.path, domain);
+      if (sub) {
+        const subGrpId = 'grp:' + domain + '/' + sub;
+        if (!addedGroups.has(subGrpId)) {
+          const shortSub = sub.split('/').pop() || sub;
+          els.push({ data: { id: subGrpId, label: shortSub, fullLabel: shortSub, ntype: 'domain-group', parent: domainGrpId }, classes: 'domain-sub-group' });
+          addedGroups.add(subGrpId);
+        }
+      }
+    }
+
     const pf = packMap.get(n.id);
+    const nodeData = {
+      id: n.id,
+      label: n.label || (n.id.split('/').pop() || n.id),
+      path: n.path || '',
+      kind: n.kind || 'unknown',
+      lang: n.lang || '',
+      ntype: n.type,
+      inPack,
+      packReason: pf ? pf.reason : '',
+      packMode:   pf ? pf.mode : '',
+    };
+
+    if (showGroups && n.type === 'file' && n.path) {
+      const domain = getDomain(n.path);
+      const sub = getSubFolder(n.path, domain);
+      nodeData.parent = sub ? 'grp:' + domain + '/' + sub : 'grp:' + domain;
+    }
+
     els.push({
-      data: {
-        id: n.id,
-        label: n.label || (n.id.split('/').pop() || n.id),
-        path: n.path || '',
-        kind: n.kind || 'unknown',
-        lang: n.lang || '',
-        ntype: n.type,
-        inPack,
-        packReason: pf ? pf.reason : '',
-        packMode:   pf ? pf.mode : '',
-      },
+      data: nodeData,
       classes: [n.type, n.kind || 'unknown', inPack ? 'in-pack' : ''].join(' ').trim(),
     });
     visibleIds.add(n.id);
@@ -489,6 +542,22 @@ function makeGraphStyle() {
   }));
 
   return [
+    { selector: 'node.domain-group', style: {
+      'background-color': 'rgba(22,27,34,0.85)', 'border-color': '#30363d', 'border-width': 1,
+      'label': 'data(label)', 'text-valign': 'top', 'text-halign': 'center',
+      'font-size': '10px', 'color': '#8b949e', 'padding': '14px',
+      'text-background-color': '#161b22', 'text-background-opacity': 1, 'text-background-padding': '3px',
+    }},
+    { selector: 'node.domain-sub-group', style: {
+      'background-color': 'rgba(13,17,23,0.6)', 'border-color': '#21262d', 'border-width': 1, 'border-style': 'dashed',
+      'label': 'data(label)', 'text-valign': 'top', 'text-halign': 'center',
+      'font-size': '9px', 'color': '#484f58', 'padding': '10px',
+      'text-background-color': '#0d1117', 'text-background-opacity': 1, 'text-background-padding': '2px',
+    }},
+    { selector: 'node.domain-group.collapsed-group', style: {
+      'background-color': '#21262d', 'border-color': '#388bfd', 'border-width': 2,
+      'color': '#79c0ff', 'font-size': '10px', 'font-weight': 700,
+    }},
     {
       selector: 'node',
       style: {
@@ -596,7 +665,11 @@ function initCy(elements, domainView) {
     cy.on('tap', 'node', evt => showDomainNodeInfo(evt.target));
     cy.on('tap', evt => { if (evt.target === cy) clearNodeInfo('domain-node-info'); });
   } else {
-    cy.on('tap', 'node', evt => { showNodeInfo(evt.target); highlightNeighbors(evt.target); });
+    cy.on('tap', 'node', evt => {
+      const node = evt.target;
+      if (node.data('ntype') === 'domain-group') { toggleGroupNode(node.id()); }
+      else { showNodeInfo(node); highlightNeighbors(node); }
+    });
     cy.on('tap', evt => { if (evt.target === cy) { clearHighlight(); clearNodeInfo('node-info'); } });
   }
 }
@@ -729,6 +802,34 @@ function toggleSymbols() {
   refresh();
 }
 
+function toggleGroups() {
+  showGroups = !showGroups;
+  document.getElementById('btn-groups').classList.toggle('active', showGroups);
+  collapsedGroupIds.clear();
+  refresh();
+}
+
+function toggleGroupNode(nodeId) {
+  if (!cy) return;
+  const node = cy.getElementById(nodeId);
+  if (!node.length) return;
+  const children = node.children();
+  if (collapsedGroupIds.has(nodeId)) {
+    collapsedGroupIds.delete(nodeId);
+    children.style('display', 'element');
+    node.data('label', node.data('fullLabel') || node.data('label'));
+    node.removeClass('collapsed-group');
+  } else {
+    collapsedGroupIds.add(nodeId);
+    node.data('fullLabel', node.data('label'));
+    const leafCount = children.reduce((s, c) =>
+      c.data('ntype') === 'domain-group' ? s + c.children().length : s + 1, 0);
+    children.style('display', 'none');
+    node.data('label', (node.data('fullLabel') || '') + ' (' + leafCount + ')');
+    node.addClass('collapsed-group');
+  }
+}
+
 function refresh() {
   const els = buildElements();
   initCy(els, false);
@@ -786,13 +887,44 @@ function buildDomainSidebar() {
   listEl.innerHTML = [...domainFiles.entries()].map(([domain, files]) => {
     const col = domainColor(domain);
     const packCount = files.filter(n => packSet.has(n.id)).length;
-    const shortName = domain.includes('/') ? domain : domain;
+
+    const subFolders = new Map();
+    for (const f of files) {
+      const sub = getSubFolder(f.path, domain) || '';
+      if (!subFolders.has(sub)) subFolders.set(sub, []);
+      subFolders.get(sub).push(f);
+    }
+
+    const treeHtml = [...subFolders.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([sub, subFiles]) => {
+      const subPack = subFiles.filter(f => packSet.has(f.id)).length;
+      const fileItems = subFiles.map(f => {
+        const inPack = packSet.has(f.id);
+        return '<span class="domain-tree-file' + (inPack ? ' in-pack' : '') + '">' +
+          (inPack ? '★ ' : '· ') + escHtml(f.label) + '</span>';
+      }).join('');
+      if (!sub) return '<div class="domain-sub-files" style="display:block">' + fileItems + '</div>';
+      return '<div class="domain-sub-folder">' +
+        '<div class="domain-sub-header">' +
+          '<span class="domain-tree-toggle">&#9658;</span>' +
+          '<span class="domain-sub-name">' + escHtml(sub) + '</span>' +
+          '<span class="domain-count">' + subFiles.length + (subPack ? ' &middot; <span style="color:#f0883e">' + subPack + '</span>' : '') + '</span>' +
+        '</div>' +
+        '<div class="domain-sub-files">' + fileItems + '</div>' +
+      '</div>';
+    }).join('');
+
     return '<div class="domain-item" data-domain="' + escHtml(domain) + '">' +
-      '<span class="domain-dot" style="background:' + col.border + '"></span>' +
-      '<span class="domain-name" title="' + escHtml(domain) + '">' + escHtml(shortName) + '</span>' +
-      '<span class="domain-count">' + files.length + (packCount ? ' · <span style="color:#f0883e">' + packCount + '</span>' : '') + '</span>' +
-    '</div>';
+        '<span class="domain-tree-toggle">&#9658;</span>' +
+        '<span class="domain-dot" style="background:' + col.border + '"></span>' +
+        '<span class="domain-name" title="' + escHtml(domain) + '">' + escHtml(domain) + '</span>' +
+        '<span class="domain-count">' + files.length + (packCount ? ' &middot; <span style="color:#f0883e">' + packCount + '</span>' : '') + '</span>' +
+      '</div>' +
+      '<div class="domain-files-tree">' + treeHtml + '</div>';
   }).join('');
+
+  listEl.querySelectorAll('.domain-sub-folder').forEach(el => {
+    el.querySelector('.domain-sub-header').addEventListener('click', () => el.classList.toggle('open'));
+  });
 }
 
 function onDomainItemClick(domain) {
@@ -897,7 +1029,10 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     const di = ev.target.closest('.domain-item');
-    if (di && di.dataset.domain) onDomainItemClick(di.dataset.domain);
+    if (di && di.dataset.domain) {
+      di.classList.toggle('open');
+      onDomainItemClick(di.dataset.domain);
+    }
   });
 });
 </script>

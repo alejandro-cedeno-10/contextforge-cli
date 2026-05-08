@@ -101,8 +101,6 @@ function parseFlags(args: string[]): {
 async function cmdInit(): Promise<void> {
   await ensureDir(outputPath("templates"));
   await ensureDir(outputPath("structure"));
-  await ensureDir("packages/core/src");
-  await ensureDir("packages/cli/src");
 
   await writeAgentContextMd();
   console.log("ContextForge inicializado.");
@@ -111,6 +109,20 @@ async function cmdInit(): Promise<void> {
   );
 
   await maybeRunOpenSpecInit();
+
+  console.log("\nIndexando repo...");
+  await cmdScan();
+  await cmdGraph();
+
+  const projectName = path.basename(process.cwd());
+  console.log("\nGenerando context-pack inicial...");
+  await cmdContext(projectName + " — initial overview");
+
+  console.log("\nGenerando visualización...");
+  await cmdViz();
+  console.log(
+    "Listo. Abre .contextforge/graph.html para ver el grafo del proyecto."
+  );
 }
 
 async function maybeRunOpenSpecInit(): Promise<void> {
