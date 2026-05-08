@@ -4,23 +4,26 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 
 ## Estado actual (2026-05-07)
 
-| Sprint | Foco                                        | Estado        |
-| ------ | ------------------------------------------- | ------------- |
-| S1     | Schemas + validacion JSON                   | ✅ Completado |
-| S2     | Cache + BLAKE3                              | ✅ Completado |
-| S3     | Grafo tree-sitter                           | ✅ Completado |
-| S4     | Context selector PageRank                   | ✅ Completado |
-| S5     | Spec OpenSpec (default)                     | ✅ Completado |
-| S6     | Implement-plan guardrails                   | ✅ Completado |
-| S7     | Grafo visual interactivo                    | ✅ Completado |
-| S8     | MCP Server                                  | ✅ Completado |
-| S9     | Diátaxis docs scaffolder + Claude skills    | ✅ Completado |
-| S10    | GitHub Packages publish workflow            | ✅ Completado |
-| S11    | forge sync + forge impact (Aspens-inspired) | ✅ Completado |
-| S12    | forge skills (domain skills auto-gen)       | ✅ Completado |
+| Sprint | Foco                                                                | Estado        |
+| ------ | ------------------------------------------------------------------- | ------------- |
+| S1     | Schemas + validacion JSON                                           | ✅ Completado |
+| S2     | Cache + BLAKE3                                                      | ✅ Completado |
+| S3     | Grafo tree-sitter                                                   | ✅ Completado |
+| S4     | Context selector PageRank                                           | ✅ Completado |
+| S5     | Spec OpenSpec (default)                                             | ✅ Completado |
+| S6     | Implement-plan guardrails                                           | ✅ Completado |
+| S7     | Grafo visual interactivo                                            | ✅ Completado |
+| S8     | MCP Server                                                          | ✅ Completado |
+| S9     | Diátaxis docs scaffolder + Claude skills                            | ✅ Completado |
+| S10    | GitHub Packages publish workflow                                    | ✅ Completado |
+| S11    | forge sync + forge impact (Aspens-inspired)                         | ✅ Completado |
+| S12    | forge skills (domain skills auto-gen)                               | ✅ Completado |
+| S13    | agent-manifest (per-task selection) + 2 MCP tools + auto en context | ✅ Completado |
+| S14    | CI fix (tipos explícitos + serial build + typecheck step)           | ✅ Completado |
 
-**Suite de tests**: ≥ 162/162 pasando. **Coverage**: ≥ 80 % stmts / branches / funcs / lines.
-**Ahorro tokens verificado**: 90.3 % (11 700 / 121 000).
+**Suite de tests**: 202/202 pasando (20 archivos). **Coverage**: ≥ 80 % global · módulo `manifest/` ≥ 95 %.
+**Ahorro tokens verificado**: 94.4 % (11 988 / 214 606), ratio de compresión 17.9×.
+**Release**: v0.2.0 (paquetes en GitHub Packages).
 
 **Convenciones**:
 
