@@ -187,6 +187,106 @@ describe("forge commands", () => {
       "utf8"
     );
     expect(proposal).toContain("## Intent");
+
+    // T9-D — assert the change directory carries its self-contained subgraph
+    // artefacts written AFTER the scaffold (openspec/changes/<id>/).
+    const subgraphPath = path.join(
+      cwd,
+      "openspec",
+      "changes",
+      "change-1",
+      "graph.subset.json"
+    );
+    const subgraph = JSON.parse(await readFile(subgraphPath, "utf8")) as {
+      schemaVersion: string;
+      changeId: string;
+      graphRef: string;
+      focus: string[];
+      stats: { mode: "compact" | "full"; nodesTotal: number };
+      nodes: Array<{ id: string }>;
+      edges: unknown[];
+    };
+    expect(subgraph.schemaVersion).toBe("1.0.0");
+    expect(subgraph.changeId).toBe("change-1");
+    expect(subgraph.graphRef).toBe(".contextforge/graph.json");
+    expect(subgraph.stats.mode).toBe("compact");
+    expect(subgraph.focus.length).toBeGreaterThan(0);
+
+    const subgraphHtml = await readFile(
+      path.join(cwd, "openspec", "changes", "change-1", "graph.subset.html"),
+      "utf8"
+    );
+    expect(subgraphHtml).toContain("<!DOCTYPE html>");
+    expect(subgraphHtml).toContain("Change: change-1");
+
+    const contextMd = await readFile(
+      path.join(cwd, "openspec", "changes", "change-1", "context.md"),
+      "utf8"
+    );
+    expect(contextMd).toContain("Contexto del change `change-1`");
+    expect(contextMd).toContain("graph.subset.json");
+    expect(contextMd).toContain("forge_change_subgraph");
+  });
+
+  it("forge spec --refresh-subgraph rewrites only the subgraph artefacts", async () => {
+    const cwd = await workspace();
+    await mkdir(path.join(cwd, "src"), { recursive: true });
+    await writeFile(
+      path.join(cwd, "src", "index.ts"),
+      "export const n = 1;\n",
+      "utf8"
+    );
+
+    await inWorkspace(cwd, async () => {
+      const { runCommand } = await loadCliModule();
+      await runCommand("scan");
+      await runCommand("graph");
+      await runCommand("context");
+      await runCommand("spec", ["change-1", "--no-openspec"]);
+    });
+
+    const proposalPath = path.join(
+      cwd,
+      "openspec",
+      "changes",
+      "change-1",
+      "proposal.md"
+    );
+    const subgraphPath = path.join(
+      cwd,
+      "openspec",
+      "changes",
+      "change-1",
+      "graph.subset.json"
+    );
+
+    const proposalBefore = await readFile(proposalPath, "utf8");
+    const subgraphBefore = JSON.parse(await readFile(subgraphPath, "utf8")) as {
+      generatedAt: string;
+    };
+
+    // tiny delay so generatedAt timestamps can differ
+    await new Promise((r) => setTimeout(r, 5));
+
+    await inWorkspace(cwd, async () => {
+      const { runCommand } = await loadCliModule();
+      await runCommand("spec", ["change-1", "--refresh-subgraph"]);
+    });
+
+    const proposalAfter = await readFile(proposalPath, "utf8");
+    const subgraphAfter = JSON.parse(await readFile(subgraphPath, "utf8")) as {
+      generatedAt: string;
+    };
+
+    // proposal.md untouched, subgraph regenerated.
+    expect(proposalAfter).toBe(proposalBefore);
+    expect(subgraphAfter.generatedAt).not.toBe(subgraphBefore.generatedAt);
+
+    const contextMd = await readFile(
+      path.join(cwd, "openspec", "changes", "change-1", "context.md"),
+      "utf8"
+    );
+    expect(contextMd).toContain("Scaffold por: **refresh**");
   });
 
   it("graph fails with SchemaValidationError when scan.json is invalid", async () => {

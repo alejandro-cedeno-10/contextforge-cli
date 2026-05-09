@@ -643,6 +643,7 @@ async function cmdSpec(
 ): Promise<void> {
   const { flags } = parseFlags(args);
   const forceFallback = flags["no-openspec"] === true;
+  const refreshSubgraph = flags["refresh-subgraph"] === true;
   const subgraphMode: "compact" | "full" =
     flags["subgraph-full"] === true ? "full" : "compact";
 
@@ -692,6 +693,32 @@ async function cmdSpec(
   const changeDir = path.join(process.cwd(), "openspec", "changes", changeId);
   await fs.mkdir(changeDir, { recursive: true });
 
+  // --refresh-subgraph: skip scaffold (proposal/design/tasks/specs are
+  // assumed to already exist and be valid). Only re-extract and re-write
+  // graph.subset.{json,html} + context.md from the current global graph.
+  if (refreshSubgraph) {
+    const proposalPath = path.join(changeDir, "proposal.md");
+    try {
+      await fs.access(proposalPath);
+    } catch {
+      throw new Error(
+        `--refresh-subgraph requires an existing change at ${changeDir}. ` +
+          `No proposal.md found. Run \`pnpm forge spec ${changeId}\` first to scaffold the change.`
+      );
+    }
+    if (!subset) {
+      throw new Error(
+        `Cannot refresh subgraph: .contextforge/graph.json missing. ` +
+          `Run \`pnpm forge graph\` first.`
+      );
+    }
+    await writeChangeSubgraphArtefacts(changeDir, changeId, task, subset);
+    console.log(
+      `[spec] subgrafo actualizado para ${changeId} (proposal/design/tasks/specs intactos)`
+    );
+    return;
+  }
+
   const cliAvailable = !forceFallback && isOpenSpecCliAvailable();
   let openSpecScaffolded = false;
 
@@ -736,51 +763,81 @@ async function cmdSpec(
   // can't clobber them. They are the contract that lets agents working on
   // openspec/changes/<id>/ stay self-contained.
   if (subset) {
-    const generatedAt = new Date().toISOString();
-    const subgraphPayload = {
-      schemaVersion: SCHEMA_VERSIONS.graphSubset,
+    await writeChangeSubgraphArtefacts(
+      changeDir,
       changeId,
-      generatedAt,
-      graphRef: ".contextforge/graph.json",
-      focus: subset.focus,
-      stats: subset.stats,
-      nodes: subset.nodes,
-      edges: subset.edges
-    };
-    validateOrThrow("graph-subset", subgraphPayload);
-    await writeJson(path.join(changeDir, "graph.subset.json"), subgraphPayload);
-    console.log(
-      `Escrito openspec/changes/${changeId}/graph.subset.json (${subset.stats.nodesTotal} nodos, ${subset.stats.edgesTotal} aristas, mode=${subset.stats.mode})`
-    );
-
-    const subsetHtml = generateSubsetHtml({
-      changeId,
-      generatedAt,
       task,
-      nodes: subset.nodes,
-      edges: subset.edges,
-      stats: subset.stats,
-      focus: subset.focus
-    });
-    await writeText(path.join(changeDir, "graph.subset.html"), subsetHtml);
-    console.log(
-      `Escrito openspec/changes/${changeId}/graph.subset.html (visualizable en navegador)`
-    );
-
-    await writeText(
-      path.join(changeDir, "context.md"),
-      renderChangeContextMd({
-        changeId,
-        task,
-        focus: subset.focus,
-        stats: subset.stats,
-        scaffoldedBy: openSpecScaffolded ? "openspec" : "fallback"
-      })
-    );
-    console.log(
-      `Escrito openspec/changes/${changeId}/context.md (mapa para agentes)`
+      subset,
+      openSpecScaffolded ? "openspec" : "fallback"
     );
   }
+}
+
+type SubgraphArtefactInput = {
+  focus: string[];
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  stats: {
+    nodesTotal: number;
+    edgesTotal: number;
+    nodesByType: Record<string, number>;
+    edgesByType: Record<string, number>;
+    depth: number;
+    mode: "compact" | "full";
+  };
+};
+
+async function writeChangeSubgraphArtefacts(
+  changeDir: string,
+  changeId: string,
+  task: string,
+  subset: SubgraphArtefactInput,
+  scaffoldedBy: "openspec" | "fallback" | "refresh" = "refresh"
+): Promise<void> {
+  const generatedAt = new Date().toISOString();
+  const subgraphPayload = {
+    schemaVersion: SCHEMA_VERSIONS.graphSubset,
+    changeId,
+    generatedAt,
+    graphRef: ".contextforge/graph.json",
+    focus: subset.focus,
+    stats: subset.stats,
+    nodes: subset.nodes,
+    edges: subset.edges
+  };
+  validateOrThrow("graph-subset", subgraphPayload);
+  await writeJson(path.join(changeDir, "graph.subset.json"), subgraphPayload);
+  console.log(
+    `Escrito openspec/changes/${changeId}/graph.subset.json (${subset.stats.nodesTotal} nodos, ${subset.stats.edgesTotal} aristas, mode=${subset.stats.mode})`
+  );
+
+  const subsetHtml = generateSubsetHtml({
+    changeId,
+    generatedAt,
+    task,
+    nodes: subset.nodes,
+    edges: subset.edges,
+    stats: subset.stats,
+    focus: subset.focus
+  });
+  await writeText(path.join(changeDir, "graph.subset.html"), subsetHtml);
+  console.log(
+    `Escrito openspec/changes/${changeId}/graph.subset.html (visualizable en navegador)`
+  );
+
+  await writeText(
+    path.join(changeDir, "context.md"),
+    renderChangeContextMd({
+      changeId,
+      task,
+      focus: subset.focus,
+      stats: subset.stats,
+      scaffoldedBy
+    })
+  );
+  console.log(
+    `Escrito openspec/changes/${changeId}/context.md (mapa para agentes)`
+  );
 }
 
 function renderChangeContextMd(args: {
@@ -794,7 +851,7 @@ function renderChangeContextMd(args: {
     nodesByType: Record<string, number>;
     edgesByType: Record<string, number>;
   };
-  scaffoldedBy: "openspec" | "fallback";
+  scaffoldedBy: "openspec" | "fallback" | "refresh";
 }): string {
   const { changeId, task, focus, stats, scaffoldedBy } = args;
   const focusList = focus
@@ -1633,7 +1690,7 @@ function printUsage(): void {
   pnpm forge scan
   pnpm forge graph [--force] [--with-calls] [--with-refs] [--enrich] [--export=<dot|graphml>]
   pnpm forge context [task] [--no-manifest] [--force]
-  pnpm forge spec [change-id] [--no-openspec] [--subgraph-full]
+  pnpm forge spec [change-id] [--no-openspec] [--subgraph-full] [--refresh-subgraph]
   pnpm forge implement [change-id]
   pnpm forge implement --check
   pnpm forge implement --approve

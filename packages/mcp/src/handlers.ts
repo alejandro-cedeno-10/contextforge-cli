@@ -764,6 +764,46 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     return { content: [{ type: "text", text: raw }] };
   }
 
+  async function forgeChangeContext({
+    change_id
+  }: {
+    change_id: string;
+  }): Promise<ToolResult> {
+    if (!/^[a-zA-Z0-9._-]+$/.test(change_id)) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Invalid change_id: ${change_id}. Allowed: [a-zA-Z0-9._-]`
+          }
+        ],
+        isError: true
+      };
+    }
+    const contextPath = path.join(
+      root,
+      "openspec",
+      "changes",
+      change_id,
+      "context.md"
+    );
+    let raw: string;
+    try {
+      raw = await fs.readFile(contextPath, "utf8");
+    } catch {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `No context.md found at ${contextPath}. Run \`forge spec ${change_id}\` first.`
+          }
+        ],
+        isError: true
+      };
+    }
+    return { content: [{ type: "text", text: raw }] };
+  }
+
   return {
     forgeContext,
     forgeNeighbors,
@@ -772,6 +812,7 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     forgeStatus,
     getAgentManifest,
     selectAgentContext,
-    forgeChangeSubgraph
+    forgeChangeSubgraph,
+    forgeChangeContext
   };
 }

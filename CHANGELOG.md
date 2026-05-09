@@ -5,6 +5,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.3.9] — 2026-05-08
+
+### Changed — Skill prefix unification
+
+- **Auto-generated domain skills moved from `ctx-<slug>` to `contextforge-domain-<slug>`.**
+  Eliminates the historical two-prefix duplication (manual `contextforge-*`
+  vs auto `ctx-*`). Single namespace now: everything under
+  `contextforge-*`. The matcher in `agentManifest` keeps backward
+  compatibility for skills authored before this version — legacy `ctx-*`
+  still resolves to the same domain.
+
+- Files renamed via `git mv`: `.claude/skills/ctx-{docs,openspec,packages-cli,packages-core,packages-mcp}.md`
+  → `.claude/skills/contextforge-domain-*`. Frontmatter `name:` field
+  updated to match.
+
+### Added — `forge spec --refresh-subgraph`
+
+- **Re-extract `graph.subset.{json,html}` + `context.md` without touching
+  proposal/design/tasks/specs.** Useful when the global graph mutated but
+  the spec is still valid. Errors out clearly if the change directory or
+  the global graph are missing.
+
+### Added — `forge_change_context` MCP tool
+
+- **9th MCP tool.** Returns the curated `openspec/changes/<id>/context.md`
+  raw. Pair with `forge_change_subgraph` so the agent gets both the data
+  (subgraph) and the navigation guide (context.md) in two cheap calls.
+
+### Added — Integration tests
+
+- E2E test of the full `scan → graph → context → spec` pipeline now also
+  asserts the change directory carries `graph.subset.json/html` +
+  `context.md`, with the right schema version, mode and references.
+- New test for `--refresh-subgraph`: verifies that proposal.md is
+  byte-stable across refresh while subgraph generatedAt advances and
+  `context.md` is rewritten with `Scaffold por: refresh`.
+- 4 new MCP handler tests (`forgeChangeContext` happy/missing/unsafe + the
+  matching forgeStatus regression).
+
+Suite total: **268/268** (26 archivos, +8 nuevos vs v0.3.8).
+
+---
+
 ## [0.3.8] — 2026-05-08
 
 ### Fixed

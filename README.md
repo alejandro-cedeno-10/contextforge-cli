@@ -6,7 +6,7 @@
 214 600 tokens (todo el repo)  →  11 988 tokens (lo que importa a la tarea)
 ```
 
-[![tests](https://img.shields.io/badge/tests-260%2F260-brightgreen)]() [![savings](https://img.shields.io/badge/tokens-94.4%25%20saved-brightgreen)]() [![npm](https://img.shields.io/badge/npm-%40anai--raia--alex%2Fcontextforge--cli-blue)](https://www.npmjs.com/package/@anai-raia-alex/contextforge-cli) [![docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/alejandro-cedeno-10/contextforge-cli/pkgs/container/contextforge-mcp)
+[![tests](https://img.shields.io/badge/tests-268%2F268-brightgreen)]() [![savings](https://img.shields.io/badge/tokens-94.4%25%20saved-brightgreen)]() [![npm](https://img.shields.io/badge/npm-%40anai--raia--alex%2Fcontextforge--cli-blue)](https://www.npmjs.com/package/@anai-raia-alex/contextforge-cli) [![docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/alejandro-cedeno-10/contextforge-cli/pkgs/container/contextforge-mcp)
 
 ---
 
@@ -205,7 +205,7 @@ The system MUST implement the change `fix-token-race` while respecting
 
 1. `alwaysApply: true` → siempre incluida.
 2. frontmatter `domains: [..]` ∩ dominios tocados → match domain.
-3. nombre `ctx-<slug>` del dominio tocado → match explicit (retrocompatible con `forge skills`).
+3. nombre `contextforge-domain-<slug>` del dominio tocado → match explicit (legacy `ctx-<slug>` aún soportado).
 4. nada matchea → skipped (con razón).
 
 Frontmatter mal formado nunca crashea: cae en `skipped` con `frontmatter parse error`.
@@ -560,7 +560,7 @@ Eso instala las **instrucciones canónicas de OpenSpec** para los 3 agentes (las
 | `forge spec <id> [--no-openspec]`                                                         | spec-input.json + handoff/fallback OpenSpec                                 |   No   |
 | `forge implement <id>`                                                                    | Plan con guardrails derivados del pack                                      |   No   |
 | `forge implement --check`                                                                 | Valida diff vs guardrails                                                   |   No   |
-| `forge skills [--force]`                                                                  | Auto-genera skills por dominio (`ctx-<domain>.md`)                          |   No   |
+| `forge skills [--force]`                                                                  | Auto-genera skills por dominio (`contextforge-domain-<slug>.md`)            |   No   |
 | `forge manifest [--agents=...] [--force]`                                                 | Re-genera manifest sin re-rankear                                           |   No   |
 | `forge sync [--since X] [--rebuild]`                                                      | Reporta delta desde un ref de git                                           |   No   |
 | `forge impact`                                                                            | Health check de artefactos + cobertura                                      |   No   |
@@ -706,7 +706,7 @@ openspec/changes/<id>/
 
 | Métrica                  | Valor                                                |
 | ------------------------ | ---------------------------------------------------- |
-| Tests                    | **260 / 260** verde (26 archivos)                    |
+| Tests                    | **268 / 268** verde (26 archivos)                    |
 | Coverage                 | ≥ 80 % global · módulos `manifest/` y `spec/` ≥ 95 % |
 | Token savings            | **94.4 %** vs baseline                               |
 | Compresión               | **17.9×** por sesión · **÷28×** SDD con caching      |
@@ -777,7 +777,7 @@ packages/
   mcp/    → servidor MCP con 7 tools
 
 .claude/skills/    → 3 skills task-oriented (contextforge-*) +
-                     N auto-generadas (ctx-*) +
+                     N auto-generadas (contextforge-domain-*) +
                      agent-manifest.md (per-task)
 .cursor/rules/     → contextforge.mdc (alwaysApply) +
                      contextforge-active.mdc (Auto-Attached, regenerada por tarea)
@@ -796,7 +796,7 @@ pnpm test:coverage      # con cobertura
 pnpm typecheck          # tsc -b --force (project references)
 ```
 
-Suite actual: **260/260 tests pasando** (26 archivos), coverage global ≥ 80 % · módulos `manifest/` y `spec/` ≥ 95 %.
+Suite actual: **268/268 tests pasando** (26 archivos), coverage global ≥ 80 % · módulos `manifest/` y `spec/` ≥ 95 %.
 
 ---
 

@@ -56,7 +56,11 @@ function deslugify(slug: string): string {
 }
 
 function domainFromSkillName(name: string): string | null {
-  const match = /^ctx-(.+)$/.exec(name);
+  // New canonical prefix:  contextforge-domain-<slug>
+  // Legacy prefix kept for backward compatibility with skills authored
+  // before v0.3.9. Drop the legacy branch one minor version later.
+  const match =
+    /^contextforge-domain-(.+)$/.exec(name) ?? /^ctx-(.+)$/.exec(name);
   if (!match) return null;
   return deslugify(match[1]);
 }

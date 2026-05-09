@@ -56,7 +56,7 @@ describe("buildAgentManifest", () => {
     const result = buildAgentManifest({
       task: "any task",
       packedFiles: [],
-      skills: [skill("ctx-packages-core", [], true)],
+      skills: [skill("contextforge-domain-packages-core", [], true)],
       rules: []
     });
     expect(result.skills).toHaveLength(1);
@@ -76,11 +76,11 @@ describe("buildAgentManifest", () => {
     expect(result.skills[0].reason).toBe("task touches packages/core");
   });
 
-  it("includes ctx-<slug> skill by name inference when no domains frontmatter (matchType: explicit)", () => {
+  it("includes contextforge-domain-<slug> skill by name inference when no domains frontmatter (matchType: explicit)", () => {
     const result = buildAgentManifest({
       task: "fix core",
       packedFiles: [{ path: "packages/core/src/a.ts" }],
-      skills: [skill("ctx-packages-core", [])],
+      skills: [skill("contextforge-domain-packages-core", [])],
       rules: []
     });
     expect(result.skills).toHaveLength(1);
@@ -91,20 +91,33 @@ describe("buildAgentManifest", () => {
     const result = buildAgentManifest({
       task: "fix cli",
       packedFiles: [{ path: "packages/cli/src/index.ts" }],
-      skills: [skill("ctx-packages-mcp", [])],
+      skills: [skill("contextforge-domain-packages-mcp", [])],
       rules: []
     });
     expect(result.skills).toHaveLength(0);
     expect(result.skipped.skills).toHaveLength(1);
-    expect(result.skipped.skills[0].name).toBe("ctx-packages-mcp");
+    expect(result.skipped.skills[0].name).toBe(
+      "contextforge-domain-packages-mcp"
+    );
     expect(result.skipped.skills[0].reason).toBe("domain not touched");
+  });
+
+  it("legacy ctx-<slug> prefix still resolves (backward-compat)", () => {
+    const result = buildAgentManifest({
+      task: "fix core",
+      packedFiles: [{ path: "packages/core/src/a.ts" }],
+      skills: [skill("ctx-packages-core", [])],
+      rules: []
+    });
+    expect(result.skills).toHaveLength(1);
+    expect(result.skills[0].matchType).toBe("explicit");
   });
 
   it("skill domain frontmatter takes precedence over slug when domains: [] uses alwaysApply", () => {
     const result = buildAgentManifest({
       task: "fix cli",
       packedFiles: [{ path: "packages/cli/src/index.ts" }],
-      skills: [skill("ctx-packages-core", ["packages/cli"])],
+      skills: [skill("contextforge-domain-packages-core", ["packages/cli"])],
       rules: []
     });
     expect(result.skills[0].matchType).toBe("domain");
@@ -144,9 +157,9 @@ describe("buildAgentManifest", () => {
       task: "task",
       packedFiles: [{ path: "packages/core/a.ts" }],
       skills: [
-        skill("ctx-packages-core", ["packages/core"]),
-        skill("ctx-aaa", [], true),
-        skill("ctx-zzz", [], true)
+        skill("contextforge-domain-packages-core", ["packages/core"]),
+        skill("contextforge-domain-aaa", [], true),
+        skill("contextforge-domain-zzz", [], true)
       ],
       rules: []
     };
@@ -166,13 +179,15 @@ describe("buildAgentManifest", () => {
         { path: "packages/cli/src/index.ts" }
       ],
       skills: [
-        skill("ctx-packages-core", ["packages/core"]),
-        skill("ctx-packages-cli", [], false),
-        skill("ctx-packages-mcp", [])
+        skill("contextforge-domain-packages-core", ["packages/core"]),
+        skill("contextforge-domain-packages-cli", [], false),
+        skill("contextforge-domain-packages-mcp", [])
       ],
       rules: [
         rule(".cursor/rules/contextforge.mdc", [], true),
-        rule(".cursor/rules/ctx-packages-core.mdc", ["packages/core"])
+        rule(".cursor/rules/contextforge-domain-packages-core.mdc", [
+          "packages/core"
+        ])
       ]
     };
     const r1 = buildAgentManifest(opts);

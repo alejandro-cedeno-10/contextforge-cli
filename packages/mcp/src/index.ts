@@ -124,6 +124,20 @@ server.tool(
 );
 
 server.tool(
+  "forge_change_context",
+  "Returns the change context map (`openspec/changes/<id>/context.md`) — the curated guide that lists reading order, MCP tool sequence, focus files, and references to global artifacts. Use this AFTER forge_change_subgraph to understand HOW to navigate what the subgraph contains.",
+  {
+    change_id: z
+      .string()
+      .min(1)
+      .describe(
+        "OpenSpec change identifier (the directory name under openspec/changes/)"
+      )
+  },
+  handlers.forgeChangeContext
+);
+
+server.tool(
   "forge_change_subgraph",
   'PRIMARY tool when working on an OpenSpec change. Returns the frozen subgraph stored at openspec/changes/<id>/graph.subset.json — exactly the files, symbols, packages and dependencies that were in scope when the spec was authored. Always call this BEFORE forge_context / forge_neighbors when implementing or reviewing a change: it is one cheap call that already answers "what does this change touch and what does it depend on?". The companion artefacts in the same directory (proposal.md, design.md, tasks.md, specs/<domain>/spec.md, context.md, graph.subset.html) are the canonical reading order — see context.md for the map.',
   {

@@ -140,7 +140,7 @@ export function buildDomainSkills(
     });
 
     result.files.push({
-      path: `.claude/skills/ctx-${slugify(domain)}.md`,
+      path: `.claude/skills/contextforge-domain-${slugify(domain)}.md`,
       domain,
       content
     });
@@ -231,7 +231,7 @@ function renderSkill(args: RenderArgs): string {
 
   const sections: string[] = [];
   sections.push(`---
-name: ctx-${slug}
+name: contextforge-domain-${slug}
 description: ${description}
 tags: [${domain}, domain-skill]
 ---`);

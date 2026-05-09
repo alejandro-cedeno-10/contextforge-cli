@@ -422,6 +422,40 @@ describe("forgeChangeSubgraph", () => {
   });
 });
 
+describe("forgeChangeContext", () => {
+  it("returns the context.md when present in a change directory", async () => {
+    const root = await newWorkspace();
+    const changeDir = path.join(root, "openspec", "changes", "demo-change");
+    await mkdir(changeDir, { recursive: true });
+    await writeFile(
+      path.join(changeDir, "context.md"),
+      "# Contexto del change `demo-change`\n\nReading order...\n",
+      "utf8"
+    );
+
+    const { forgeChangeContext } = createHandlers(root);
+    const result = await forgeChangeContext({ change_id: "demo-change" });
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).toContain("Contexto del change");
+  });
+
+  it("returns an error when context.md is missing", async () => {
+    const root = await newWorkspace();
+    const { forgeChangeContext } = createHandlers(root);
+    const result = await forgeChangeContext({ change_id: "missing" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("No context.md found");
+  });
+
+  it("rejects unsafe change_id", async () => {
+    const root = await newWorkspace();
+    const { forgeChangeContext } = createHandlers(root);
+    const result = await forgeChangeContext({ change_id: "../etc/passwd" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Invalid change_id");
+  });
+});
+
 describe("forgeStatus — change subgraph awareness", () => {
   it("lists OpenSpec changes that ship a frozen subgraph", async () => {
     const root = await newWorkspace();

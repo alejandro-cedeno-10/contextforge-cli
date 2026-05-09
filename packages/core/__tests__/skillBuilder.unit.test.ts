@@ -39,7 +39,7 @@ describe("buildDomainSkills", () => {
     expect(result.skipped[0].reason).toMatch(/only 1 file/);
   });
 
-  it("emits one skill per domain at .claude/skills/ctx-<slug>.md (Scenario: graph with multiple domains produces one skill per domain)", () => {
+  it("emits one skill per domain at .claude/skills/contextforge-domain-<slug>.md (Scenario: graph with multiple domains produces one skill per domain)", () => {
     const nodes: GraphNode[] = [
       fileNode("packages/core/src/a.ts"),
       fileNode("packages/core/src/b.ts"),
@@ -51,9 +51,15 @@ describe("buildDomainSkills", () => {
     const result = buildDomainSkills({ nodes, edges: [] });
 
     const paths = result.files.map((f) => f.path);
-    expect(paths).toContain(".claude/skills/ctx-packages-core.md");
-    expect(paths).toContain(".claude/skills/ctx-packages-cli.md");
-    expect(paths).toContain(".claude/skills/ctx-packages-mcp.md");
+    expect(paths).toContain(
+      ".claude/skills/contextforge-domain-packages-core.md"
+    );
+    expect(paths).toContain(
+      ".claude/skills/contextforge-domain-packages-cli.md"
+    );
+    expect(paths).toContain(
+      ".claude/skills/contextforge-domain-packages-mcp.md"
+    );
   });
 
   it("renders Depends on / Used by sections from cross-domain imports edges (Scenario: domain with cross-domain imports renders both sections)", () => {
@@ -69,13 +75,13 @@ describe("buildDomainSkills", () => {
     ];
     const result = buildDomainSkills({ nodes, edges });
     const cli = result.files.find((f) =>
-      f.path.endsWith("ctx-packages-cli.md")
+      f.path.endsWith("contextforge-domain-packages-cli.md")
     )!;
     expect(cli.content).toContain("## Depends on");
     expect(cli.content).toContain("`packages/core` (2 imports)");
 
     const core = result.files.find((f) =>
-      f.path.endsWith("ctx-packages-core.md")
+      f.path.endsWith("contextforge-domain-packages-core.md")
     )!;
     expect(core.content).toContain("## Used by");
     expect(core.content).toContain("`packages/cli` (2 imports)");
@@ -127,8 +133,10 @@ describe("buildDomainSkills", () => {
     ];
     const result = buildDomainSkills({ nodes, edges: [] });
     const paths = result.files.map((f) => f.path);
-    expect(paths).toContain(".claude/skills/ctx-packages-core.md");
-    expect(paths).toContain(".claude/skills/ctx-src.md");
+    expect(paths).toContain(
+      ".claude/skills/contextforge-domain-packages-core.md"
+    );
+    expect(paths).toContain(".claude/skills/contextforge-domain-src.md");
   });
 
   it("includes name, description, and tags in the frontmatter (Scenario: frontmatter format is consistent)", () => {
@@ -139,10 +147,10 @@ describe("buildDomainSkills", () => {
     ];
     const result = buildDomainSkills({ nodes, edges: [] });
     const skill = result.files.find((f) =>
-      f.path.endsWith("ctx-packages-core.md")
+      f.path.endsWith("contextforge-domain-packages-core.md")
     )!;
     expect(skill.content).toMatch(/^---\n/);
-    expect(skill.content).toContain("name: ctx-packages-core");
+    expect(skill.content).toContain("name: contextforge-domain-packages-core");
     expect(skill.content).toContain(
       "description: Domain context for packages/core — 2 files, 1 tests"
     );
@@ -161,11 +169,11 @@ describe("buildDomainSkills", () => {
     ];
     const result = buildDomainSkills({ nodes, edges });
     const cli = result.files.find((f) =>
-      f.path.endsWith("ctx-packages-cli.md")
+      f.path.endsWith("contextforge-domain-packages-cli.md")
     )!;
     expect(cli.content).toMatch(/description:.*depends on 1/);
     const core = result.files.find((f) =>
-      f.path.endsWith("ctx-packages-core.md")
+      f.path.endsWith("contextforge-domain-packages-core.md")
     )!;
     expect(core.content).toMatch(/description:.*used by 1/);
   });
@@ -217,7 +225,7 @@ describe("buildDomainSkills", () => {
     ];
     const result = buildDomainSkills({ nodes, edges });
     const core = result.files.find((f) =>
-      f.path.endsWith("ctx-packages-core.md")
+      f.path.endsWith("contextforge-domain-packages-core.md")
     )!;
     const keySection = core.content.split("## Key files\n\n")[1] ?? "";
     const lines = keySection.split("\n").filter((l) => l.startsWith("- "));
