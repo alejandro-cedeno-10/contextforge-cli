@@ -456,6 +456,74 @@ describe("forgeChangeContext", () => {
   });
 });
 
+describe("forgeArchiveChange", () => {
+  it("rejects unsafe change_id", async () => {
+    const root = await newWorkspace();
+    const { forgeArchiveChange } = createHandlers(root);
+    const result = await forgeArchiveChange({ change_id: "../etc/passwd" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Invalid change_id");
+  });
+
+  it("rebuilds parent graph and refreshes existing subgraphs (skip_openspec_archive=true)", async () => {
+    const root = await newWorkspace();
+    // Seed a tiny project: one source file.
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "a.ts"),
+      "export const x = 1;\n",
+      "utf8"
+    );
+    // Seed an active change with an existing subgraph (focus on src/a.ts).
+    const changeDir = path.join(root, "openspec", "changes", "demo");
+    await mkdir(changeDir, { recursive: true });
+    await writeFile(
+      path.join(changeDir, "graph.subset.json"),
+      JSON.stringify({
+        schemaVersion: "1.0.0",
+        changeId: "demo",
+        generatedAt: "2026-01-01T00:00:00Z",
+        graphRef: ".contextforge/graph.json",
+        focus: ["src/a.ts"],
+        stats: {
+          nodesTotal: 0,
+          edgesTotal: 0,
+          nodesByType: {},
+          edgesByType: {},
+          depth: 1,
+          mode: "compact"
+        },
+        nodes: [],
+        edges: []
+      }),
+      "utf8"
+    );
+
+    const { forgeArchiveChange } = createHandlers(root);
+    const result = await forgeArchiveChange({
+      change_id: "demo",
+      skip_openspec_archive: true
+    });
+
+    expect(result.isError).toBeFalsy();
+    const text = result.content[0].text;
+    expect(text).toContain("openspec archive skipped");
+    expect(text).toMatch(/scan: \d+ files indexed/);
+    expect(text).toMatch(/graph: \d+ nodes/);
+    expect(text).toContain("subgraphs refreshed: 1");
+    expect(text).toContain("- demo");
+
+    // Subgraph file should now be a non-empty real subgraph.
+    const subset = JSON.parse(
+      await (
+        await import("node:fs/promises")
+      ).readFile(path.join(changeDir, "graph.subset.json"), "utf8")
+    ) as { stats: { nodesTotal: number }; nodes: unknown[] };
+    expect(subset.nodes.length).toBeGreaterThan(0);
+    expect(subset.stats.nodesTotal).toBe(subset.nodes.length);
+  });
+});
+
 describe("forgeStatus — change subgraph awareness", () => {
   it("lists OpenSpec changes that ship a frozen subgraph", async () => {
     const root = await newWorkspace();

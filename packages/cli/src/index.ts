@@ -1450,6 +1450,7 @@ async function cmdSync(args: string[] = []): Promise<void> {
   const since =
     typeof flags["since"] === "string" ? (flags["since"] as string) : "HEAD~1";
   const rebuild = flags["rebuild"] === true;
+  const refreshSubgraphs = flags["refresh-subgraphs"] === true;
 
   const changedFiles = await gitChangedFiles(since);
 
@@ -1520,8 +1521,90 @@ async function cmdSync(args: string[] = []): Promise<void> {
     console.log("");
     console.log("[sync] --rebuild: ejecutando scan + graph...");
     await cmdScan();
-    await cmdGraph();
+    await cmdGraph(["--force"]);
   }
+
+  if (refreshSubgraphs) {
+    console.log("");
+    console.log(
+      "[sync] --refresh-subgraphs: regenerando subgrafos de changes activos..."
+    );
+    const refreshed = await refreshAllChangeSubgraphs(process.cwd());
+    if (refreshed.length === 0) {
+      console.log(
+        "[sync] No hay openspec/changes/*/graph.subset.json activos."
+      );
+    } else {
+      for (const id of refreshed) {
+        console.log(`[sync]   refreshed: ${id}`);
+      }
+    }
+  }
+}
+
+async function refreshAllChangeSubgraphs(root: string): Promise<string[]> {
+  const changesDir = path.join(root, "openspec", "changes");
+  let entries: string[] = [];
+  try {
+    const all = await fs.readdir(changesDir, { withFileTypes: true });
+    entries = all.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+
+  type GraphFile = {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  };
+  const graph = await tryReadJson<GraphFile>(outputPath("graph.json"));
+  if (!graph) return [];
+
+  const refreshed: string[] = [];
+  for (const id of entries) {
+    const subsetPath = path.join(changesDir, id, "graph.subset.json");
+    let existing: {
+      focus?: string[];
+      stats?: { mode?: "compact" | "full" };
+    } | null = null;
+    try {
+      const raw = await fs.readFile(subsetPath, "utf8");
+      existing = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const focus = existing?.focus ?? [];
+    if (focus.length === 0) continue;
+    const mode: "compact" | "full" = existing?.stats?.mode ?? "compact";
+
+    const subset = extractChangeSubgraph(graph, {
+      focusFiles: focus,
+      depth: 1,
+      mode
+    });
+
+    // Pull task from the change's own context.md or fall back to id.
+    let task = id;
+    try {
+      const ctx = await fs.readFile(
+        path.join(changesDir, id, "context.md"),
+        "utf8"
+      );
+      const m = /^## Tarea\n\n([^\n]+)/m.exec(ctx);
+      if (m?.[1]) task = m[1];
+    } catch {
+      // no context.md — task fallback to id
+    }
+
+    await writeChangeSubgraphArtefacts(
+      path.join(changesDir, id),
+      id,
+      task,
+      subset,
+      "refresh"
+    );
+    refreshed.push(id);
+  }
+  return refreshed;
 }
 
 async function readSkillTags(): Promise<string[][]> {
@@ -1698,7 +1781,7 @@ function printUsage(): void {
   pnpm forge skills [--force]
   pnpm forge manifest [--agents=claude,cursor,opencode] [--force]
   pnpm forge viz
-  pnpm forge sync [--since HEAD~1] [--rebuild]
+  pnpm forge sync [--since HEAD~1] [--rebuild] [--refresh-subgraphs]
   pnpm forge impact`);
 }
 

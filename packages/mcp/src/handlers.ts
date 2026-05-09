@@ -3,10 +3,19 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import {
+  blake3Hex,
   buildAgentManifest,
+  buildGraph,
+  extractChangeSubgraph,
   getDomain,
+  GRAPH_CACHE_FILE,
+  loadGraphCache,
+  saveGraphCache,
+  scanProject,
   selectContext,
+  SCHEMA_VERSIONS,
   validateGuardrails,
+  validateOrThrow,
   type AgentManifestResult,
   type ScanResult,
   type GraphNode,
@@ -804,6 +813,191 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     return { content: [{ type: "text", text: raw }] };
   }
 
+  async function forgeArchiveChange({
+    change_id,
+    skip_openspec_archive
+  }: {
+    change_id: string;
+    skip_openspec_archive?: boolean;
+  }): Promise<ToolResult> {
+    if (!/^[a-zA-Z0-9._-]+$/.test(change_id)) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Invalid change_id: ${change_id}. Allowed: [a-zA-Z0-9._-]`
+          }
+        ],
+        isError: true
+      };
+    }
+
+    const lines: string[] = [`# Archive change: ${change_id}`, ``];
+
+    // 1. openspec archive (best-effort — only if openspec CLI is on PATH and
+    //    the caller didn't ask us to skip it).
+    if (!skip_openspec_archive) {
+      try {
+        const out = nodeExecSync(`openspec archive ${change_id} -y`, {
+          cwd: root,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"]
+        });
+        lines.push(`✅ openspec archive ${change_id} -y`);
+        if (out.trim()) {
+          lines.push(`   ${out.trim().split("\n").join("\n   ")}`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        lines.push(
+          `⚠️ openspec archive failed (continuing with rebuild anyway):`
+        );
+        lines.push(`   ${msg.split("\n").slice(0, 3).join("\n   ")}`);
+      }
+    } else {
+      lines.push(`⏭️ openspec archive skipped (skip_openspec_archive=true)`);
+    }
+
+    // 2. Rebuild parent scan + graph.
+    let scan: ScanResult;
+    try {
+      scan = await scanProject(root);
+      validateOrThrow("scan", scan);
+      const scanPath = path.join(root, ".contextforge", "scan.json");
+      await fs.mkdir(path.dirname(scanPath), { recursive: true });
+      await fs.writeFile(
+        scanPath,
+        `${JSON.stringify(scan, null, 2)}\n`,
+        "utf8"
+      );
+      lines.push(``, `✅ scan: ${scan.files.length} files indexed`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lines.push(``, `❌ scan failed: ${msg}`);
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+        isError: true
+      };
+    }
+
+    let graphPayload: {
+      schemaVersion: string;
+      project: { name: string; root: string };
+      generatedAt: string;
+      scanRef: { path: string; scanHash: string };
+      parser: { engine: string };
+      stats: Record<string, unknown>;
+      nodes: GraphNode[];
+      edges: GraphEdge[];
+    };
+    try {
+      const cache = await loadGraphCache(root);
+      const graphData = await buildGraph({ root, scan, cache });
+      const scanRaw = `${JSON.stringify(scan, null, 2)}\n`;
+      graphPayload = {
+        schemaVersion: SCHEMA_VERSIONS.graph,
+        project: { name: path.basename(root), root: "." },
+        generatedAt: new Date().toISOString(),
+        scanRef: {
+          path: ".contextforge/scan.json",
+          scanHash: blake3Hex(scanRaw)
+        },
+        parser: graphData.parser,
+        stats: graphData.stats,
+        nodes: graphData.nodes,
+        edges: graphData.edges
+      };
+      validateOrThrow("graph", graphPayload);
+      const graphPath = path.join(root, ".contextforge", "graph.json");
+      await fs.writeFile(
+        graphPath,
+        `${JSON.stringify(graphPayload, null, 2)}\n`,
+        "utf8"
+      );
+      await saveGraphCache(root, graphData.cacheUpdate);
+      lines.push(
+        `✅ graph: ${graphData.stats.nodesTotal} nodes, ${graphData.stats.edgesTotal} edges (cache: ${graphData.cacheStats.reused} reused, ${graphData.cacheStats.reparsed} reparsed)`
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lines.push(`❌ graph rebuild failed: ${msg}`);
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+        isError: true
+      };
+    }
+
+    // 3. Refresh subgraphs of every remaining active change.
+    const changesDir = path.join(root, "openspec", "changes");
+    let activeChanges: string[] = [];
+    try {
+      const all = await fs.readdir(changesDir, { withFileTypes: true });
+      activeChanges = all.filter((e) => e.isDirectory()).map((e) => e.name);
+    } catch {
+      activeChanges = [];
+    }
+
+    const refreshed: string[] = [];
+    const skipped: string[] = [];
+    for (const id of activeChanges) {
+      const subsetPath = path.join(changesDir, id, "graph.subset.json");
+      let existing: {
+        focus?: string[];
+        stats?: { mode?: "compact" | "full" };
+      } | null = null;
+      try {
+        existing = JSON.parse(await fs.readFile(subsetPath, "utf8"));
+      } catch {
+        skipped.push(id);
+        continue;
+      }
+      const focus = existing?.focus ?? [];
+      const mode: "compact" | "full" = existing?.stats?.mode ?? "compact";
+      if (focus.length === 0) {
+        skipped.push(id);
+        continue;
+      }
+
+      const subset = extractChangeSubgraph(graphPayload, {
+        focusFiles: focus,
+        depth: 1,
+        mode
+      });
+      const generatedAt = new Date().toISOString();
+      const newPayload = {
+        schemaVersion: SCHEMA_VERSIONS.graphSubset,
+        changeId: id,
+        generatedAt,
+        graphRef: ".contextforge/graph.json",
+        focus: subset.focus,
+        stats: subset.stats,
+        nodes: subset.nodes,
+        edges: subset.edges
+      };
+      validateOrThrow("graph-subset", newPayload);
+      await fs.writeFile(
+        subsetPath,
+        `${JSON.stringify(newPayload, null, 2)}\n`,
+        "utf8"
+      );
+      refreshed.push(id);
+    }
+
+    lines.push(``, `✅ subgraphs refreshed: ${refreshed.length}`);
+    for (const id of refreshed) lines.push(`   - ${id}`);
+    if (skipped.length > 0) {
+      lines.push(
+        `   (${skipped.length} skipped — no graph.subset.json: ${skipped.join(", ")})`
+      );
+    }
+
+    lines.push(
+      ``,
+      `Cache file: ${path.join(root, GRAPH_CACHE_FILE).replace(/\\/g, "/")}`
+    );
+    return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
+
   return {
     forgeContext,
     forgeNeighbors,
@@ -813,6 +1007,7 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     getAgentManifest,
     selectAgentContext,
     forgeChangeSubgraph,
-    forgeChangeContext
+    forgeChangeContext,
+    forgeArchiveChange
   };
 }

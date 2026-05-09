@@ -67,12 +67,30 @@ Si necesitas ver internos de un archivo del subgrafo, usa `forge_neighbors` sobr
   pnpm forge implement --check
   ```
 
+## Cuando termines un change → archive correcto
+
+```jsonc
+// EN VEZ DE: openspec archive <id>  (deja el grafo padre stale)
+{ "tool": "forge_archive_change", "arguments": { "change_id": "<id>" } }
+// Hace: openspec archive + forge scan + forge graph --force + refresh de TODOS los subgrafos restantes.
+```
+
+Si ya corriste `openspec archive` a mano y solo quieres el rebuild + refresh:
+
+```jsonc
+{
+  "tool": "forge_archive_change",
+  "arguments": { "change_id": "<id>", "skip_openspec_archive": true }
+}
+```
+
 ## Anti-patrón
 
 🚫 Cargar el repo entero al prompt.
 🚫 Leer `.contextforge/graph.json` global cuando ya hay `graph.subset.json` del change.
 🚫 Llamar `forge_context` repetidamente cuando ya tienes el subgrafo congelado.
 🚫 Asumir que el subgrafo cambió: es **byte-estable** entre runs del mismo `forge spec`.
+🚫 **Correr `openspec archive` directamente vía Bash** — eso deja el grafo padre stale y los subgrafos de otros changes activos referencian un mundo viejo. Usa `forge_archive_change` en su lugar.
 
 ## Si no existe `graph.subset.json`
 

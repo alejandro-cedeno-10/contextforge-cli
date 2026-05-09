@@ -1,6 +1,6 @@
 {
   "name": "@anai-raia-alex/contextforge-cli",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "type": "module",
   "bin": {
     "forge": "dist/index.js"

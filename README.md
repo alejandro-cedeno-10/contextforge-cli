@@ -6,7 +6,7 @@
 214 600 tokens (todo el repo)  →  11 988 tokens (lo que importa a la tarea)
 ```
 
-[![tests](https://img.shields.io/badge/tests-268%2F268-brightgreen)]() [![savings](https://img.shields.io/badge/tokens-94.4%25%20saved-brightgreen)]() [![npm](https://img.shields.io/badge/npm-%40anai--raia--alex%2Fcontextforge--cli-blue)](https://www.npmjs.com/package/@anai-raia-alex/contextforge-cli) [![docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/alejandro-cedeno-10/contextforge-cli/pkgs/container/contextforge-mcp)
+[![tests](https://img.shields.io/badge/tests-270%2F270-brightgreen)]() [![savings](https://img.shields.io/badge/tokens-94.4%25%20saved-brightgreen)]() [![npm](https://img.shields.io/badge/npm-%40anai--raia--alex%2Fcontextforge--cli-blue)](https://www.npmjs.com/package/@anai-raia-alex/contextforge-cli) [![docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/alejandro-cedeno-10/contextforge-cli/pkgs/container/contextforge-mcp)
 
 ---
 
@@ -609,7 +609,7 @@ openspec list                            # changes activos en SDD
 
 ## Servidor MCP
 
-`packages/mcp` expone **8 tools** consumibles por cualquier cliente MCP (Claude Code, OpenCode, etc.).
+`packages/mcp` expone **10 tools** consumibles por cualquier cliente MCP (Claude Code, OpenCode, etc.).
 
 | Tool                    | Propósito                                                                            |
 | ----------------------- | ------------------------------------------------------------------------------------ |
@@ -619,6 +619,8 @@ openspec list                            # changes activos en SDD
 | `forge_context`         | Selección PageRank para una tarea (con o sin contenido)                              |
 | `forge_check`           | Valida git diff contra guardrails del implement-plan                                 |
 | `forge_change_subgraph` | Subgrafo congelado de un OpenSpec change (`openspec/changes/<id>/graph.subset.json`) |
+| `forge_change_context`  | Mapa de lectura del change (`openspec/changes/<id>/context.md`)                      |
+| `forge_archive_change`  | **Cierra un change**: `openspec archive` + rebuild graph padre + refresh subgrafos   |
 | `select_agent_context`  | **Runtime**: computa agent-manifest en memoria para una tarea (cache mtime)          |
 | `get_agent_manifest`    | **Offline**: lee `.contextforge/agent-manifest.json` precomputado                    |
 
@@ -706,7 +708,7 @@ openspec/changes/<id>/
 
 | Métrica                  | Valor                                                |
 | ------------------------ | ---------------------------------------------------- |
-| Tests                    | **268 / 268** verde (26 archivos)                    |
+| Tests                    | **270 / 270** verde (26 archivos)                    |
 | Coverage                 | ≥ 80 % global · módulos `manifest/` y `spec/` ≥ 95 % |
 | Token savings            | **94.4 %** vs baseline                               |
 | Compresión               | **17.9×** por sesión · **÷28×** SDD con caching      |
@@ -796,7 +798,7 @@ pnpm test:coverage      # con cobertura
 pnpm typecheck          # tsc -b --force (project references)
 ```
 
-Suite actual: **268/268 tests pasando** (26 archivos), coverage global ≥ 80 % · módulos `manifest/` y `spec/` ≥ 95 %.
+Suite actual: **270/270 tests pasando** (26 archivos), coverage global ≥ 80 % · módulos `manifest/` y `spec/` ≥ 95 %.
 
 ---
 

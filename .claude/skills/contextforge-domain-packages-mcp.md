@@ -1,5 +1,5 @@
 ---
-name: ctx-packages-mcp
+name: contextforge-domain-packages-mcp
 description: Domain context for packages/mcp — 5 files, 1 tests, depends on 1
 tags: [packages/mcp, domain-skill]
 ---

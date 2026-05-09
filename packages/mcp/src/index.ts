@@ -124,6 +124,26 @@ server.tool(
 );
 
 server.tool(
+  "forge_archive_change",
+  "PRIMARY way to finish a change. Wraps `openspec archive <id>` and then auto-rebuilds the parent graph (.contextforge/graph.json) and refreshes the graph.subset.json of every remaining active change so they reflect the post-archive code. Use this INSTEAD of running `openspec archive` directly via Bash — running archive bare leaves the parent graph stale and silently breaks downstream tools (forge_neighbors, forge_context, other changes' subgraphs). Set skip_openspec_archive=true if you already ran archive yourself and only want the rebuild + refresh part.",
+  {
+    change_id: z
+      .string()
+      .min(1)
+      .describe(
+        "OpenSpec change identifier to archive (the directory name under openspec/changes/)"
+      ),
+    skip_openspec_archive: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, skip the `openspec archive` call and only run the rebuild + refresh. Use if you already archived manually."
+      )
+  },
+  handlers.forgeArchiveChange
+);
+
+server.tool(
   "forge_change_context",
   "Returns the change context map (`openspec/changes/<id>/context.md`) — the curated guide that lists reading order, MCP tool sequence, focus files, and references to global artifacts. Use this AFTER forge_change_subgraph to understand HOW to navigate what the subgraph contains.",
   {

@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.3.10] — 2026-05-09
+
+### Added — Auto-rebuild después de implementar un change (vía MCP, no hook)
+
+- **MCP tool `forge_archive_change({change_id, skip_openspec_archive?})`.** 10º tool. Wrappa `openspec archive <id>` y luego ejecuta automáticamente: `forge scan`, rebuild del `.contextforge/graph.json`, y refresh de todos los `graph.subset.json` de changes restantes activos. Universal: cualquier cliente MCP (Claude Code, Cursor, OpenCode, otros) lo puede llamar. Reemplaza el patrón antiguo de "ejecuta `openspec archive` directamente vía Bash" — que dejaba stale el grafo padre.
+
+- **`forge sync --refresh-subgraphs`.** Equivalente CLI: recorre `openspec/changes/*/graph.subset.json` y los re-extrae usando el `focus[]` y `stats.mode` originales, contra el grafo padre actual. Reusa `writeChangeSubgraphArtefacts`. Útil sin MCP, o como complemento (`--rebuild --refresh-subgraphs`).
+
+- **Skill `contextforge-openspec-change.md` actualizada** con la sección "Cuando termines un change → archive correcto" que dirige al agente a usar `forge_archive_change` y declara `openspec archive` directo como anti-patrón.
+
+### Why
+
+Un change archivado significa que el código ya cambió. Sin auto-rebuild, el `graph.json` global queda stale y los subgrafos de otros changes activos referencian un mundo viejo. La cadena `archive → grafo fresco → subgrafos refrescados` ahora es **un solo MCP call**, no un hook específico de Claude Code (que solo funcionaría dentro de Claude). El tool MCP funciona desde cualquier agente.
+
+### Tests
+
+- Test de `forgeArchiveChange` (skip_openspec_archive=true) con workspace tmp: verifica que el rebuild produce `scan + graph + subgraph` válidos y que el subgrafo de un change preexistente queda con nodos reales tras el refresh.
+- Test de path-traversal rechazado.
+- Suite total: **270/270** (26 archivos, +2 vs v0.3.9).
+
+---
+
 ## [0.3.9] — 2026-05-08
 
 ### Changed — Skill prefix unification

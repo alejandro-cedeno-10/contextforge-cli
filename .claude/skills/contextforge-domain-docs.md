@@ -1,5 +1,5 @@
 ---
-name: ctx-docs
+name: contextforge-domain-docs
 description: Domain context for docs — 12 files, 0 tests
 tags: [docs, domain-skill]
 ---

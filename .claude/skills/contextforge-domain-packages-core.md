@@ -1,5 +1,5 @@
 ---
-name: ctx-packages-core
+name: contextforge-domain-packages-core
 description: Domain context for packages/core — 22 files, 14 tests, used by 2
 tags: [packages/core, domain-skill]
 ---

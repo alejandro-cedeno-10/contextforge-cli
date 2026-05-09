@@ -24,6 +24,7 @@ coverage/
 .contextforge/spec-input.json
 .contextforge/spec-prompt.md
 .contextforge/implement-plan.json
+.contextforge/auto-rebuild.log
 .contextforge/token-ledger.json
 
 # OpenSpec self-check artifact (CI generates change-1 with default args).

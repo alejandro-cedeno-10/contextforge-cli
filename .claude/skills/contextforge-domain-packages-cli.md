@@ -1,5 +1,5 @@
 ---
-name: ctx-packages-cli
+name: contextforge-domain-packages-cli
 description: Domain context for packages/cli — 5 files, 1 tests, depends on 1
 tags: [packages/cli, domain-skill]
 ---

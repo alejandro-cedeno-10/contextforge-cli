@@ -1,5 +1,5 @@
 ---
-name: ctx-openspec
+name: contextforge-domain-openspec
 description: Domain context for openspec — 4 files, 0 tests
 tags: [openspec, domain-skill]
 ---
