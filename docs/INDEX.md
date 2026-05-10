@@ -36,6 +36,7 @@ Recetas enfocadas en una sola tarea, asumiendo conocimiento básico del repo.
 
 - [`use-contextforge.md`](./how-to/use-contextforge.md) — Pipeline completo: instalar, escanear, generar context-pack y conectar agentes.
 - [`agent-manifest-y-skills.md`](./how-to/agent-manifest-y-skills.md) — Cómo el manifest activa skills/rules selectivamente por tarea en Claude Code, Cursor y OpenCode.
+- [`use-semantic-graph.md`](./how-to/use-semantic-graph.md) — Activar `--with-semantic` (y opcionalmente `--concepts`), qué nodos aparecen, y cómo `forge context` / `forge spec` / MCP los consumen.
 
 ## 📚 Reference (consultar)
 
