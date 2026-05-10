@@ -37,8 +37,47 @@ export {
   type GraphNode,
   type GraphEdge,
   type EdgeType,
+  type NodeType,
+  type StructuralNodeType,
+  type SemanticNodeType,
+  type StructuralEdgeType,
+  type SemanticEdgeType,
   type ParserEngineLabel
 } from "./graph/builder.js";
+
+export {
+  detectDomains,
+  type DomainAssignment,
+  type DomainDetectionResult
+} from "./graph/semantic/domain.js";
+
+export {
+  detectLayers,
+  type LayerAssignment,
+  type LayerDetectionResult,
+  type LayerKind
+} from "./graph/semantic/layer.js";
+
+export {
+  detectEndpoints,
+  type EndpointHit,
+  type EndpointDetectionResult,
+  type DetectEndpointsOptions
+} from "./graph/semantic/endpoint.js";
+
+export {
+  detectFlows,
+  type Flow,
+  type FlowStep,
+  type FlowDetectionResult,
+  type DetectFlowsOptions
+} from "./graph/semantic/flow.js";
+
+export {
+  runSemanticPass,
+  type RunSemanticPassOptions,
+  type RunSemanticPassResult
+} from "./graph/semantic/pass5.js";
 
 export {
   loadCache as loadGraphCache,

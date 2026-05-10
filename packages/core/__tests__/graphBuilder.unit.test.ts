@@ -404,4 +404,102 @@ describe("buildGraph", () => {
 
     expect(result.parser.engine).toBe("none");
   });
+
+  it("does not emit semantic-layer nodes by default", async () => {
+    const root = await newWorkspace();
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "users.controller.ts"),
+      "@Controller('users')\nexport class UsersController { @Get() list() {} }\n"
+    );
+
+    const scan = makeScan(root, [
+      {
+        path: "src/users.controller.ts",
+        ext: ".ts",
+        size: 80,
+        hash: "sem-default",
+        kind: "code"
+      }
+    ]);
+
+    const result = await buildGraph({ root, scan });
+
+    expect(result.semanticEnabled).toBe(false);
+    expect(result.nodes.find((n) => n.type === "domain")).toBeUndefined();
+    expect(result.nodes.find((n) => n.type === "endpoint")).toBeUndefined();
+  });
+
+  it("emits semantic-layer nodes when withSemantic is on", async () => {
+    const root = await newWorkspace();
+    await mkdir(path.join(root, "src", "users"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "users", "users.module.ts"),
+      "export class UsersModule {}\n"
+    );
+    await writeFile(
+      path.join(root, "src", "users", "users.controller.ts"),
+      [
+        "import { UsersService } from './users.service';",
+        "@Controller('users')",
+        "export class UsersController {",
+        "  constructor(private svc: UsersService) {}",
+        "  @Get() list() { return this.svc.findAll(); }",
+        "}"
+      ].join("\n") + "\n"
+    );
+    await writeFile(
+      path.join(root, "src", "users", "users.service.ts"),
+      "export class UsersService { findAll() { return []; } }\n"
+    );
+
+    const scan = makeScan(root, [
+      {
+        path: "src/users/users.module.ts",
+        ext: ".ts",
+        size: 40,
+        hash: "sem-mod",
+        kind: "code"
+      },
+      {
+        path: "src/users/users.controller.ts",
+        ext: ".ts",
+        size: 200,
+        hash: "sem-ctrl",
+        kind: "code"
+      },
+      {
+        path: "src/users/users.service.ts",
+        ext: ".ts",
+        size: 60,
+        hash: "sem-svc",
+        kind: "code"
+      }
+    ]);
+
+    const result = await buildGraph({ root, scan, withSemantic: true });
+
+    expect(result.semanticEnabled).toBe(true);
+    expect(result.semanticStats?.domainCount).toBe(1);
+
+    const domain = result.nodes.find((n) => n.id === "domain:users");
+    expect(domain?.type).toBe("domain");
+    expect(domain?.files).toBe(3);
+
+    expect(
+      result.nodes.find((n) => n.type === "endpoint" && n.method === "GET")
+    ).toBeDefined();
+
+    const flowSteps = result.nodes.filter((n) => n.type === "step");
+    expect(flowSteps.length).toBeGreaterThanOrEqual(2);
+
+    expect(
+      result.edges.some(
+        (e) =>
+          e.type === "belongs_to_domain" &&
+          e.to === "domain:users" &&
+          e.from === "file:src/users/users.controller.ts"
+      )
+    ).toBe(true);
+  });
 });

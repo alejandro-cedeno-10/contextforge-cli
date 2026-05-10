@@ -23,6 +23,7 @@ import {
   resolveTsconfigAlias,
   type TsconfigPaths
 } from "./tsconfigPaths.js";
+import { runSemanticPass } from "./semantic/pass5.js";
 
 export type SemanticNodeType =
   | "domain"
@@ -115,6 +116,17 @@ export interface BuildGraphResult {
   cacheStats: {
     reused: number;
     reparsed: number;
+  };
+  /**
+   * True when Pass 5 (semantic enrichment) ran. Maps to the
+   * `semanticEnabled` field on the persisted graph.json.
+   */
+  semanticEnabled: boolean;
+  semanticStats?: {
+    domainCount: number;
+    layerCount: number;
+    endpointCount: number;
+    flowCount: number;
   };
 }
 
@@ -353,10 +365,19 @@ export async function buildGraph(options: {
   concurrency?: number;
   withCalls?: boolean;
   withRefs?: boolean;
+  /**
+   * Pass 5 — opt-in semantic enrichment. When true, appends
+   * domain/layer/endpoint/flow/step nodes + edges. Default false to keep
+   * structural output byte-stable for callers that haven't migrated.
+   */
+  withSemantic?: boolean;
+  /** Reader override for endpoint extraction in tests. */
+  semanticReadFile?: (absolutePath: string) => Promise<string>;
 }): Promise<BuildGraphResult> {
   const { root, scan, cache } = options;
   const withCalls = options.withCalls ?? false;
   const withRefs = options.withRefs ?? false;
+  const withSemantic = options.withSemantic ?? false;
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const allFilePaths = new Set(scan.files.map((f) => f.path));
@@ -605,6 +626,22 @@ export async function buildGraph(options: {
   for (const folder of folders) nodes.push(folder);
   for (const edge of containsEdges) addEdge(edge);
 
+  // Pass 5 (opt-in): semantic enrichment. Adds domain/layer/endpoint/flow/step
+  // nodes plus their connecting edges. Reuses importedFilesByFile for flow
+  // detection so we don't re-walk imports.
+  let semanticStats: BuildGraphResult["semanticStats"];
+  if (withSemantic) {
+    const semantic = await runSemanticPass({
+      root,
+      scanFiles: scan.files,
+      importedFilesByFile,
+      readFile: options.semanticReadFile
+    });
+    for (const node of semantic.nodes) nodes.push(node);
+    for (const edge of semantic.edges) addEdge(edge);
+    semanticStats = semantic.stats;
+  }
+
   // Stable ordering — guarantees byte-identical output across runs even
   // though parsing happened in parallel.
   nodes.sort(compareNodes);
@@ -645,6 +682,8 @@ export async function buildGraph(options: {
     cacheStats: {
       reused: reusedCount,
       reparsed: reparsedCount
-    }
+    },
+    semanticEnabled: withSemantic,
+    ...(semanticStats ? { semanticStats } : {})
   };
 }

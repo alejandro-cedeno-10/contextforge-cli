@@ -317,6 +317,7 @@ async function cmdGraph(args: string[] = []): Promise<void> {
   const force = flags["force"] === true;
   const withCalls = flags["with-calls"] === true;
   const withRefs = flags["with-refs"] === true;
+  const withSemantic = flags["with-semantic"] === true;
   const enrich = flags["enrich"] === true;
   const exportFormatRaw = flags["export"];
   const exportFormat =
@@ -358,7 +359,8 @@ async function cmdGraph(args: string[] = []): Promise<void> {
       if (
         existingGraph.scanRef?.scanHash === scanHash &&
         !enrich &&
-        !exportFormat
+        !exportFormat &&
+        !withSemantic
       ) {
         log("[graph] unchanged scan hash; skipping rebuild");
         return;
@@ -389,7 +391,8 @@ async function cmdGraph(args: string[] = []): Promise<void> {
     scan,
     cache,
     withCalls,
-    withRefs
+    withRefs,
+    withSemantic
   });
 
   if (enrich) {
@@ -428,6 +431,7 @@ async function cmdGraph(args: string[] = []): Promise<void> {
     },
     parser: graphData.parser,
     stats: graphData.stats,
+    ...(graphData.semanticEnabled ? { semanticEnabled: true } : {}),
     nodes: graphData.nodes,
     edges: graphData.edges
   };
@@ -438,6 +442,12 @@ async function cmdGraph(args: string[] = []): Promise<void> {
   log(
     `Escrito .contextforge/graph.json (cache: ${graphData.cacheStats.reused} reutilizados, ${graphData.cacheStats.reparsed} reparseados)`
   );
+  if (graphData.semanticEnabled && graphData.semanticStats) {
+    const s = graphData.semanticStats;
+    log(
+      `[graph] semantic layer: ${s.domainCount} domains, ${s.layerCount} layers, ${s.endpointCount} endpoints, ${s.flowCount} flows`
+    );
+  }
 
   if (exportFormat === "dot") {
     process.stdout.write(
@@ -1771,7 +1781,7 @@ function printUsage(): void {
   console.log(`Uso:
   pnpm forge init
   pnpm forge scan
-  pnpm forge graph [--force] [--with-calls] [--with-refs] [--enrich] [--export=<dot|graphml>]
+  pnpm forge graph [--force] [--with-calls] [--with-refs] [--with-semantic] [--enrich] [--export=<dot|graphml>]
   pnpm forge context [task] [--no-manifest] [--force]
   pnpm forge spec [change-id] [--no-openspec] [--subgraph-full] [--refresh-subgraph]
   pnpm forge implement [change-id]
