@@ -373,11 +373,44 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
       tests: [],
       tested_by: [],
       defines: [],
+      same_domain: [],
+      same_layer: [],
+      exposes_endpoint: [],
+      flows_participating: [],
       other: []
     };
 
+    // Semantic-layer pre-pass: when the file has belongs_to_domain or
+    // in_layer edges, collect peer files in the same domain/layer.
+    const findNodeById = (id: string): GraphNode | undefined =>
+      graph.nodes.find((n) => n.id === id);
+    const directDomainIds = new Set<string>();
+    const directLayerIds = new Set<string>();
+    for (const e of graph.edges) {
+      if (e.from !== nodeId) continue;
+      if (e.type === "belongs_to_domain") directDomainIds.add(e.to);
+      if (e.type === "in_layer") directLayerIds.add(e.to);
+    }
+    if (directDomainIds.size > 0) {
+      for (const e of graph.edges) {
+        if (e.type !== "belongs_to_domain") continue;
+        if (!directDomainIds.has(e.to)) continue;
+        if (e.from === nodeId) continue;
+        sections.same_domain!.push(getLabel(e.from));
+      }
+    }
+    if (directLayerIds.size > 0) {
+      for (const e of graph.edges) {
+        if (e.type !== "in_layer") continue;
+        if (!directLayerIds.has(e.to)) continue;
+        if (e.from === nodeId) continue;
+        sections.same_layer!.push(getLabel(e.from));
+      }
+    }
+
     for (const rel of edgeMap[nodeId] ?? []) {
       const label = getLabel(rel.to);
+      const targetNode = findNodeById(rel.to);
       if (rel.type === "imports" && rel.dir === "out")
         sections.imports!.push(label);
       else if (rel.type === "imports" && rel.dir === "in")
@@ -387,7 +420,24 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
       else if (rel.type === "tests" && rel.dir === "in")
         sections.tested_by!.push(label);
       else if (rel.type === "defines") sections.defines!.push(label);
-      else sections.other!.push(`[${rel.type}] ${label}`);
+      else if (rel.type === "exposes_endpoint" && targetNode) {
+        const m = targetNode.method ?? "?";
+        const p = targetNode.path ?? "?";
+        const fwk = targetNode.framework ? ` [${targetNode.framework}]` : "";
+        sections.exposes_endpoint!.push(`${m} ${p}${fwk}`);
+      } else if (rel.type === "implements_flow" && targetNode) {
+        sections.flows_participating!.push(
+          `${targetNode.label} (${targetNode.id})`
+        );
+      } else if (rel.type === "belongs_to_domain" || rel.type === "in_layer") {
+        // Already handled above; skip to avoid double-listing.
+        continue;
+      } else sections.other!.push(`[${rel.type}] ${label}`);
+    }
+
+    // Dedupe & sort each section for byte-stable output.
+    for (const key of Object.keys(sections)) {
+      sections[key] = [...new Set(sections[key]!)].sort();
     }
 
     const lines = [`# Graph neighbors: ${file_path}`, ``];
@@ -415,34 +465,76 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
   async function forgeDomainMap(): Promise<ToolResult> {
     const graph = await loadGraph();
 
-    const domainFiles = new Map<string, string[]>();
+    // If the graph carries Pass-5 `domain` nodes + `belongs_to_domain` edges,
+    // use them — they're more accurate than the trivial getDomain() fallback.
+    const semanticDomainNodes = graph.nodes.filter((n) => n.type === "domain");
+    const useSemantic = semanticDomainNodes.length > 0;
 
-    for (const n of graph.nodes) {
-      if (n.type !== "file" || !n.path) continue;
-      const domain = getDomain(n.path);
-      if (!domainFiles.has(domain)) domainFiles.set(domain, []);
-      domainFiles.get(domain)!.push(n.path);
+    const domainFiles = new Map<string, string[]>();
+    const domainOf = (filePath: string): string => getDomain(filePath);
+
+    if (useSemantic) {
+      // Pre-index file path -> domain via belongs_to_domain edges.
+      const fileToDomain = new Map<string, string>();
+      for (const e of graph.edges) {
+        if (e.type !== "belongs_to_domain") continue;
+        const filePath = e.from.replace(/^file:/, "");
+        const domainSlug = e.to.replace(/^domain:/, "");
+        fileToDomain.set(filePath, domainSlug);
+      }
+      for (const n of graph.nodes) {
+        if (n.type !== "file" || !n.path) continue;
+        const d = fileToDomain.get(n.path) ?? domainOf(n.path);
+        if (!domainFiles.has(d)) domainFiles.set(d, []);
+        domainFiles.get(d)!.push(n.path);
+      }
+    } else {
+      for (const n of graph.nodes) {
+        if (n.type !== "file" || !n.path) continue;
+        const d = domainOf(n.path);
+        if (!domainFiles.has(d)) domainFiles.set(d, []);
+        domainFiles.get(d)!.push(n.path);
+      }
     }
 
     const domainEdges = new Map<string, { imports: number; tests: number }>();
-    for (const e of graph.edges) {
-      if (e.type === "defines" || e.type === "contains") continue;
-      const fn = graph.nodes.find((n) => n.id === e.from);
-      const tn = graph.nodes.find((n) => n.id === e.to);
-      if (!fn?.path || !tn?.path) continue;
-      const fd = getDomain(fn.path);
-      const td = getDomain(tn.path);
-      if (fd === td) continue;
-      const key = `${fd} → ${td}`;
-      const prev = domainEdges.get(key) ?? { imports: 0, tests: 0 };
-      if (e.type === "imports") prev.imports++;
-      if (e.type === "tests") prev.tests++;
-      domainEdges.set(key, prev);
+    if (useSemantic) {
+      // Use cross_domain edges (already aggregated by Pass 5).
+      for (const e of graph.edges) {
+        if (e.type !== "cross_domain") continue;
+        const fd = e.from.replace(/^domain:/, "");
+        const td = e.to.replace(/^domain:/, "");
+        const key = `${fd} → ${td}`;
+        domainEdges.set(key, {
+          imports: typeof e.weight === "number" ? e.weight : 1,
+          tests: 0
+        });
+      }
+    } else {
+      for (const e of graph.edges) {
+        if (e.type === "defines" || e.type === "contains") continue;
+        const fn = graph.nodes.find((n) => n.id === e.from);
+        const tn = graph.nodes.find((n) => n.id === e.to);
+        if (!fn?.path || !tn?.path) continue;
+        const fd = domainOf(fn.path);
+        const td = domainOf(tn.path);
+        if (fd === td) continue;
+        const key = `${fd} → ${td}`;
+        const prev = domainEdges.get(key) ?? { imports: 0, tests: 0 };
+        if (e.type === "imports") prev.imports++;
+        if (e.type === "tests") prev.tests++;
+        domainEdges.set(key, prev);
+      }
     }
 
     const lines = [`# Domain map: ${path.basename(root)}`, ``];
+    if (useSemantic) {
+      lines.push(`_Source: Pass-5 semantic layer (domain nodes)._`, ``);
+    }
 
-    for (const [domain, files] of domainFiles) {
+    for (const [domain, files] of [...domainFiles].sort((a, b) =>
+      a[0] < b[0] ? -1 : 1
+    )) {
       const byKind = files.reduce(
         (acc, f) => {
           const node = graph.nodes.find((n) => n.path === f);
@@ -461,7 +553,9 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
 
     if (domainEdges.size) {
       lines.push(`## Cross-domain dependencies`, ``);
-      for (const [edge, counts] of domainEdges) {
+      for (const [edge, counts] of [...domainEdges].sort((a, b) =>
+        a[0] < b[0] ? -1 : 1
+      )) {
         const parts = [];
         if (counts.imports) parts.push(`${counts.imports} imports`);
         if (counts.tests) parts.push(`${counts.tests} tests`);
@@ -475,6 +569,183 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     }
 
     return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
+
+  // ── forge_semantic_map ───────────────────────────────────────────────────────
+
+  async function forgeSemanticMap({
+    domain
+  }: { domain?: string } = {}): Promise<ToolResult> {
+    const graph = await loadGraph();
+
+    const domainNodes = graph.nodes.filter((n) => n.type === "domain");
+    if (domainNodes.length === 0) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "_Graph has no semantic layer. Run `pnpm forge graph --with-semantic` to enable._"
+          }
+        ]
+      };
+    }
+
+    const wanted = (n: GraphNode): boolean =>
+      !domain || n.label === domain || n.id === `domain:${domain}`;
+
+    // Index supporting nodes for cheap lookup.
+    const nodeById = new Map<string, GraphNode>();
+    for (const n of graph.nodes) nodeById.set(n.id, n);
+
+    const filesByDomain = new Map<string, string[]>();
+    const endpointsByDomain = new Map<string, GraphNode[]>();
+    const flowsByDomain = new Map<string, GraphNode[]>();
+
+    for (const e of graph.edges) {
+      if (e.type === "belongs_to_domain") {
+        const dn = nodeById.get(e.to);
+        if (!dn || !wanted(dn)) continue;
+        const list = filesByDomain.get(dn.label) ?? [];
+        list.push(e.from.replace(/^file:/, ""));
+        filesByDomain.set(dn.label, list);
+      }
+    }
+
+    // For endpoints/flows we use the node's `domain` field (set by Pass 5)
+    // because these nodes don't carry a belongs_to_domain edge themselves.
+    for (const n of graph.nodes) {
+      if (n.type === "endpoint") {
+        // Endpoints are linked to files via exposes_endpoint; infer domain
+        // from the file's belongs_to_domain edge.
+        const fileEdge = graph.edges.find(
+          (e) => e.type === "exposes_endpoint" && e.to === n.id
+        );
+        if (!fileEdge) continue;
+        const fileToDomainEdge = graph.edges.find(
+          (e) => e.type === "belongs_to_domain" && e.from === fileEdge.from
+        );
+        if (!fileToDomainEdge) continue;
+        const dn = nodeById.get(fileToDomainEdge.to);
+        if (!dn || !wanted(dn)) continue;
+        const list = endpointsByDomain.get(dn.label) ?? [];
+        list.push(n);
+        endpointsByDomain.set(dn.label, list);
+      }
+      if (n.type === "flow") {
+        const dlabel = n.domain;
+        if (!dlabel) continue;
+        if (domain && dlabel !== domain) continue;
+        const list = flowsByDomain.get(dlabel) ?? [];
+        list.push(n);
+        flowsByDomain.set(dlabel, list);
+      }
+    }
+
+    const targetDomains = domain
+      ? domainNodes.filter((d) => d.label === domain)
+      : domainNodes;
+
+    if (targetDomains.length === 0) {
+      const known = domainNodes.map((d) => d.label).sort();
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Domain "${domain}" not found. Known: ${known.join(", ") || "(none)"}`
+          }
+        ]
+      };
+    }
+
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      domains: targetDomains
+        .map((d) => ({
+          name: d.label,
+          files: (filesByDomain.get(d.label) ?? []).sort(),
+          endpoints: (endpointsByDomain.get(d.label) ?? [])
+            .map((e) => ({
+              method: e.method,
+              path: e.path,
+              framework: e.framework,
+              id: e.id
+            }))
+            .sort((a, b) => {
+              const ka = `${a.method} ${a.path}`;
+              const kb = `${b.method} ${b.path}`;
+              return ka < kb ? -1 : ka > kb ? 1 : 0;
+            }),
+          flows: (flowsByDomain.get(d.label) ?? [])
+            .map((f) => ({
+              id: f.id,
+              label: f.label,
+              entryFile: f.entryFile,
+              stepCount: f.stepCount
+            }))
+            .sort((a, b) => (a.id < b.id ? -1 : 1))
+        }))
+        .sort((a, b) => (a.name < b.name ? -1 : 1))
+    };
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }]
+    };
+  }
+
+  // ── forge_flow ───────────────────────────────────────────────────────────────
+
+  async function forgeFlow({
+    flow_id
+  }: {
+    flow_id: string;
+  }): Promise<ToolResult> {
+    const graph = await loadGraph();
+    const flowNode = graph.nodes.find(
+      (n) =>
+        n.type === "flow" && (n.id === flow_id || n.id === `flow:${flow_id}`)
+    );
+    if (!flowNode) {
+      const known = graph.nodes
+        .filter((n) => n.type === "flow")
+        .map((n) => n.id)
+        .sort();
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Flow not found: ${flow_id}\n\nKnown flows:\n${
+              known.map((id) => `- ${id}`).join("\n") || "(none)"
+            }\n\n_Run \`pnpm forge graph --with-semantic\` to populate._`
+          }
+        ]
+      };
+    }
+
+    // Collect step nodes connected via flow_step.
+    const stepIds = graph.edges
+      .filter((e) => e.type === "flow_step" && e.from === flowNode.id)
+      .map((e) => e.to);
+    const stepNodes = stepIds
+      .map((id) => graph.nodes.find((n) => n.id === id))
+      .filter((n): n is GraphNode => Boolean(n) && n!.type === "step")
+      .sort((a, b) => (a!.order ?? 0) - (b!.order ?? 0));
+
+    const payload = {
+      id: flowNode.id,
+      label: flowNode.label,
+      domain: flowNode.domain ?? null,
+      entryFile: flowNode.entryFile ?? null,
+      stepCount: flowNode.stepCount ?? stepNodes.length,
+      steps: stepNodes.map((n) => ({
+        order: n.order,
+        file: n.stepFile,
+        layer: n.stepLayer
+      }))
+    };
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }]
+    };
   }
 
   // ── forge_check ──────────────────────────────────────────────────────────────
@@ -1003,6 +1274,8 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     forgeContext,
     forgeNeighbors,
     forgeDomainMap,
+    forgeSemanticMap,
+    forgeFlow,
     forgeCheck,
     forgeStatus,
     getAgentManifest,

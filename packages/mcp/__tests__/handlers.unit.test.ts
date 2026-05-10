@@ -554,3 +554,309 @@ describe("forgeStatus — change subgraph awareness", () => {
     expect(text).not.toContain("no-subgraph");
   });
 });
+
+// ─── semantic-layer handlers ──────────────────────────────────────────────────
+
+const SEMANTIC_GRAPH_FIXTURE = {
+  schemaVersion: "0.3.0",
+  generatedAt: "2026-01-01T00:00:00Z",
+  semanticEnabled: true,
+  nodes: [
+    {
+      id: "file:src/auth/auth.controller.ts",
+      type: "file",
+      label: "auth.controller.ts",
+      path: "src/auth/auth.controller.ts",
+      kind: "code",
+      lang: "ts"
+    },
+    {
+      id: "file:src/auth/auth.service.ts",
+      type: "file",
+      label: "auth.service.ts",
+      path: "src/auth/auth.service.ts",
+      kind: "code",
+      lang: "ts"
+    },
+    {
+      id: "file:src/billing/invoice.service.ts",
+      type: "file",
+      label: "invoice.service.ts",
+      path: "src/billing/invoice.service.ts",
+      kind: "code",
+      lang: "ts"
+    },
+    { id: "domain:auth", type: "domain", label: "auth", files: 2 },
+    { id: "domain:billing", type: "domain", label: "billing", files: 1 },
+    {
+      id: "layer:controller",
+      type: "layer",
+      label: "controller",
+      kind: "backend"
+    },
+    { id: "layer:service", type: "layer", label: "service", kind: "backend" },
+    {
+      id: "endpoint:POST:/auth/login",
+      type: "endpoint",
+      label: "POST /auth/login",
+      method: "POST",
+      path: "/auth/login",
+      framework: "nest"
+    },
+    {
+      id: "flow:auth/post-auth-login",
+      type: "flow",
+      label: "POST /auth/login",
+      domain: "auth",
+      entryFile: "src/auth/auth.controller.ts",
+      stepCount: 2
+    },
+    {
+      id: "step:flow:auth/post-auth-login#1",
+      type: "step",
+      label: "1. src/auth/auth.controller.ts",
+      order: 1,
+      stepFile: "src/auth/auth.controller.ts",
+      stepLayer: "controller"
+    },
+    {
+      id: "step:flow:auth/post-auth-login#2",
+      type: "step",
+      label: "2. src/auth/auth.service.ts",
+      order: 2,
+      stepFile: "src/auth/auth.service.ts",
+      stepLayer: "service"
+    }
+  ],
+  edges: [
+    {
+      from: "file:src/auth/auth.controller.ts",
+      to: "domain:auth",
+      type: "belongs_to_domain"
+    },
+    {
+      from: "file:src/auth/auth.service.ts",
+      to: "domain:auth",
+      type: "belongs_to_domain"
+    },
+    {
+      from: "file:src/billing/invoice.service.ts",
+      to: "domain:billing",
+      type: "belongs_to_domain"
+    },
+    {
+      from: "file:src/auth/auth.controller.ts",
+      to: "layer:controller",
+      type: "in_layer"
+    },
+    {
+      from: "file:src/auth/auth.service.ts",
+      to: "layer:service",
+      type: "in_layer"
+    },
+    {
+      from: "file:src/auth/auth.controller.ts",
+      to: "endpoint:POST:/auth/login",
+      type: "exposes_endpoint"
+    },
+    {
+      from: "file:src/auth/auth.controller.ts",
+      to: "flow:auth/post-auth-login",
+      type: "implements_flow"
+    },
+    {
+      from: "file:src/auth/auth.service.ts",
+      to: "flow:auth/post-auth-login",
+      type: "implements_flow"
+    },
+    {
+      from: "flow:auth/post-auth-login",
+      to: "step:flow:auth/post-auth-login#1",
+      type: "flow_step"
+    },
+    {
+      from: "flow:auth/post-auth-login",
+      to: "step:flow:auth/post-auth-login#2",
+      type: "flow_step"
+    },
+    {
+      from: "domain:auth",
+      to: "domain:billing",
+      type: "cross_domain",
+      weight: 2
+    }
+  ]
+};
+
+async function writeSemanticArtifacts(root: string): Promise<void> {
+  const cfDir = path.join(root, ".contextforge");
+  await mkdir(cfDir, { recursive: true });
+  await writeFile(
+    path.join(cfDir, "graph.json"),
+    JSON.stringify(SEMANTIC_GRAPH_FIXTURE),
+    "utf8"
+  );
+  await writeFile(
+    path.join(cfDir, "scan.json"),
+    JSON.stringify({
+      schemaVersion: "0.2.0",
+      hashAlgorithm: "blake3",
+      generatedAt: "2026-01-01T00:00:00Z",
+      root: ".",
+      files: [
+        {
+          path: "src/auth/auth.controller.ts",
+          hash: "a",
+          size: 200,
+          kind: "code",
+          lang: "ts"
+        },
+        {
+          path: "src/auth/auth.service.ts",
+          hash: "b",
+          size: 200,
+          kind: "code",
+          lang: "ts"
+        },
+        {
+          path: "src/billing/invoice.service.ts",
+          hash: "c",
+          size: 200,
+          kind: "code",
+          lang: "ts"
+        }
+      ]
+    }),
+    "utf8"
+  );
+}
+
+describe("forgeSemanticMap", () => {
+  it("returns a JSON map of domains -> files/endpoints/flows", async () => {
+    const root = await newWorkspace();
+    await writeSemanticArtifacts(root);
+    const { forgeSemanticMap } = createHandlers(root);
+
+    const result = await forgeSemanticMap({});
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.domains.map((d: { name: string }) => d.name)).toEqual([
+      "auth",
+      "billing"
+    ]);
+    const auth = parsed.domains.find(
+      (d: { name: string }) => d.name === "auth"
+    );
+    expect(auth.files).toContain("src/auth/auth.controller.ts");
+    expect(auth.endpoints).toEqual([
+      {
+        method: "POST",
+        path: "/auth/login",
+        framework: "nest",
+        id: "endpoint:POST:/auth/login"
+      }
+    ]);
+    expect(auth.flows[0].id).toBe("flow:auth/post-auth-login");
+  });
+
+  it("filters to a single domain when domain arg is given", async () => {
+    const root = await newWorkspace();
+    await writeSemanticArtifacts(root);
+    const { forgeSemanticMap } = createHandlers(root);
+
+    const result = await forgeSemanticMap({ domain: "billing" });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.domains).toHaveLength(1);
+    expect(parsed.domains[0].name).toBe("billing");
+  });
+
+  it("returns a hint when the graph has no semantic layer", async () => {
+    const root = await newWorkspace();
+    await writeArtifacts(root);
+    const { forgeSemanticMap } = createHandlers(root);
+
+    const result = await forgeSemanticMap({});
+    expect(result.content[0].text).toContain("--with-semantic");
+  });
+
+  it("reports unknown domain with a list of known ones", async () => {
+    const root = await newWorkspace();
+    await writeSemanticArtifacts(root);
+    const { forgeSemanticMap } = createHandlers(root);
+
+    const result = await forgeSemanticMap({ domain: "missing" });
+    expect(result.content[0].text).toContain('Domain "missing" not found');
+    expect(result.content[0].text).toContain("auth");
+  });
+});
+
+describe("forgeFlow", () => {
+  it("returns ordered steps for a known flow", async () => {
+    const root = await newWorkspace();
+    await writeSemanticArtifacts(root);
+    const { forgeFlow } = createHandlers(root);
+
+    const result = await forgeFlow({
+      flow_id: "flow:auth/post-auth-login"
+    });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.id).toBe("flow:auth/post-auth-login");
+    expect(parsed.steps.map((s: { layer: string }) => s.layer)).toEqual([
+      "controller",
+      "service"
+    ]);
+    expect(parsed.steps[0].order).toBe(1);
+  });
+
+  it("accepts a short id without the 'flow:' prefix", async () => {
+    const root = await newWorkspace();
+    await writeSemanticArtifacts(root);
+    const { forgeFlow } = createHandlers(root);
+
+    const result = await forgeFlow({ flow_id: "auth/post-auth-login" });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.id).toBe("flow:auth/post-auth-login");
+  });
+
+  it("lists known flows when the id is missing", async () => {
+    const root = await newWorkspace();
+    await writeSemanticArtifacts(root);
+    const { forgeFlow } = createHandlers(root);
+
+    const result = await forgeFlow({ flow_id: "flow:does/not-exist" });
+    expect(result.content[0].text).toContain("Flow not found");
+    expect(result.content[0].text).toContain("flow:auth/post-auth-login");
+  });
+});
+
+describe("forgeNeighbors — semantic sections", () => {
+  it("renders same_domain, exposes_endpoint and flows_participating", async () => {
+    const root = await newWorkspace();
+    await writeSemanticArtifacts(root);
+    const { forgeNeighbors } = createHandlers(root);
+
+    const result = await forgeNeighbors({
+      file_path: "src/auth/auth.controller.ts"
+    });
+    const text = result.content[0].text;
+    expect(text).toContain("same domain");
+    expect(text).toContain("src/auth/auth.service.ts");
+    expect(text).toContain("exposes endpoint");
+    expect(text).toContain("POST /auth/login");
+    expect(text).toContain("flows participating");
+  });
+});
+
+describe("forgeDomainMap — semantic source", () => {
+  it("uses semantic-layer domain nodes when available", async () => {
+    const root = await newWorkspace();
+    await writeSemanticArtifacts(root);
+    const { forgeDomainMap } = createHandlers(root);
+
+    const result = await forgeDomainMap();
+    const text = result.content[0].text;
+    expect(text).toContain("Pass-5 semantic layer");
+    expect(text).toContain("## auth");
+    expect(text).toContain("## billing");
+    expect(text).toContain("auth → billing");
+  });
+});

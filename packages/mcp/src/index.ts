@@ -97,9 +97,35 @@ server.tool(
 
 server.tool(
   "forge_domain_map",
-  "Returns a high-level map of the project's domains (packages/modules) and their dependencies. Use this to understand project structure without reading package.json files.",
+  "Returns a high-level map of the project's domains (packages/modules) and their dependencies. When the graph has the semantic layer (Pass 5), uses real `domain` nodes for accurate grouping instead of the path-based fallback. Use this to understand project structure without reading package.json files.",
   {},
   handlers.forgeDomainMap
+);
+
+server.tool(
+  "forge_semantic_map",
+  'Returns a structured JSON map of domains -> files + endpoints + flows from the Pass-5 semantic layer. Use to plan a change against business intent ("what does the auth domain expose?") rather than file paths. Pass an optional `domain` to filter to one. Returns a hint when the graph has no semantic layer.',
+  {
+    domain: z
+      .string()
+      .optional()
+      .describe("Optional domain slug to filter to. Omit to get the whole map.")
+  },
+  handlers.forgeSemanticMap
+);
+
+server.tool(
+  "forge_flow",
+  "Returns the ordered steps of a Pass-5 `flow` node (e.g. controller -> service -> repository). Pass either the full id `flow:auth/login` or just `auth/login`. Use this to understand a use case end-to-end without opening files first.",
+  {
+    flow_id: z
+      .string()
+      .min(1)
+      .describe(
+        'Flow id from forge_semantic_map (e.g. "flow:auth/login-with-password" or "auth/login-with-password")'
+      )
+  },
+  handlers.forgeFlow
 );
 
 server.tool(
