@@ -246,6 +246,7 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
       edges: graph.edges as Parameters<typeof selectContext>[0]["edges"],
       scanFiles: scanData.files,
       seeds,
+      task,
       budget
     });
 

@@ -13,6 +13,15 @@ export interface SelectContextOptions {
   edges: GraphEdge[];
   scanFiles: ScanFile[];
   seeds?: string[];
+  /**
+   * Free-text task description. When provided AND the graph contains
+   * Pass-5 `domain` nodes, files whose domain label matches a task keyword
+   * receive a boost (semanticBoost factor) applied after PageRank+BFS.
+   * Pure deterministic heuristic — no LLM.
+   */
+  task?: string;
+  /** Multiplier applied to score of files in matched domains. Default 1.5. */
+  semanticBoost?: number;
   budget?: number;
   bfsDepth?: number;
   maxCandidates?: number;
@@ -21,6 +30,60 @@ export interface SelectContextOptions {
 export interface SelectContextResult extends PackResult {
   pageRankScores: Map<string, number>;
   candidatesTotal: number;
+  /** Domain ids ("domain:auth", ...) whose label matched a task keyword. */
+  semanticBoostedDomains: string[];
+}
+
+const STOPWORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "from",
+  "fix",
+  "bug",
+  "add",
+  "new",
+  "use",
+  "this",
+  "that",
+  "into",
+  "out",
+  "feature",
+  "implement",
+  "implementing",
+  "remove",
+  "update",
+  "refactor",
+  "test",
+  "tests"
+]);
+
+function extractKeywords(task: string): string[] {
+  return task
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+}
+
+function findMatchedDomainIds(
+  task: string,
+  nodes: ReadonlyArray<GraphNode>
+): Set<string> {
+  const keywords = extractKeywords(task);
+  if (keywords.length === 0) return new Set();
+  const matched = new Set<string>();
+  for (const n of nodes) {
+    if (n.type !== "domain") continue;
+    const slug = n.label.toLowerCase();
+    for (const kw of keywords) {
+      if (slug === kw || slug.includes(kw) || kw.includes(slug)) {
+        matched.add(n.id);
+        break;
+      }
+    }
+  }
+  return matched;
 }
 
 export function selectContext(
@@ -31,6 +94,8 @@ export function selectContext(
     edges,
     scanFiles,
     seeds = [],
+    task,
+    semanticBoost = 1.5,
     budget = 12000,
     bfsDepth = 2,
     maxCandidates = 50
@@ -70,14 +135,30 @@ export function selectContext(
 
   const seedSet = new Set(seedNodeIds);
 
+  // ── Semantic boost ─────────────────────────────────────────────────────────
+  // When the graph carries Pass-5 `domain` nodes and the caller provided a
+  // task description, find files belonging to a matched domain and remember
+  // them so we can multiply their score below. Pure heuristic, byte-stable.
+  const matchedDomainIds = task
+    ? findMatchedDomainIds(task, nodes)
+    : new Set<string>();
+  const boostedFileIds = new Set<string>();
+  if (matchedDomainIds.size > 0) {
+    for (const e of edges) {
+      if (e.type !== "belongs_to_domain") continue;
+      if (matchedDomainIds.has(e.to)) boostedFileIds.add(e.from);
+    }
+  }
+
   // Score every file node.
   const scored: ScoredFile[] = fileNodes
     .map((n) => {
       const prScore = prScores.get(n.id) ?? 0;
       // Nodes not reached by BFS get distance = bfsDepth (max penalty).
       const bfsDist = bfsDistances.get(n.id) ?? bfsDepth;
-      const score =
+      let score =
         seedNodeIds.length > 0 ? combinedScore(prScore, bfsDist) : prScore;
+      if (boostedFileIds.has(n.id)) score *= semanticBoost;
 
       const sizeBytes = sizeByPath.get(n.path!) ?? 500;
       const estimatedFullTokens = Math.max(20, Math.ceil(sizeBytes / 4));
@@ -99,6 +180,7 @@ export function selectContext(
   return {
     ...packResult,
     pageRankScores: prScores,
-    candidatesTotal: fileNodes.length
+    candidatesTotal: fileNodes.length,
+    semanticBoostedDomains: [...matchedDomainIds].sort()
   };
 }

@@ -47,6 +47,26 @@ export interface SpecInputEvidence {
   estimatedTokens: number;
 }
 
+/**
+ * Pass-5 architectural context. All fields are optional so a graph
+ * without semantic enrichment still produces a valid SpecInput.
+ */
+export interface SpecInputArchitecture {
+  domains: string[];
+  endpoints: Array<{
+    method: string;
+    path: string;
+    framework?: string;
+    file?: string;
+  }>;
+  flows: Array<{
+    id: string;
+    label: string;
+    domain: string;
+    stepCount: number;
+  }>;
+}
+
 export interface SpecInput {
   schemaVersion: "1.0.0";
   changeId: string;
@@ -55,6 +75,12 @@ export interface SpecInput {
   affectedFiles: SpecInputAffectedFile[];
   crossDomainDeps: SpecInputCrossDomain;
   evidence: SpecInputEvidence;
+  /**
+   * Present only when the graph carries Pass-5 nodes for files in the
+   * context-pack. Helps the agent / OpenSpec scenarios reason about
+   * intent rather than just file paths.
+   */
+  architecture?: SpecInputArchitecture;
   generatedAt: string;
 }
 
@@ -89,6 +115,98 @@ function inferTopDomain(filePaths: ReadonlyArray<string>): string {
     }
   }
   return best;
+}
+
+function computeArchitecture(
+  graph: GraphInput | null | undefined,
+  affectedFilePaths: ReadonlySet<string>
+): SpecInputArchitecture | undefined {
+  if (!graph) return undefined;
+  // Walk semantic edges anchored on affected files.
+  const affectedFileIds = new Set(
+    [...affectedFilePaths].map((p) => `file:${p}`)
+  );
+
+  const domainIds = new Set<string>();
+  const endpointIds = new Set<string>();
+  const flowIds = new Set<string>();
+
+  for (const e of graph.edges) {
+    if (!affectedFileIds.has(e.from)) continue;
+    switch (e.type) {
+      case "belongs_to_domain":
+        domainIds.add(e.to);
+        break;
+      case "exposes_endpoint":
+        endpointIds.add(e.to);
+        break;
+      case "implements_flow":
+        flowIds.add(e.to);
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (domainIds.size === 0 && endpointIds.size === 0 && flowIds.size === 0) {
+    return undefined;
+  }
+
+  // Map ids -> labels by indexing semantic nodes in the graph.
+  const nodesById = new Map<string, GraphNode>();
+  for (const n of graph.nodes) nodesById.set(n.id, n);
+
+  // For endpoints we also need the originating file so the prompt can cite
+  // it. Reverse-lookup via the same edge set we just walked.
+  const fileByEndpointId = new Map<string, string>();
+  for (const e of graph.edges) {
+    if (e.type !== "exposes_endpoint") continue;
+    if (!endpointIds.has(e.to)) continue;
+    if (!fileByEndpointId.has(e.to) && affectedFileIds.has(e.from)) {
+      fileByEndpointId.set(e.to, e.from.replace(/^file:/, ""));
+    }
+  }
+
+  const domains = [...domainIds]
+    .map((id) => nodesById.get(id)?.label)
+    .filter((s): s is string => typeof s === "string")
+    .sort();
+
+  const endpoints = [...endpointIds]
+    .map((id) => {
+      const node = nodesById.get(id);
+      if (!node) return null;
+      const out: SpecInputArchitecture["endpoints"][number] = {
+        method: node.method ?? "?",
+        path: node.path ?? "?"
+      };
+      if (node.framework) out.framework = node.framework;
+      const file = fileByEndpointId.get(id);
+      if (file) out.file = file;
+      return out;
+    })
+    .filter((e): e is SpecInputArchitecture["endpoints"][number] => e !== null)
+    .sort((a, b) => {
+      const ka = `${a.method} ${a.path}`;
+      const kb = `${b.method} ${b.path}`;
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+
+  const flows = [...flowIds]
+    .map((id) => {
+      const node = nodesById.get(id);
+      if (!node) return null;
+      return {
+        id,
+        label: node.label,
+        domain: node.domain ?? "?",
+        stepCount: node.stepCount ?? 0
+      };
+    })
+    .filter((f): f is SpecInputArchitecture["flows"][number] => f !== null)
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+  return { domains, endpoints, flows };
 }
 
 function computeCrossDomainDeps(
@@ -142,6 +260,10 @@ export function buildSpecInput(opts: SpecInputOptions): SpecInput {
   const crossDomainDeps = computeCrossDomainDeps(opts.graph ?? null, domain);
   const tokenBudget = opts.contextPack.budget?.maxInputTokens ?? 12000;
   const estimatedTokens = opts.contextPack.budget?.estimatedTokens ?? 0;
+  const architecture = computeArchitecture(
+    opts.graph ?? null,
+    new Set(affected.map((f) => f.path))
+  );
 
   return {
     schemaVersion: "1.0.0",
@@ -156,6 +278,7 @@ export function buildSpecInput(opts: SpecInputOptions): SpecInput {
       tokenBudget,
       estimatedTokens
     },
+    ...(architecture ? { architecture } : {}),
     generatedAt: opts.generatedAt ?? new Date().toISOString()
   };
 }

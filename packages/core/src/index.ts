@@ -146,6 +146,7 @@ export {
   type SpecInputAffectedFile,
   type SpecInputCrossDomain,
   type SpecInputEvidence,
+  type SpecInputArchitecture,
   type ContextPackInput,
   type ContextPackFile,
   type GraphInput

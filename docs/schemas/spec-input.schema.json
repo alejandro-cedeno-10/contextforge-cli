@@ -77,6 +77,47 @@
         "estimatedTokens": { "type": "integer", "minimum": 0 }
       }
     },
+    "architecture": {
+      "type": "object",
+      "description": "Pass-5 semantic context anchored on affected files. Optional; present only when the graph has the semantic layer enabled and at least one affected file has semantic edges.",
+      "required": ["domains", "endpoints", "flows"],
+      "additionalProperties": false,
+      "properties": {
+        "domains": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Distinct domain slugs touched by affected files."
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["method", "path"],
+            "additionalProperties": false,
+            "properties": {
+              "method": { "type": "string" },
+              "path": { "type": "string" },
+              "framework": { "type": "string" },
+              "file": { "type": "string" }
+            }
+          }
+        },
+        "flows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "domain", "stepCount"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "domain": { "type": "string" },
+              "stepCount": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
     "generatedAt": { "type": "string", "format": "date-time" }
   }
 }

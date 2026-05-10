@@ -165,4 +165,92 @@ describe("buildSpecInput", () => {
     expect(result.evidence.graphRef).toBe(".contextforge/graph.json");
     expect(result.evidence.tokenBudget).toBe(12000);
   });
+
+  it("omits architecture when graph has no semantic edges", () => {
+    const result = buildSpecInput({
+      changeId: "demo",
+      contextPack: pack("demo", [{ path: "src/users/login.ts" }]),
+      graph: {
+        nodes: [fileNode("src/users/login.ts")],
+        edges: []
+      },
+      generatedAt: FIXED_AT
+    });
+    expect(result.architecture).toBeUndefined();
+    expect(() => validateOrThrow("spec-input", result)).not.toThrow();
+  });
+
+  it("emits architecture (domains/endpoints/flows) for affected files", () => {
+    const nodes: GraphNode[] = [
+      fileNode("src/users/users.controller.ts"),
+      fileNode("src/users/users.service.ts"),
+      {
+        id: "domain:users",
+        type: "domain",
+        label: "users",
+        files: 2,
+        kinds: { code: 2 }
+      },
+      {
+        id: "endpoint:GET:/users",
+        type: "endpoint",
+        label: "GET /users",
+        method: "GET",
+        path: "/users",
+        framework: "nest"
+      },
+      {
+        id: "flow:users/get-users",
+        type: "flow",
+        label: "GET /users",
+        domain: "users",
+        entryFile: "src/users/users.controller.ts",
+        stepCount: 2
+      }
+    ];
+    const edges: GraphEdge[] = [
+      {
+        from: "file:src/users/users.controller.ts",
+        to: "domain:users",
+        type: "belongs_to_domain"
+      },
+      {
+        from: "file:src/users/users.service.ts",
+        to: "domain:users",
+        type: "belongs_to_domain"
+      },
+      {
+        from: "file:src/users/users.controller.ts",
+        to: "endpoint:GET:/users",
+        type: "exposes_endpoint"
+      },
+      {
+        from: "file:src/users/users.controller.ts",
+        to: "flow:users/get-users",
+        type: "implements_flow"
+      }
+    ];
+    const result = buildSpecInput({
+      changeId: "feat-users",
+      contextPack: pack("ship users listing endpoint", [
+        { path: "src/users/users.controller.ts" },
+        { path: "src/users/users.service.ts" }
+      ]),
+      graph: { nodes, edges },
+      generatedAt: FIXED_AT
+    });
+    expect(result.architecture).toBeDefined();
+    expect(result.architecture!.domains).toEqual(["users"]);
+    expect(result.architecture!.endpoints).toEqual([
+      {
+        method: "GET",
+        path: "/users",
+        framework: "nest",
+        file: "src/users/users.controller.ts"
+      }
+    ]);
+    expect(result.architecture!.flows).toHaveLength(1);
+    expect(result.architecture!.flows[0]!.id).toBe("flow:users/get-users");
+    expect(() => validateOrThrow("spec-input", result)).not.toThrow();
+  });
 });

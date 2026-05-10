@@ -23,6 +23,43 @@ function renderAffectedFiles(specInput: SpecInput): string {
     .join("\n");
 }
 
+function renderArchitecture(specInput: SpecInput): string | null {
+  const arch = specInput.architecture;
+  if (!arch) return null;
+  if (
+    arch.domains.length === 0 &&
+    arch.endpoints.length === 0 &&
+    arch.flows.length === 0
+  ) {
+    return null;
+  }
+  const lines: string[] = [];
+  if (arch.domains.length > 0) {
+    lines.push(
+      `**Dominios**: ${arch.domains.map((d) => `\`${d}\``).join(", ")}`
+    );
+  }
+  if (arch.endpoints.length > 0) {
+    lines.push("", "**Endpoints expuestos:**");
+    for (const ep of arch.endpoints) {
+      const fwk = ep.framework ? ` [${ep.framework}]` : "";
+      const src = ep.file ? ` — \`${ep.file}\`` : "";
+      lines.push(`  - \`${ep.method} ${ep.path}\`${fwk}${src}`);
+    }
+  }
+  if (arch.flows.length > 0) {
+    lines.push("", "**Flujos detectados:**");
+    for (const f of arch.flows) {
+      lines.push(
+        `  - \`${f.id}\` (${f.domain}, ${f.stepCount} step${
+          f.stepCount === 1 ? "" : "s"
+        }) — ${f.label}`
+      );
+    }
+  }
+  return lines.join("\n");
+}
+
 function renderCrossDeps(specInput: SpecInput): string {
   const lines: string[] = [];
   const dep = specInput.crossDomainDeps.dependsOn;
@@ -84,7 +121,11 @@ ${renderAffectedFiles(s)}
 ### Dependencias cross-domain
 
 ${renderCrossDeps(s)}
-
+${
+  renderArchitecture(s)
+    ? `\n### Contexto arquitectónico (capa semántica)\n\n${renderArchitecture(s)}\n`
+    : ""
+}
 ### Evidencia (paths trazables)
 
 - Context-pack: \`${s.evidence.contextPackRef}\`

@@ -494,8 +494,14 @@ async function cmdContext(
     nodes: graphRaw.nodes as Parameters<typeof selectContext>[0]["nodes"],
     edges: graphRaw.edges as Parameters<typeof selectContext>[0]["edges"],
     scanFiles: scanRaw.files,
+    task,
     budget: BUDGET
   });
+  if (selected.semanticBoostedDomains.length > 0) {
+    console.log(
+      `[context] semantic boost applied to: ${selected.semanticBoostedDomains.join(", ")}`
+    );
+  }
 
   type GraphFileNode = (typeof graphRaw.nodes)[number];
   type ScanFileEntry = (typeof scanRaw.files)[number];
