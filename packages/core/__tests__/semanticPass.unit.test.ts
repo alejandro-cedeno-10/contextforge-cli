@@ -191,6 +191,21 @@ describe("detectLayers", () => {
     const result = detectLayers([file("src/pages/index.astro")]);
     expect(result.layers).toEqual([{ layer: "page", kind: "frontend" }]);
   });
+
+  it("recognises Vue SFC outside pages/ as a component", () => {
+    const result = detectLayers([file("src/components/Button.vue")]);
+    expect(result.layers).toEqual([{ layer: "component", kind: "frontend" }]);
+  });
+
+  it("recognises a Nuxt page as page layer (folderSegments rule wins over .vue suffix)", () => {
+    const result = detectLayers([file("pages/index.vue")]);
+    expect(result.layers).toEqual([{ layer: "page", kind: "frontend" }]);
+  });
+
+  it("recognises Vue 3 / Nuxt composables", () => {
+    const result = detectLayers([file("composables/useAuth.ts")]);
+    expect(result.layers).toEqual([{ layer: "composable", kind: "frontend" }]);
+  });
 });
 
 /** Cross-platform mock reader: matches by relative-path tail so Windows
@@ -339,6 +354,29 @@ export const POST = (req) => Response.json({ ok: true });
     // Internals are excluded.
     expect(ids.some((id) => id.includes("_app"))).toBe(false);
     expect(ids.some((id) => id.includes("_document"))).toBe(false);
+  });
+
+  it("extracts Nuxt pages from pages/**/*.vue", async () => {
+    const result = await run(
+      [
+        file("pages/index.vue"),
+        file("pages/blog/[slug].vue"),
+        file("pages/users/index.vue"),
+        file("components/Button.vue") // outside pages/ → not an endpoint
+      ],
+      {
+        "pages/index.vue": "<template></template>",
+        "pages/blog/[slug].vue": "<template></template>",
+        "pages/users/index.vue": "<template></template>",
+        "components/Button.vue": "<template></template>"
+      }
+    );
+    const ids = result.endpoints.map((e) => `${e.method} ${e.path}`);
+    expect(ids).toContain("PAGE /");
+    expect(ids).toContain("PAGE /blog/[slug]");
+    expect(ids).toContain("PAGE /users");
+    expect(ids).not.toContain("PAGE /Button");
+    for (const e of result.endpoints) expect(e.framework).toBe("nuxt");
   });
 
   it("extracts Astro pages", async () => {

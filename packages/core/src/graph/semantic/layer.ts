@@ -148,6 +148,20 @@ const RULES: readonly LayerRule[] = [
     kind: "frontend",
     basenameSuffixes: [".astro"]
   },
+  // Vue Single-File Components. A `.vue` file under `pages/` is a Nuxt route
+  // (handled in the `page` rule above via folderSegments); anywhere else it
+  // is treated as a component.
+  {
+    layer: "component",
+    kind: "frontend",
+    basenameSuffixes: [".vue"]
+  },
+  // Vue 3 / Nuxt composables (`useXxx.ts` inside `composables/`).
+  {
+    layer: "composable",
+    kind: "frontend",
+    folderSegments: ["composables"]
+  },
   // Generic SPA layers.
   {
     layer: "component",

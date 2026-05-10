@@ -36,7 +36,8 @@ export interface EndpointHit {
     | "next-route"
     | "next-page"
     | "next-pages"
-    | "astro";
+    | "astro"
+    | "nuxt";
 }
 
 export interface EndpointDetectionResult {
@@ -80,6 +81,8 @@ function isLikelyEndpointFile(filePosix: string): boolean {
   if (segments.includes("pages")) return true;
   // Astro pages.
   if (base.endsWith(".astro") && segments.includes("pages")) return true;
+  // Nuxt pages: any `.vue` file under a `pages/` segment.
+  if (base.endsWith(".vue") && segments.includes("pages")) return true;
   return false;
 }
 
@@ -133,6 +136,29 @@ function astroRoute(filePosix: string): string {
   const tail = segments.slice(pagesIdx + 1);
   const last = tail[tail.length - 1] ?? "";
   const lastBase = last.replace(/\.astro$/, "");
+  if (lastBase === "index") tail[tail.length - 1] = "";
+  else tail[tail.length - 1] = lastBase;
+  const path = "/" + tail.filter(Boolean).join("/");
+  return path === "" ? "/" : path;
+}
+
+/**
+ * Convert a Nuxt page file path to its public URL. `[param]` is preserved,
+ * `index.vue` collapses to its parent directory, group folders are not a
+ * Nuxt convention (so we don't strip `(group)`).
+ *
+ * Examples:
+ *   pages/index.vue              -> /
+ *   pages/blog/[slug].vue        -> /blog/[slug]
+ *   pages/users/index.vue        -> /users
+ */
+function nuxtRoute(filePosix: string): string {
+  const segments = filePosix.split("/");
+  const pagesIdx = segments.indexOf("pages");
+  if (pagesIdx === -1) return "/";
+  const tail = segments.slice(pagesIdx + 1);
+  const last = tail[tail.length - 1] ?? "";
+  const lastBase = last.replace(/\.vue$/, "");
   if (lastBase === "index") tail[tail.length - 1] = "";
   else tail[tail.length - 1] = lastBase;
   const path = "/" + tail.filter(Boolean).join("/");
@@ -300,6 +326,15 @@ function extractAstroEndpoints(file: string): EndpointHit[] {
   return [{ file, method: "PAGE", path: astroRoute(file), framework: "astro" }];
 }
 
+/** Nuxt pages: `pages/**\/*.vue` (skips files outside a `pages/` segment). */
+function extractNuxtEndpoints(file: string): EndpointHit[] {
+  const segments = file.split("/");
+  if (!segments.includes("pages")) return [];
+  const base = path.posix.basename(file);
+  if (!base.endsWith(".vue")) return [];
+  return [{ file, method: "PAGE", path: nuxtRoute(file), framework: "nuxt" }];
+}
+
 /** commander/yargs: `.command('verb', ...)` declarations. */
 function extractCliEndpoints(content: string, file: string): EndpointHit[] {
   const hits: EndpointHit[] = [];
@@ -329,6 +364,8 @@ function pickExtractors(
   if (ext === ".py") return [extractFastapiEndpoints];
 
   if (ext === ".astro") return [(_c, f) => extractAstroEndpoints(f)];
+
+  if (ext === ".vue") return [(_c, f) => extractNuxtEndpoints(f)];
 
   if (ext === ".ts" || ext === ".js" || ext === ".tsx" || ext === ".jsx") {
     const extractors: Array<(c: string, f: string) => EndpointHit[]> = [
