@@ -25,9 +25,18 @@ export interface EndpointHit {
   /** posix-normalised file path that declares the endpoint. */
   file: string;
   method: string;
-  /** Route path (HTTP) or CLI verb. */
+  /** Route path (HTTP), CLI verb, or `app/...` UI route. */
   path: string;
-  framework: "nest" | "express" | "fastapi" | "commander" | "yargs";
+  framework:
+    | "nest"
+    | "express"
+    | "fastapi"
+    | "commander"
+    | "yargs"
+    | "next-route"
+    | "next-page"
+    | "next-pages"
+    | "astro";
 }
 
 export interface EndpointDetectionResult {
@@ -61,7 +70,73 @@ function isLikelyEndpointFile(filePosix: string): boolean {
     return true;
   }
   if (segments.includes("commands")) return true;
+  // Next.js App Router conventions: page/route/layout.* live under app/.
+  if (segments.includes("app")) {
+    if (/^(page|route)\.(t|j)sx?$/.test(base) || /^route\.(t|j)s$/.test(base)) {
+      return true;
+    }
+  }
+  // Next.js Pages Router: pages/ contains UI; pages/api/ contains handlers.
+  if (segments.includes("pages")) return true;
+  // Astro pages.
+  if (base.endsWith(".astro") && segments.includes("pages")) return true;
   return false;
+}
+
+/**
+ * Convert a Next.js App Router file path to its public URL.
+ * Strips any leading `apps/<workspace>/` or `src/` prefix, the trailing
+ * `/route.ts` or `/page.tsx`, and Next route-group folders `(group)`.
+ *
+ * Examples:
+ *   app/api/users/route.ts        -> /api/users
+ *   app/(marketing)/about/page.tsx -> /about
+ *   src/app/page.tsx              -> /
+ */
+function nextAppRoute(filePosix: string): string {
+  const segments = filePosix.split("/");
+  const appIdx = segments.indexOf("app");
+  if (appIdx === -1) return "/";
+  // Drop everything up to and including "app", and the basename.
+  const middle = segments.slice(appIdx + 1, -1);
+  const filtered = middle.filter((s) => !/^\(.+\)$/.test(s));
+  return "/" + filtered.join("/");
+}
+
+/**
+ * Convert a Next.js Pages Router file path to its public URL.
+ *
+ * Examples:
+ *   pages/index.tsx           -> /
+ *   pages/users/[id].tsx      -> /users/[id]
+ *   pages/api/users.ts        -> /api/users
+ *   pages/api/users/[id].ts   -> /api/users/[id]
+ */
+function nextPagesRoute(filePosix: string): string {
+  const segments = filePosix.split("/");
+  const pagesIdx = segments.indexOf("pages");
+  if (pagesIdx === -1) return "/";
+  const tail = segments.slice(pagesIdx + 1);
+  const last = tail[tail.length - 1] ?? "";
+  // Strip extension from last segment; remove `index` so it collapses to "/".
+  const lastBase = last.replace(/\.(tsx?|jsx?)$/, "");
+  if (lastBase === "index") tail[tail.length - 1] = "";
+  else tail[tail.length - 1] = lastBase;
+  const path = "/" + tail.filter(Boolean).join("/");
+  return path === "" ? "/" : path;
+}
+
+function astroRoute(filePosix: string): string {
+  const segments = filePosix.split("/");
+  const pagesIdx = segments.indexOf("pages");
+  if (pagesIdx === -1) return "/";
+  const tail = segments.slice(pagesIdx + 1);
+  const last = tail[tail.length - 1] ?? "";
+  const lastBase = last.replace(/\.astro$/, "");
+  if (lastBase === "index") tail[tail.length - 1] = "";
+  else tail[tail.length - 1] = lastBase;
+  const path = "/" + tail.filter(Boolean).join("/");
+  return path === "" ? "/" : path;
 }
 
 function isCommentLine(line: string): boolean {
@@ -154,6 +229,77 @@ function extractFastapiEndpoints(content: string, file: string): EndpointHit[] {
   return hits;
 }
 
+/**
+ * Next.js App Router route handlers: `export const GET/POST/...` or
+ * `export async function GET/POST/...` inside an `app/**\/route.ts`.
+ * The HTTP path comes from the file path, not the file content.
+ */
+function extractNextRouteEndpoints(
+  content: string,
+  file: string
+): EndpointHit[] {
+  const base = path.posix.basename(file);
+  if (!/^route\.(t|j)sx?$/.test(base)) return [];
+  const route = nextAppRoute(file);
+  const hits: EndpointHit[] = [];
+  const seen = new Set<string>();
+  const re = new RegExp(
+    `^\\s*export\\s+(?:async\\s+function|const|function)\\s+(${HTTP_METHODS.map((m) => m.toUpperCase()).join("|")})\\b`
+  );
+  for (const line of content.split(/\r?\n/)) {
+    if (isCommentLine(line)) continue;
+    const m = re.exec(line);
+    if (m) {
+      const method = m[1]!;
+      if (seen.has(method)) continue;
+      seen.add(method);
+      hits.push({ file, method, path: route, framework: "next-route" });
+    }
+  }
+  return hits;
+}
+
+/** Next.js App Router pages: `app/**\/page.tsx` -> a UI endpoint. */
+function extractNextPageEndpoints(file: string): EndpointHit[] {
+  const base = path.posix.basename(file);
+  if (!/^page\.(t|j)sx?$/.test(base)) return [];
+  return [
+    {
+      file,
+      method: "PAGE",
+      path: nextAppRoute(file),
+      framework: "next-page"
+    }
+  ];
+}
+
+/** Next.js Pages Router: `pages/**\/*.{tsx,jsx}` and `pages/api/**\/*.{ts,js}`. */
+function extractNextPagesEndpoints(file: string): EndpointHit[] {
+  const segments = file.split("/");
+  const pagesIdx = segments.indexOf("pages");
+  if (pagesIdx === -1) return [];
+  const tailSegments = segments.slice(pagesIdx + 1);
+  if (tailSegments.length === 0) return [];
+  const isApi = tailSegments[0] === "api";
+  const route = nextPagesRoute(file);
+  const base = path.posix.basename(file);
+  if (isApi) {
+    if (!/\.(t|j)sx?$/.test(base)) return [];
+    return [{ file, method: "ANY", path: route, framework: "next-pages" }];
+  }
+  if (!/\.(t|j)sx?$/.test(base)) return [];
+  // _app, _document, _error are Next.js internals, not user-facing pages.
+  if (/^_(app|document|error)\.(t|j)sx?$/.test(base)) return [];
+  return [{ file, method: "PAGE", path: route, framework: "next-pages" }];
+}
+
+/** Astro pages: `src/pages/**\/*.astro`. */
+function extractAstroEndpoints(file: string): EndpointHit[] {
+  const base = path.posix.basename(file);
+  if (!base.endsWith(".astro")) return [];
+  return [{ file, method: "PAGE", path: astroRoute(file), framework: "astro" }];
+}
+
 /** commander/yargs: `.command('verb', ...)` declarations. */
 function extractCliEndpoints(content: string, file: string): EndpointHit[] {
   const hits: EndpointHit[] = [];
@@ -177,9 +323,35 @@ function pickExtractors(
   file: string
 ): Array<(c: string, f: string) => EndpointHit[]> {
   const ext = path.posix.extname(file);
+  const segments = file.split("/");
+  const base = path.posix.basename(file);
+
   if (ext === ".py") return [extractFastapiEndpoints];
+
+  if (ext === ".astro") return [(_c, f) => extractAstroEndpoints(f)];
+
   if (ext === ".ts" || ext === ".js" || ext === ".tsx" || ext === ".jsx") {
-    return [extractNestEndpoints, extractExpressEndpoints, extractCliEndpoints];
+    const extractors: Array<(c: string, f: string) => EndpointHit[]> = [
+      extractNestEndpoints,
+      extractExpressEndpoints,
+      extractCliEndpoints
+    ];
+    // Next.js App Router file conventions: page.* / route.*. The page
+    // extractor only needs the path (no content); the route extractor scans
+    // for HTTP-method exports in the body.
+    if (segments.includes("app")) {
+      if (/^route\.(t|j)sx?$/.test(base)) {
+        extractors.push(extractNextRouteEndpoints);
+      }
+      if (/^page\.(t|j)sx?$/.test(base)) {
+        extractors.push((_c, f) => extractNextPageEndpoints(f));
+      }
+    }
+    // Next.js Pages Router: any file under pages/ that's a TS/JS module.
+    if (segments.includes("pages")) {
+      extractors.push((_c, f) => extractNextPagesEndpoints(f));
+    }
+    return extractors;
   }
   return [];
 }

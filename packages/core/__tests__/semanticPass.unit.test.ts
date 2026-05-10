@@ -71,6 +71,35 @@ describe("detectDomains", () => {
     expect(result.domains).toEqual(["billing"]);
   });
 
+  it("detects features/<name> as a domain (frontend feature folders)", () => {
+    const result = detectDomains([
+      file("apps/web/src/features/auth/login.ts"),
+      file("apps/web/src/features/billing/invoice.ts")
+    ]);
+    expect(result.domains).toContain("auth");
+    expect(result.domains).toContain("billing");
+  });
+
+  it("monorepo package rule wins over Next.js segment when both apply", () => {
+    // apps/web is NOT a packages/<n> entry, so this falls through to the
+    // Next.js rule. But if we WERE under packages/web/app/..., monorepo
+    // would still win (rule 1 short-circuits).
+    const result = detectDomains([
+      file("packages/web/app/(marketing)/about/page.tsx"),
+      file("packages/web/app/dashboard/users/page.tsx")
+    ]);
+    expect(result.domains).toEqual(["web"]);
+  });
+
+  it("picks Next.js segment as domain for standalone app", () => {
+    const result = detectDomains([
+      file("app/(marketing)/about/page.tsx"),
+      file("app/dashboard/users/page.tsx")
+    ]);
+    expect(result.domains).toContain("about");
+    expect(result.domains).toContain("dashboard");
+  });
+
   it("ignores non-code/test files", () => {
     const result = detectDomains([
       file("src/auth/login.ts"),
@@ -136,6 +165,30 @@ describe("detectLayers", () => {
       "repository",
       "service"
     ]);
+  });
+
+  it("recognises Next.js App Router exact basenames", () => {
+    const result = detectLayers([
+      file("app/page.tsx"),
+      file("app/layout.tsx"),
+      file("app/loading.tsx"),
+      file("app/error.tsx"),
+      file("app/api/users/route.ts"),
+      file("middleware.ts")
+    ]);
+    const layers = result.layers.map((l) => l.layer).sort();
+    expect(layers).toContain("page");
+    expect(layers).toContain("layout");
+    expect(layers).toContain("loading");
+    expect(layers).toContain("error");
+    expect(layers).toContain("route");
+    expect(layers).toContain("middleware");
+    for (const l of result.layers) expect(l.kind).toBe("frontend");
+  });
+
+  it("recognises Astro pages as page layer (frontend)", () => {
+    const result = detectLayers([file("src/pages/index.astro")]);
+    expect(result.layers).toEqual([{ layer: "page", kind: "frontend" }]);
   });
 });
 
@@ -222,6 +275,83 @@ program.command('release').action(release);
     const ids = result.endpoints.map((e) => `${e.method} ${e.path}`);
     expect(ids).toContain("CLI build");
     expect(ids).toContain("CLI release");
+  });
+
+  it("extracts Next.js App Router route handlers with filesystem path", async () => {
+    const result = await run([file("apps/web/app/api/users/route.ts")], {
+      "apps/web/app/api/users/route.ts": `
+export async function GET() { return Response.json([]); }
+export const POST = (req) => Response.json({ ok: true });
+        `
+    });
+    const ids = result.endpoints.map((e) => `${e.method} ${e.path}`);
+    expect(ids).toContain("GET /api/users");
+    expect(ids).toContain("POST /api/users");
+    for (const e of result.endpoints) expect(e.framework).toBe("next-route");
+  });
+
+  it("extracts Next.js App Router pages and ignores route groups", async () => {
+    const result = await run(
+      [
+        file("apps/web/app/(marketing)/about/page.tsx"),
+        file("apps/web/app/dashboard/page.tsx"),
+        file("apps/web/app/page.tsx")
+      ],
+      {
+        "apps/web/app/(marketing)/about/page.tsx":
+          "export default function() {}",
+        "apps/web/app/dashboard/page.tsx": "export default function() {}",
+        "apps/web/app/page.tsx": "export default function() {}"
+      }
+    );
+    const ids = result.endpoints.map((e) => `${e.method} ${e.path}`);
+    expect(ids).toContain("PAGE /about");
+    expect(ids).toContain("PAGE /dashboard");
+    expect(ids).toContain("PAGE /");
+    for (const e of result.endpoints) expect(e.framework).toBe("next-page");
+  });
+
+  it("extracts Next.js Pages Router routes (UI + API) and skips internals", async () => {
+    const result = await run(
+      [
+        file("pages/index.tsx"),
+        file("pages/users/[id].tsx"),
+        file("pages/api/users.ts"),
+        file("pages/api/users/[id].ts"),
+        file("pages/_app.tsx"),
+        file("pages/_document.tsx")
+      ],
+      {
+        "pages/index.tsx": "export default function() {}",
+        "pages/users/[id].tsx": "export default function() {}",
+        "pages/api/users.ts": "export default function() {}",
+        "pages/api/users/[id].ts": "export default function() {}",
+        "pages/_app.tsx": "export default function() {}",
+        "pages/_document.tsx": "export default function() {}"
+      }
+    );
+    const ids = result.endpoints.map((e) => `${e.method} ${e.path}`);
+    expect(ids).toContain("PAGE /");
+    expect(ids).toContain("PAGE /users/[id]");
+    expect(ids).toContain("ANY /api/users");
+    expect(ids).toContain("ANY /api/users/[id]");
+    // Internals are excluded.
+    expect(ids.some((id) => id.includes("_app"))).toBe(false);
+    expect(ids.some((id) => id.includes("_document"))).toBe(false);
+  });
+
+  it("extracts Astro pages", async () => {
+    const result = await run(
+      [file("src/pages/index.astro"), file("src/pages/blog/[slug].astro")],
+      {
+        "src/pages/index.astro": "<html></html>",
+        "src/pages/blog/[slug].astro": "<html></html>"
+      }
+    );
+    const ids = result.endpoints.map((e) => `${e.method} ${e.path}`);
+    expect(ids).toContain("PAGE /");
+    expect(ids).toContain("PAGE /blog/[slug]");
+    for (const e of result.endpoints) expect(e.framework).toBe("astro");
   });
 
   it("ignores commented-out endpoint declarations", async () => {

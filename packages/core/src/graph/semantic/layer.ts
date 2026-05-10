@@ -33,6 +33,8 @@ interface LayerRule {
   kind: LayerKind;
   /** Match `<name>.<layer>.<ext>` basenames. */
   basenameSuffixes?: readonly string[];
+  /** Match `<basename>` exactly (used by Next.js conventions). */
+  exactBasenames?: readonly string[];
   /** Match a path segment exactly (e.g. `controllers`). */
   folderSegments?: readonly string[];
 }
@@ -98,7 +100,55 @@ const RULES: readonly LayerRule[] = [
     kind: "backend",
     basenameSuffixes: [".module.ts", ".module.js"]
   },
-  // Frontend (kept conservative for phase 2 — phase 3 expands).
+  // ── Frontend ───────────────────────────────────────────────────────────────
+  // Next.js App Router conventions (file-based; basename is exact).
+  // route.ts/js -> a `route` layer (a server-side endpoint handler).
+  // page.tsx/jsx -> a `page` layer (a UI route).
+  // layout/loading/error/template/not-found/default match their own layers.
+  {
+    layer: "route",
+    kind: "frontend",
+    exactBasenames: ["route.ts", "route.js"]
+  },
+  {
+    layer: "page",
+    kind: "frontend",
+    exactBasenames: ["page.tsx", "page.jsx", "page.ts", "page.js"],
+    basenameSuffixes: [".page.tsx", ".page.jsx"],
+    folderSegments: ["pages"]
+  },
+  {
+    layer: "layout",
+    kind: "frontend",
+    exactBasenames: ["layout.tsx", "layout.jsx", "layout.ts", "layout.js"]
+  },
+  {
+    layer: "loading",
+    kind: "frontend",
+    exactBasenames: ["loading.tsx", "loading.jsx"]
+  },
+  {
+    layer: "error",
+    kind: "frontend",
+    exactBasenames: [
+      "error.tsx",
+      "error.jsx",
+      "global-error.tsx",
+      "not-found.tsx"
+    ]
+  },
+  {
+    layer: "template",
+    kind: "frontend",
+    exactBasenames: ["template.tsx", "template.jsx"]
+  },
+  // Astro (basename = `<name>.astro` lives under src/pages/).
+  {
+    layer: "page",
+    kind: "frontend",
+    basenameSuffixes: [".astro"]
+  },
+  // Generic SPA layers.
   {
     layer: "component",
     kind: "frontend",
@@ -118,10 +168,28 @@ const RULES: readonly LayerRule[] = [
     folderSegments: ["stores"]
   },
   {
-    layer: "page",
+    layer: "context",
     kind: "frontend",
-    basenameSuffixes: [".page.tsx", ".page.jsx"],
-    folderSegments: ["pages"]
+    basenameSuffixes: [".context.tsx", ".context.ts"],
+    folderSegments: ["contexts"]
+  },
+  {
+    layer: "reducer",
+    kind: "frontend",
+    basenameSuffixes: [".reducer.ts", ".slice.ts"],
+    folderSegments: ["reducers", "slices"]
+  },
+  {
+    layer: "api-client",
+    kind: "frontend",
+    basenameSuffixes: [".client.ts", ".api.ts"],
+    folderSegments: ["api-clients"]
+  },
+  // Next.js middleware (root-level file).
+  {
+    layer: "middleware",
+    kind: "frontend",
+    exactBasenames: ["middleware.ts", "middleware.js"]
   },
   // Shared
   {
@@ -167,6 +235,11 @@ function matchRule(filePosix: string): LayerRule | null {
   const segments = filePosix.split("/");
 
   for (const rule of RULES) {
+    if (rule.exactBasenames) {
+      for (const exact of rule.exactBasenames) {
+        if (base === exact) return rule;
+      }
+    }
     if (rule.basenameSuffixes) {
       for (const suffix of rule.basenameSuffixes) {
         if (base.endsWith(suffix)) return rule;

@@ -11,7 +11,11 @@ import type { ScanFile } from "../../scanner.js";
  *      = folder name. Files inside the folder inherit it.
  *   3. Django/FastAPI apps: `apps/<name>/...` or `src/<name>/...` when the
  *      folder contains `models.py`, `router.py`, or `__init__.py`.
- *   4. Fallback: first significant path segment (after stripping `src/`).
+ *   4. Frontend feature folders: `features/<name>/...` (any depth) ->
+ *      domain = `<name>`.
+ *   5. Next.js app router: `.../app/<name>/...` (skipping `(group)` folders)
+ *      -> domain = `<name>` when `<name>` is the first non-group segment.
+ *   6. Fallback: first significant path segment (after stripping `src/`).
  *
  * Files inside excluded shared folders (see `SHARED_FOLDERS`) are mapped to
  * `domain:shared` rather than producing a per-folder domain. They still get a
@@ -179,7 +183,36 @@ export function detectDomains(
       }
     }
 
-    // Rule 4 — fallback by leading folder.
+    // Rule 4 — `features/<name>` folders (any depth).
+    if (!domain) {
+      const parts = filePosix.split("/");
+      const featuresIdx = parts.indexOf("features");
+      if (featuresIdx >= 0 && parts.length > featuresIdx + 1) {
+        const candidate = parts[featuresIdx + 1]!;
+        if (!SHARED_FOLDERS.has(candidate)) domain = slugify(candidate);
+      }
+    }
+
+    // Rule 5 — Next.js App Router: first non-group segment under `app/`.
+    if (!domain) {
+      const parts = filePosix.split("/");
+      const appIdx = parts.indexOf("app");
+      if (appIdx >= 0) {
+        // Skip route-group folders like `(marketing)`.
+        for (let i = appIdx + 1; i < parts.length - 1; i++) {
+          const seg = parts[i]!;
+          if (/^\(.+\)$/.test(seg)) continue;
+          if (SHARED_FOLDERS.has(seg)) {
+            domain = "shared";
+            break;
+          }
+          domain = slugify(seg);
+          break;
+        }
+      }
+    }
+
+    // Rule 6 — fallback by leading folder.
     if (!domain) domain = fallbackDomain(filePosix);
 
     assignments.push({ file: f.path, domain });
