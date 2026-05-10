@@ -150,6 +150,27 @@ server.tool(
 );
 
 server.tool(
+  "forge_spec",
+  "Creates an OpenSpec change scaffold from the current .contextforge/context-pack.json — no shell, no pnpm. Writes openspec/changes/<change_id>/{proposal,design,tasks,specs/...} (delegating to the openspec CLI if it is on PATH, else using the core fallback), plus graph.subset.json + context.md inside the change dir, plus .contextforge/{spec-input.json,spec-prompt.md}. Call this AFTER forge_context to materialize the change. Use the printed `Next:` block to navigate to the next step.",
+  {
+    change_id: z
+      .string()
+      .min(1)
+      .regex(/^[a-z0-9][a-z0-9-]*$/, "kebab-case slug")
+      .describe(
+        'OpenSpec change identifier in kebab-case (e.g. "fix-auth-token-race"). Becomes the directory name under openspec/changes/.'
+      ),
+    skip_openspec_cli: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set true to skip `openspec new change` and always use the deterministic fallback scaffold from contextforge-core. Default false."
+      )
+  },
+  handlers.forgeSpec
+);
+
+server.tool(
   "forge_archive_change",
   "PRIMARY way to finish a change. Wraps `openspec archive <id>` and then auto-rebuilds the parent graph (.contextforge/graph.json) and refreshes the graph.subset.json of every remaining active change so they reflect the post-archive code. Use this INSTEAD of running `openspec archive` directly via Bash — running archive bare leaves the parent graph stale and silently breaks downstream tools (forge_neighbors, forge_context, other changes' subgraphs). Set skip_openspec_archive=true if you already ran archive yourself and only want the rebuild + refresh part.",
   {

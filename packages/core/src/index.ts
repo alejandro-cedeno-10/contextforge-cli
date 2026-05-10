@@ -165,6 +165,12 @@ export {
 } from "./spec/promptRenderer.js";
 
 export {
+  renderChangeContextMd,
+  type RenderChangeContextOptions,
+  type ScaffoldedBy
+} from "./spec/changeContext.js";
+
+export {
   validateGuardrails,
   type GuardrailViolation,
   type ValidatorResult,

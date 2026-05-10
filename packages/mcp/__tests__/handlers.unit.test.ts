@@ -846,6 +846,109 @@ describe("forgeNeighbors — semantic sections", () => {
   });
 });
 
+describe("forgeSpec", () => {
+  async function writeSpecArtifacts(root: string): Promise<void> {
+    const cfDir = path.join(root, ".contextforge");
+    await mkdir(cfDir, { recursive: true });
+    await writeFile(
+      path.join(cfDir, "graph.json"),
+      JSON.stringify({
+        schemaVersion: "0.3.0",
+        project: { name: "demo", root: "." },
+        generatedAt: "2026-01-01T00:00:00Z",
+        nodes: [
+          {
+            id: "file:src/auth/login.ts",
+            type: "file",
+            label: "login.ts",
+            path: "src/auth/login.ts",
+            kind: "code"
+          }
+        ],
+        edges: []
+      }),
+      "utf8"
+    );
+    await writeFile(
+      path.join(cfDir, "context-pack.json"),
+      JSON.stringify({
+        task: "ship login flow",
+        files: [{ path: "src/auth/login.ts", reason: "seed", mode: "full" }],
+        budget: { maxInputTokens: 12000, estimatedTokens: 1500 }
+      }),
+      "utf8"
+    );
+  }
+
+  it("rejects non-kebab change ids", async () => {
+    const root = await newWorkspace();
+    const { forgeSpec } = createHandlers(root);
+    const result = await forgeSpec({ change_id: "Bad_Id With Spaces" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("kebab-case");
+  });
+
+  it("returns a clear error when context-pack.json is missing", async () => {
+    const root = await newWorkspace();
+    const { forgeSpec } = createHandlers(root);
+    const result = await forgeSpec({ change_id: "ship-login" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("forge_context");
+  });
+
+  it("scaffolds the change end-to-end (fallback path) and writes all artefacts", async () => {
+    const root = await newWorkspace();
+    await writeSpecArtifacts(root);
+    const { forgeSpec } = createHandlers(root);
+
+    const result = await forgeSpec({
+      change_id: "ship-login",
+      skip_openspec_cli: true
+    });
+    expect(result.isError).toBeFalsy();
+
+    const cfDir = path.join(root, ".contextforge");
+    const changeDir = path.join(root, "openspec", "changes", "ship-login");
+
+    // Spec input
+    const specInput = JSON.parse(
+      await (
+        await import("node:fs/promises")
+      ).readFile(path.join(cfDir, "spec-input.json"), "utf8")
+    );
+    expect(specInput.changeId).toBe("ship-login");
+    expect(specInput.task).toBe("ship login flow");
+
+    // Spec prompt
+    const promptBody = await (
+      await import("node:fs/promises")
+    ).readFile(path.join(cfDir, "spec-prompt.md"), "utf8");
+    expect(promptBody).toContain("ship-login");
+
+    // Subgraph
+    const subset = JSON.parse(
+      await (
+        await import("node:fs/promises")
+      ).readFile(path.join(changeDir, "graph.subset.json"), "utf8")
+    );
+    expect(subset.changeId).toBe("ship-login");
+    expect(subset.focus).toEqual(["src/auth/login.ts"]);
+
+    // context.md
+    const contextMd = await (
+      await import("node:fs/promises")
+    ).readFile(path.join(changeDir, "context.md"), "utf8");
+    expect(contextMd).toContain("Contexto del change");
+    expect(contextMd).toContain("ship-login");
+
+    // Fallback scaffold files (proposal, design, tasks, specs/.../spec.md)
+    const proposal = await (
+      await import("node:fs/promises")
+    ).readFile(path.join(changeDir, "proposal.md"), "utf8");
+    expect(proposal).toContain("Intent");
+  });
+});
+
 describe("forgeDomainMap — semantic source", () => {
   it("uses semantic-layer domain nodes when available", async () => {
     const root = await newWorkspace();

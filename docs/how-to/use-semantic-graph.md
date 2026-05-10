@@ -158,6 +158,31 @@ Steps ordenados de un flow. Acepta `flow:auth/login` o solo `auth/login`:
 - **`forge_neighbors`** — ahora muestra `same_domain`, `same_layer`, `exposes_endpoint`, `flows_participating` cuando aplica.
 - **`forge_domain_map`** — usa los nodos `domain` reales en vez del fallback `getDomain()` cuando la capa está activa. Marca el origen (`Pass-5 semantic layer`) en el output.
 
+### `forge_spec(change_id, skip_openspec_cli?)`
+
+Crea un change OpenSpec desde el flujo agéntico — sin shell, sin `pnpm`. Toma el `.contextforge/context-pack.json` actual y escribe:
+
+- `openspec/changes/<change_id>/{proposal.md, design.md, tasks.md, specs/.../spec.md}` (delega al `openspec` CLI si está en PATH; cae al fallback determinista del core si no)
+- `openspec/changes/<change_id>/graph.subset.json` (subgrafo congelado del change, validado por schema)
+- `openspec/changes/<change_id>/context.md` (mapa de lectura para el agente, idéntico al que produce `forge spec` en CLI)
+- `.contextforge/spec-input.json` (con la sección `architecture` cuando la capa semántica está activa)
+- `.contextforge/spec-prompt.md` (copy-paste para el agente)
+
+Flujo agéntico canónico:
+
+```jsonc
+{ "tool": "forge_context", "arguments": { "task": "ship login flow" } }
+{ "tool": "forge_spec",    "arguments": { "change_id": "ship-login-flow" } }
+// — el agente edita openspec/changes/ship-login-flow/* —
+{ "tool": "forge_check",   "arguments": {} }
+{ "tool": "forge_archive_change", "arguments": { "change_id": "ship-login-flow" } }
+```
+
+Errores comunes:
+
+- _"Missing .contextforge/context-pack.json"_ → llama `forge_context` primero.
+- _"Invalid change_id"_ → debe ser kebab-case (`^[a-z0-9][a-z0-9-]*$`).
+
 ## 5. Cuándo NO emitir la capa
 
 - Repos donde la convención no aplica (sin `*.controller.ts`, sin `pages/`, sin `apps/<n>/`). El detector emitirá pocos o ningún `layer`/`endpoint`/`flow`. Eso es correcto — no inventa.

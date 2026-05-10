@@ -6,15 +6,20 @@ import {
   blake3Hex,
   buildAgentManifest,
   buildGraph,
+  buildOpenSpec,
+  buildSpecInput,
   extractChangeSubgraph,
   getDomain,
   GRAPH_CACHE_FILE,
   loadGraphCache,
+  renderChangeContextMd,
+  renderSpecPrompt,
   saveGraphCache,
   scanProject,
   selectContext,
   SCHEMA_VERSIONS,
   validateGuardrails,
+  validateOpenSpecFiles,
   validateOrThrow,
   type AgentManifestResult,
   type ScanResult,
@@ -1270,6 +1275,205 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     return { content: [{ type: "text", text: lines.join("\n") }] };
   }
 
+  // ── forge_spec ───────────────────────────────────────────────────────────────
+
+  async function forgeSpec({
+    change_id,
+    skip_openspec_cli
+  }: {
+    change_id: string;
+    skip_openspec_cli?: boolean;
+  }): Promise<ToolResult> {
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(change_id)) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Invalid change_id "${change_id}". Must be kebab-case ([a-z0-9-]+, starting with [a-z0-9]).`
+          }
+        ],
+        isError: true
+      };
+    }
+
+    const lines: string[] = [`# forge_spec ${change_id}`, ``];
+
+    // 1. Load context-pack.json — required.
+    type PackFile = {
+      path: string;
+      reason: string;
+      mode: "full" | "excerpt" | "summary";
+    };
+    type ContextPack = {
+      task?: string;
+      files?: PackFile[];
+      budget?: { maxInputTokens?: number; estimatedTokens?: number };
+    };
+    let pack: ContextPack;
+    try {
+      pack = JSON.parse(
+        await fs.readFile(artifactPath("context-pack.json"), "utf8")
+      ) as ContextPack;
+    } catch {
+      return {
+        content: [
+          {
+            type: "text",
+            text: 'Missing .contextforge/context-pack.json. Call `forge_context({ task: "..." })` first.'
+          }
+        ],
+        isError: true
+      };
+    }
+    const task = pack.task ?? "Describe la tarea aqui";
+    const affectedFiles: PackFile[] = pack.files ?? [];
+
+    // 2. Load graph (required for subgraph + spec-input architecture block).
+    let graph: GraphArtifact;
+    try {
+      graph = await loadGraph();
+    } catch {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Missing .contextforge/graph.json. Run forge graph first or call forge_archive_change to rebuild."
+          }
+        ],
+        isError: true
+      };
+    }
+
+    // 3. Build & write spec-input.json.
+    const specInput = buildSpecInput({
+      changeId: change_id,
+      contextPack: { task, files: affectedFiles, budget: pack.budget },
+      graph: { nodes: graph.nodes, edges: graph.edges }
+    });
+    validateOrThrow("spec-input", specInput);
+    await fs.writeFile(
+      artifactPath("spec-input.json"),
+      `${JSON.stringify(specInput, null, 2)}\n`,
+      "utf8"
+    );
+    lines.push(`✅ spec-input.json (${affectedFiles.length} affected files)`);
+
+    // 4. Build the change subgraph (compact mode).
+    const subset = extractChangeSubgraph(
+      { nodes: graph.nodes, edges: graph.edges },
+      {
+        focusFiles: affectedFiles.map((f) => f.path),
+        depth: 1,
+        mode: "compact"
+      }
+    );
+
+    const changeDir = path.join(root, "openspec", "changes", change_id);
+    await fs.mkdir(changeDir, { recursive: true });
+
+    // 5. Try the openspec CLI for the official scaffold; fall back to
+    //    buildOpenSpec from core when missing or on failure.
+    let scaffoldedBy: "openspec" | "fallback" | "mcp" = "mcp";
+    if (!skip_openspec_cli) {
+      try {
+        execSyncFn(`openspec new change ${change_id}`, {
+          cwd: root,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"]
+        });
+        scaffoldedBy = "openspec";
+        lines.push(`✅ openspec new change ${change_id}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        lines.push(
+          `⚠️ openspec CLI unavailable or failed (${msg.split("\n")[0]}); using fallback scaffold.`
+        );
+        scaffoldedBy = "fallback";
+      }
+    }
+    if (scaffoldedBy !== "openspec") {
+      const result = buildOpenSpec({
+        changeId: change_id,
+        task,
+        affectedFiles,
+        graphSubset: { stats: subset.stats }
+      });
+      const issues = validateOpenSpecFiles(result.files);
+      if (issues.length > 0) {
+        const detail = issues
+          .map((i) => `  - [${i.rule}] ${i.file}: ${i.detail}`)
+          .join("\n");
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Fallback scaffold failed validation:\n${detail}`
+            }
+          ],
+          isError: true
+        };
+      }
+      for (const f of result.files) {
+        const dest = path.join(root, f.path);
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.writeFile(dest, f.content, "utf8");
+      }
+      lines.push(
+        `✅ fallback scaffold (${result.files.length} files in ${result.changeDir}/)`
+      );
+    }
+
+    // 6. spec-prompt.md — copy-pastable for an agent.
+    const promptBody = renderSpecPrompt({
+      specInput,
+      openSpecInstructions: ""
+    });
+    await fs.writeFile(artifactPath("spec-prompt.md"), promptBody, "utf8");
+    lines.push(`✅ spec-prompt.md`);
+
+    // 7. graph.subset.json + context.md inside the change dir.
+    const generatedAt = new Date().toISOString();
+    const subsetPayload = {
+      schemaVersion: SCHEMA_VERSIONS.graphSubset,
+      changeId: change_id,
+      generatedAt,
+      graphRef: ".contextforge/graph.json",
+      focus: subset.focus,
+      stats: subset.stats,
+      nodes: subset.nodes,
+      edges: subset.edges
+    };
+    validateOrThrow("graph-subset", subsetPayload);
+    await fs.writeFile(
+      path.join(changeDir, "graph.subset.json"),
+      `${JSON.stringify(subsetPayload, null, 2)}\n`,
+      "utf8"
+    );
+    lines.push(
+      `✅ graph.subset.json (${subset.stats.nodesTotal} nodes, ${subset.stats.edgesTotal} edges)`
+    );
+
+    const contextMd = renderChangeContextMd({
+      changeId: change_id,
+      task,
+      focus: subset.focus,
+      stats: subset.stats,
+      scaffoldedBy
+    });
+    await fs.writeFile(path.join(changeDir, "context.md"), contextMd, "utf8");
+    lines.push(`✅ context.md`);
+
+    lines.push(
+      ``,
+      `Next:`,
+      `  1. Open openspec/changes/${change_id}/proposal.md and fill it in (or paste .contextforge/spec-prompt.md into your agent).`,
+      `  2. When the spec is ready: run forge_check before committing.`,
+      `  3. Done? call forge_archive_change({ change_id: "${change_id}" }).`
+    );
+
+    return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
+
   return {
     forgeContext,
     forgeNeighbors,
@@ -1278,6 +1482,7 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     forgeFlow,
     forgeCheck,
     forgeStatus,
+    forgeSpec,
     getAgentManifest,
     selectAgentContext,
     forgeChangeSubgraph,
