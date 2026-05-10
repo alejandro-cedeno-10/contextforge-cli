@@ -74,6 +74,13 @@ export {
 } from "./graph/semantic/flow.js";
 
 export {
+  detectConcepts,
+  type Concept,
+  type ConceptDetectionResult,
+  type DetectConceptsOptions
+} from "./graph/semantic/concept.js";
+
+export {
   runSemanticPass,
   type RunSemanticPassOptions,
   type RunSemanticPassResult

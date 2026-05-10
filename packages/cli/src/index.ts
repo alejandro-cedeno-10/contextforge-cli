@@ -318,6 +318,7 @@ async function cmdGraph(args: string[] = []): Promise<void> {
   const withCalls = flags["with-calls"] === true;
   const withRefs = flags["with-refs"] === true;
   const withSemantic = flags["with-semantic"] === true;
+  const withConcepts = flags["concepts"] === true;
   const enrich = flags["enrich"] === true;
   const exportFormatRaw = flags["export"];
   const exportFormat =
@@ -392,7 +393,8 @@ async function cmdGraph(args: string[] = []): Promise<void> {
     cache,
     withCalls,
     withRefs,
-    withSemantic
+    withSemantic: withSemantic || withConcepts,
+    withConcepts
   });
 
   if (enrich) {
@@ -444,8 +446,10 @@ async function cmdGraph(args: string[] = []): Promise<void> {
   );
   if (graphData.semanticEnabled && graphData.semanticStats) {
     const s = graphData.semanticStats;
+    const conceptsPart =
+      s.conceptCount > 0 ? `, ${s.conceptCount} concepts` : "";
     log(
-      `[graph] semantic layer: ${s.domainCount} domains, ${s.layerCount} layers, ${s.endpointCount} endpoints, ${s.flowCount} flows`
+      `[graph] semantic layer: ${s.domainCount} domains, ${s.layerCount} layers, ${s.endpointCount} endpoints, ${s.flowCount} flows${conceptsPart}`
     );
   }
 
@@ -1787,7 +1791,7 @@ function printUsage(): void {
   console.log(`Uso:
   pnpm forge init
   pnpm forge scan
-  pnpm forge graph [--force] [--with-calls] [--with-refs] [--with-semantic] [--enrich] [--export=<dot|graphml>]
+  pnpm forge graph [--force] [--with-calls] [--with-refs] [--with-semantic] [--concepts] [--enrich] [--export=<dot|graphml>]
   pnpm forge context [task] [--no-manifest] [--force]
   pnpm forge spec [change-id] [--no-openspec] [--subgraph-full] [--refresh-subgraph]
   pnpm forge implement [change-id]

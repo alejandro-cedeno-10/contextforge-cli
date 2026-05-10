@@ -1,5 +1,6 @@
 import type { ScanFile } from "../../scanner.js";
 import type { GraphEdge, GraphNode } from "../builder.js";
+import { detectConcepts, type ConceptDetectionResult } from "./concept.js";
 import { detectDomains, type DomainDetectionResult } from "./domain.js";
 import {
   detectEndpoints,
@@ -27,6 +28,11 @@ export interface RunSemanticPassOptions {
   importedFilesByFile: Map<string, Set<string>>;
   /** Optional reader override for endpoint extraction (testability). */
   readFile?: (absolutePath: string) => Promise<string>;
+  /**
+   * Opt-in: also run Louvain community detection per domain to emit
+   * `concept` nodes. Off by default — only worth it on larger codebases.
+   */
+  withConcepts?: boolean;
 }
 
 export interface RunSemanticPassResult {
@@ -37,6 +43,7 @@ export interface RunSemanticPassResult {
     layerCount: number;
     endpointCount: number;
     flowCount: number;
+    conceptCount: number;
   };
   /** Detector outputs are returned for callers that want to inspect them. */
   raw: {
@@ -44,6 +51,7 @@ export interface RunSemanticPassResult {
     layers: LayerDetectionResult;
     endpoints: EndpointDetectionResult;
     flows: FlowDetectionResult;
+    concepts: ConceptDetectionResult;
   };
 }
 
@@ -67,6 +75,12 @@ export async function runSemanticPass(
     endpoints: endpoints.endpoints,
     importedFilesByFile: options.importedFilesByFile
   });
+  const concepts: ConceptDetectionResult = options.withConcepts
+    ? detectConcepts({
+        domains: domains.assignments,
+        importedFilesByFile: options.importedFilesByFile
+      })
+    : { concepts: [] };
 
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
@@ -202,6 +216,24 @@ export async function runSemanticPass(
     }
   }
 
+  // ── Concept nodes (Louvain) — opt-in ───────────────────────────────────────
+  for (const c of concepts.concepts) {
+    nodes.push({
+      id: c.id,
+      type: "concept",
+      label: c.label,
+      domain: c.domain,
+      headSymbol: c.headSymbol,
+      modularity: c.modularity
+    });
+    // Connect each file in the cluster to its concept via implements_flow?
+    // No — flow is an ordered use case. For concepts we use belongs_to_domain
+    // semantics conceptually but reuse a generic relation: hang the concept
+    // off the domain via a `flow_step`-style chain isn't right either.
+    // Keep it minimal: emit the node only. Files already belong_to_domain.
+    // Consumers walk: domain -> concept (via shared label) when needed.
+  }
+
   return {
     nodes,
     edges,
@@ -209,8 +241,9 @@ export async function runSemanticPass(
       domainCount: domains.domains.length,
       layerCount: layers.layers.length,
       endpointCount: endpoints.endpoints.length,
-      flowCount: flows.flows.length
+      flowCount: flows.flows.length,
+      conceptCount: concepts.concepts.length
     },
-    raw: { domains, layers, endpoints, flows }
+    raw: { domains, layers, endpoints, flows, concepts }
   };
 }

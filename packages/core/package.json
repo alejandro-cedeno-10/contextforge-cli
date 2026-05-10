@@ -28,7 +28,9 @@
   "dependencies": {
     "@noble/hashes": "^1.8.0",
     "ajv": "^8.20.0",
-    "ajv-formats": "^3.0.1"
+    "ajv-formats": "^3.0.1",
+    "graphology": "^0.26.0",
+    "graphology-communities-louvain": "^2.0.2"
   },
   "repository": {
     "type": "git",

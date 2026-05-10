@@ -127,6 +127,7 @@ export interface BuildGraphResult {
     layerCount: number;
     endpointCount: number;
     flowCount: number;
+    conceptCount: number;
   };
 }
 
@@ -371,6 +372,12 @@ export async function buildGraph(options: {
    * structural output byte-stable for callers that haven't migrated.
    */
   withSemantic?: boolean;
+  /**
+   * Within Pass 5 — also run Louvain community detection per domain to
+   * emit `concept` nodes. Requires `withSemantic: true`. Default false
+   * because it adds work and only pays off on larger codebases.
+   */
+  withConcepts?: boolean;
   /** Reader override for endpoint extraction in tests. */
   semanticReadFile?: (absolutePath: string) => Promise<string>;
 }): Promise<BuildGraphResult> {
@@ -378,6 +385,7 @@ export async function buildGraph(options: {
   const withCalls = options.withCalls ?? false;
   const withRefs = options.withRefs ?? false;
   const withSemantic = options.withSemantic ?? false;
+  const withConcepts = options.withConcepts ?? false;
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const allFilePaths = new Set(scan.files.map((f) => f.path));
@@ -635,7 +643,8 @@ export async function buildGraph(options: {
       root,
       scanFiles: scan.files,
       importedFilesByFile,
-      readFile: options.semanticReadFile
+      readFile: options.semanticReadFile,
+      withConcepts
     });
     for (const node of semantic.nodes) nodes.push(node);
     for (const edge of semantic.edges) addEdge(edge);

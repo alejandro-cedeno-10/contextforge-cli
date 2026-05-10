@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { detectConcepts } from "../src/graph/semantic/concept.js";
 import { detectDomains } from "../src/graph/semantic/domain.js";
 import { detectLayers } from "../src/graph/semantic/layer.js";
 import { detectEndpoints } from "../src/graph/semantic/endpoint.js";
@@ -485,6 +486,102 @@ describe("detectFlows", () => {
       importedFilesByFile: imports
     });
     expect(result.flows).toHaveLength(0);
+  });
+});
+
+describe("detectConcepts (Louvain, opt-in)", () => {
+  // Minimal helpers to make a domain with two well-separated clusters.
+  function bidirectional(
+    map: Map<string, Set<string>>,
+    a: string,
+    b: string
+  ): void {
+    if (!map.has(a)) map.set(a, new Set());
+    map.get(a)!.add(b);
+    if (!map.has(b)) map.set(b, new Set());
+    map.get(b)!.add(a);
+  }
+
+  it("emits no concepts for small domains (<8 files)", () => {
+    const domains = ["a.ts", "b.ts", "c.ts"].map((f) => ({
+      file: `src/auth/${f}`,
+      domain: "auth"
+    }));
+    const result = detectConcepts({
+      domains,
+      importedFilesByFile: new Map()
+    });
+    expect(result.concepts).toEqual([]);
+  });
+
+  it("emits concepts for two well-separated clusters in a large domain", () => {
+    // Two cliques of 4 nodes each, fully connected internally, with one
+    // bridge edge. This produces high modularity (>0.3).
+    const clusterA = [
+      "src/auth/a1.ts",
+      "src/auth/a2.ts",
+      "src/auth/a3.ts",
+      "src/auth/a4.ts"
+    ];
+    const clusterB = [
+      "src/auth/b1.ts",
+      "src/auth/b2.ts",
+      "src/auth/b3.ts",
+      "src/auth/b4.ts"
+    ];
+    const domains = [...clusterA, ...clusterB].map((f) => ({
+      file: f,
+      domain: "auth"
+    }));
+
+    const imports = new Map<string, Set<string>>();
+    for (let i = 0; i < clusterA.length; i++) {
+      for (let j = i + 1; j < clusterA.length; j++) {
+        bidirectional(imports, clusterA[i]!, clusterA[j]!);
+      }
+    }
+    for (let i = 0; i < clusterB.length; i++) {
+      for (let j = i + 1; j < clusterB.length; j++) {
+        bidirectional(imports, clusterB[i]!, clusterB[j]!);
+      }
+    }
+    bidirectional(imports, clusterA[0]!, clusterB[0]!);
+
+    const result = detectConcepts({
+      domains,
+      importedFilesByFile: imports
+    });
+    expect(result.concepts.length).toBeGreaterThanOrEqual(2);
+    for (const c of result.concepts) {
+      expect(c.id).toMatch(/^concept:auth\//);
+      expect(c.modularity).toBeGreaterThanOrEqual(0.3);
+      expect(c.files.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("is byte-stable across runs (seeded RNG)", () => {
+    const files = [];
+    for (let i = 1; i <= 8; i++) files.push(`src/x/f${i}.ts`);
+    const domains = files.map((f) => ({ file: f, domain: "x" }));
+    const imports = new Map<string, Set<string>>();
+    // two clusters as above
+    for (let i = 0; i < 4; i++)
+      for (let j = i + 1; j < 4; j++)
+        bidirectional(imports, files[i]!, files[j]!);
+    for (let i = 4; i < 8; i++)
+      for (let j = i + 1; j < 8; j++)
+        bidirectional(imports, files[i]!, files[j]!);
+    bidirectional(imports, files[0]!, files[4]!);
+
+    const a = detectConcepts({
+      domains,
+      importedFilesByFile: imports
+    });
+    const b = detectConcepts({
+      domains,
+      importedFilesByFile: imports
+    });
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 });
 
