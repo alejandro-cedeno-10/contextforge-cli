@@ -949,6 +949,129 @@ describe("forgeSpec", () => {
   });
 });
 
+describe("forgeRebuildGraph", () => {
+  it("scans + builds + writes graph.json from disk", async () => {
+    const root = await newWorkspace();
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "a.ts"),
+      "export const x = 1;\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(root, "src", "b.ts"),
+      "import { x } from './a';\nexport const y = x + 1;\n",
+      "utf8"
+    );
+
+    const { forgeRebuildGraph } = createHandlers(root);
+    const result = await forgeRebuildGraph({});
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).toContain("scan:");
+    expect(result.content[0].text).toContain("graph:");
+
+    const fsp = await import("node:fs/promises");
+    const scanRaw = await fsp.readFile(
+      path.join(root, ".contextforge", "scan.json"),
+      "utf8"
+    );
+    const graphRaw = await fsp.readFile(
+      path.join(root, ".contextforge", "graph.json"),
+      "utf8"
+    );
+    const scan = JSON.parse(scanRaw);
+    const graph = JSON.parse(graphRaw);
+    expect(scan.files.length).toBeGreaterThanOrEqual(2);
+    expect(graph.semanticEnabled).toBeUndefined();
+  });
+
+  it("emits the semantic layer when with_semantic=true", async () => {
+    const root = await newWorkspace();
+    await mkdir(path.join(root, "src", "users"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "users", "users.module.ts"),
+      "export class UsersModule {}\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(root, "src", "users", "users.controller.ts"),
+      "export class UsersController {}\n",
+      "utf8"
+    );
+
+    const { forgeRebuildGraph } = createHandlers(root);
+    const result = await forgeRebuildGraph({ with_semantic: true });
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).toContain("semantic:");
+
+    const fsp = await import("node:fs/promises");
+    const graph = JSON.parse(
+      await fsp.readFile(path.join(root, ".contextforge", "graph.json"), "utf8")
+    );
+    expect(graph.semanticEnabled).toBe(true);
+    expect(graph.nodes.some((n: { type: string }) => n.type === "domain")).toBe(
+      true
+    );
+  });
+});
+
+describe("forgeImplement", () => {
+  it("falls back to a placeholder plan when context-pack is missing", async () => {
+    const root = await newWorkspace();
+    const { forgeImplement } = createHandlers(root);
+    const result = await forgeImplement({ change_id: "ship-login" });
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).toContain("placeholder");
+
+    const fsp = await import("node:fs/promises");
+    const plan = JSON.parse(
+      await fsp.readFile(
+        path.join(root, ".contextforge", "implement-plan.json"),
+        "utf8"
+      )
+    );
+    expect(plan.taskId).toBe("ship-login");
+    expect(plan.tasks).toHaveLength(1);
+    expect(plan.guardrails.allowedFiles).toEqual([]);
+  });
+
+  it("derives tasks + guardrails from the context-pack", async () => {
+    const root = await newWorkspace();
+    const cfDir = path.join(root, ".contextforge");
+    await mkdir(cfDir, { recursive: true });
+    await writeFile(
+      path.join(cfDir, "context-pack.json"),
+      JSON.stringify({
+        task: "ship login flow",
+        files: [
+          { path: "src/auth/login.ts", reason: "seed", mode: "full" },
+          {
+            path: "src/auth/__tests__/login.test.ts",
+            reason: "test_for",
+            mode: "full"
+          }
+        ]
+      }),
+      "utf8"
+    );
+
+    const { forgeImplement } = createHandlers(root);
+    const result = await forgeImplement({ change_id: "ship-login" });
+    expect(result.isError).toBeFalsy();
+
+    const fsp = await import("node:fs/promises");
+    const plan = JSON.parse(
+      await fsp.readFile(path.join(cfDir, "implement-plan.json"), "utf8")
+    );
+    expect(plan.title).toBe("ship login flow");
+    expect(plan.tasks).toHaveLength(2);
+    expect(plan.guardrails.allowedFiles).toContain("src/auth/login.ts");
+    expect(plan.guardrails.requiredTests).toContain(
+      "src/auth/__tests__/login.test.ts"
+    );
+  });
+});
+
 describe("forgeDomainMap — semantic source", () => {
   it("uses semantic-layer domain nodes when available", async () => {
     const root = await newWorkspace();

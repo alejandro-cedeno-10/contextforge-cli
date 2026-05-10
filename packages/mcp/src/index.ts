@@ -150,6 +150,41 @@ server.tool(
 );
 
 server.tool(
+  "forge_rebuild_graph",
+  "Re-runs scan + buildGraph from disk and overwrites .contextforge/scan.json + graph.json. Per-file cache means unchanged files are reused, so it stays fast across iterations. Call this when the working tree has drifted from the last graph (after a checkout, a big edit batch, or when forge_status reports the graph as stale). With with_semantic=true (and optionally with_concepts=true) emits the Pass-5 semantic layer. No shell, no pnpm.",
+  {
+    with_semantic: z
+      .boolean()
+      .optional()
+      .describe(
+        "Emit the Pass-5 semantic layer (domain/layer/endpoint/flow/step). Off by default to keep the structural output byte-stable."
+      ),
+    with_concepts: z
+      .boolean()
+      .optional()
+      .describe(
+        "Within the semantic layer, also run Louvain to emit `concept` clusters. Implies with_semantic=true. Off by default."
+      )
+  },
+  handlers.forgeRebuildGraph
+);
+
+server.tool(
+  "forge_implement",
+  "Generates .contextforge/implement-plan.json from the current context-pack — the guardrail set forge_check enforces. Tasks are derived per file in the pack (one T1, T2... per allowedFile). Call this AFTER forge_spec so the plan ID matches the change you are implementing. Then implement, then forge_check, then forge_archive_change.",
+  {
+    change_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'OpenSpec change id this plan belongs to (recommended). Defaults to "stub" when omitted.'
+      )
+  },
+  handlers.forgeImplement
+);
+
+server.tool(
   "forge_spec",
   "Creates an OpenSpec change scaffold from the current .contextforge/context-pack.json — no shell, no pnpm. Writes openspec/changes/<change_id>/{proposal,design,tasks,specs/...} (delegating to the openspec CLI if it is on PATH, else using the core fallback), plus graph.subset.json + context.md inside the change dir, plus .contextforge/{spec-input.json,spec-prompt.md}. Call this AFTER forge_context to materialize the change. Use the printed `Next:` block to navigate to the next step.",
   {

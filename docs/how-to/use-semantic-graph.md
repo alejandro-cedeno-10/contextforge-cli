@@ -168,15 +168,24 @@ Crea un change OpenSpec desde el flujo agéntico — sin shell, sin `pnpm`. Toma
 - `.contextforge/spec-input.json` (con la sección `architecture` cuando la capa semántica está activa)
 - `.contextforge/spec-prompt.md` (copy-paste para el agente)
 
-Flujo agéntico canónico:
+Flujo agéntico canónico (cero `pnpm` en el loop):
 
 ```jsonc
+// Si el código cambió desde el último graph.json:
+{ "tool": "forge_rebuild_graph", "arguments": { "with_semantic": true } }
+
+// Selección + scaffold:
 { "tool": "forge_context", "arguments": { "task": "ship login flow" } }
 { "tool": "forge_spec",    "arguments": { "change_id": "ship-login-flow" } }
-// — el agente edita openspec/changes/ship-login-flow/* —
-{ "tool": "forge_check",   "arguments": {} }
+{ "tool": "forge_implement", "arguments": { "change_id": "ship-login-flow" } }
+
+// — el agente edita openspec/changes/ship-login-flow/* y src/* —
+
+{ "tool": "forge_check",          "arguments": {} }
 { "tool": "forge_archive_change", "arguments": { "change_id": "ship-login-flow" } }
 ```
+
+`pnpm forge init` sigue siendo el único bootstrap obligatorio (corre una sola vez al clonar el repo).
 
 Errores comunes:
 

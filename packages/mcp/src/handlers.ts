@@ -1275,6 +1275,234 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     return { content: [{ type: "text", text: lines.join("\n") }] };
   }
 
+  // ── forge_rebuild_graph ──────────────────────────────────────────────────────
+
+  async function forgeRebuildGraph({
+    with_semantic = false,
+    with_concepts = false
+  }: {
+    with_semantic?: boolean;
+    with_concepts?: boolean;
+  } = {}): Promise<ToolResult> {
+    const lines: string[] = [`# forge_rebuild_graph`, ``];
+
+    // 1. Re-scan from disk (BLAKE3, deterministic).
+    let scan: ScanResult;
+    try {
+      scan = await scanProject(root);
+      validateOrThrow("scan", scan);
+      const scanPath = artifactPath("scan.json");
+      await fs.mkdir(path.dirname(scanPath), { recursive: true });
+      await fs.writeFile(
+        scanPath,
+        `${JSON.stringify(scan, null, 2)}\n`,
+        "utf8"
+      );
+      lines.push(`✅ scan: ${scan.files.length} files indexed`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        content: [
+          {
+            type: "text",
+            text: lines.concat(`❌ scan failed: ${msg}`).join("\n")
+          }
+        ],
+        isError: true
+      };
+    }
+
+    // 2. Build graph (per-file cache reuses parser fragments when hash unchanged).
+    const semanticOn = with_semantic || with_concepts;
+    let graphData: Awaited<ReturnType<typeof buildGraph>>;
+    try {
+      const cache = await loadGraphCache(root);
+      graphData = await buildGraph({
+        root,
+        scan,
+        cache,
+        withSemantic: semanticOn,
+        withConcepts: with_concepts
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        content: [
+          {
+            type: "text",
+            text: lines.concat(`❌ graph build failed: ${msg}`).join("\n")
+          }
+        ],
+        isError: true
+      };
+    }
+
+    const scanRaw = `${JSON.stringify(scan, null, 2)}\n`;
+    const graphPayload = {
+      schemaVersion: SCHEMA_VERSIONS.graph,
+      project: { name: path.basename(root), root: "." },
+      generatedAt: new Date().toISOString(),
+      scanRef: {
+        path: ".contextforge/scan.json",
+        scanHash: blake3Hex(scanRaw)
+      },
+      parser: graphData.parser,
+      stats: graphData.stats,
+      ...(graphData.semanticEnabled ? { semanticEnabled: true } : {}),
+      nodes: graphData.nodes,
+      edges: graphData.edges
+    };
+
+    try {
+      validateOrThrow("graph", graphPayload);
+      await fs.writeFile(
+        artifactPath("graph.json"),
+        `${JSON.stringify(graphPayload, null, 2)}\n`,
+        "utf8"
+      );
+      await saveGraphCache(root, graphData.cacheUpdate);
+      // Invalidate this handler's in-memory cache so subsequent reads pick
+      // up the fresh artefact.
+      _graph = null;
+      _graphMtime = 0;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        content: [
+          {
+            type: "text",
+            text: lines.concat(`❌ graph write failed: ${msg}`).join("\n")
+          }
+        ],
+        isError: true
+      };
+    }
+
+    lines.push(
+      `✅ graph: ${graphData.stats.nodesTotal} nodes, ${graphData.stats.edgesTotal} edges (cache: ${graphData.cacheStats.reused} reused, ${graphData.cacheStats.reparsed} reparsed)`
+    );
+    if (graphData.semanticEnabled && graphData.semanticStats) {
+      const s = graphData.semanticStats;
+      const conceptsPart =
+        s.conceptCount > 0 ? `, ${s.conceptCount} concepts` : "";
+      lines.push(
+        `✅ semantic: ${s.domainCount} domains, ${s.layerCount} layers, ${s.endpointCount} endpoints, ${s.flowCount} flows${conceptsPart}`
+      );
+    }
+    return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
+
+  // ── forge_implement ──────────────────────────────────────────────────────────
+
+  async function forgeImplement({
+    change_id = "stub"
+  }: { change_id?: string } = {}): Promise<ToolResult> {
+    type PackFile = {
+      path: string;
+      reason: string;
+      mode: string;
+      hash?: string;
+    };
+    type ContextPack = { task?: string; files?: PackFile[] };
+
+    let pack: ContextPack | null = null;
+    try {
+      pack = JSON.parse(
+        await fs.readFile(artifactPath("context-pack.json"), "utf8")
+      ) as ContextPack;
+    } catch {
+      pack = null;
+    }
+    const packFiles: PackFile[] = pack?.files ?? [];
+
+    const allowedFiles = packFiles
+      .filter((f) => f.mode !== "summary")
+      .map((f) => f.path);
+
+    const fileCount = packFiles.length;
+    const maxLocDelta = Math.max(1, Math.min(1000, fileCount * 50));
+    const maxFilesChanged = Math.max(1, allowedFiles.length + 2);
+    const requiredTests = packFiles
+      .filter((f) => f.reason === "test_for")
+      .map((f) => f.path);
+
+    const tasks =
+      allowedFiles.length > 0
+        ? allowedFiles.map((filePath, i) => {
+            const pf = packFiles.find((f) => f.path === filePath)!;
+            return {
+              id: `T${i + 1}`,
+              description: `Modificar ${filePath} (${pf.reason})`,
+              files: [filePath]
+            };
+          })
+        : [
+            {
+              id: "T1",
+              description:
+                "Ejecutar forge_context + forge_spec para derivar tareas concretas.",
+              files: [] as string[]
+            }
+          ];
+
+    const plan = {
+      schemaVersion: SCHEMA_VERSIONS.implementPlan,
+      taskId: change_id,
+      title: pack?.task ?? "Plan pendiente de context-pack y spec",
+      generatedAt: new Date().toISOString(),
+      status: "plan_only" as const,
+      ...(pack
+        ? {
+            contextPackRef: {
+              path: ".contextforge/context-pack.json",
+              packHash: blake3Hex(JSON.stringify(pack))
+            }
+          }
+        : {}),
+      guardrails: {
+        allowedFiles,
+        forbiddenPaths: ["**/.env*", "**/secrets/**", "**/.git/**"],
+        maxLocDelta,
+        maxFilesChanged,
+        ...(requiredTests.length > 0 ? { requiredTests } : {}),
+        noNewDependencies: true
+      },
+      tasks
+    };
+
+    try {
+      validateOrThrow("implement-plan", plan);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        content: [
+          { type: "text", text: `Plan failed schema validation: ${msg}` }
+        ],
+        isError: true
+      };
+    }
+    const planPath = artifactPath("implement-plan.json");
+    await fs.mkdir(path.dirname(planPath), { recursive: true });
+    await fs.writeFile(planPath, `${JSON.stringify(plan, null, 2)}\n`, "utf8");
+
+    const lines: string[] = [
+      `# forge_implement ${change_id}`,
+      ``,
+      `✅ implement-plan.json (${tasks.length} task${tasks.length === 1 ? "" : "s"}, allowed ${allowedFiles.length} files, maxLocDelta ${maxLocDelta})`,
+      ``,
+      `Next:`,
+      `  1. Implement the change.`,
+      `  2. Call forge_check before committing to validate the diff against the guardrails.`
+    ];
+    if (!pack) {
+      lines.push(
+        ``,
+        `⚠️ No context-pack.json found — plan is a placeholder. Call forge_context first for a meaningful guardrail set.`
+      );
+    }
+    return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
+
   // ── forge_spec ───────────────────────────────────────────────────────────────
 
   async function forgeSpec({
@@ -1483,6 +1711,8 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     forgeCheck,
     forgeStatus,
     forgeSpec,
+    forgeImplement,
+    forgeRebuildGraph,
     getAgentManifest,
     selectAgentContext,
     forgeChangeSubgraph,
