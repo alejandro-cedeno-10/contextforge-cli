@@ -67,11 +67,22 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^(file|symbol|folder|package):.+"
+          "pattern": "^(file|symbol|folder|package|domain|layer|endpoint|flow|step|concept):.+"
         },
         "type": {
           "type": "string",
-          "enum": ["file", "symbol", "folder", "package"]
+          "enum": [
+            "file",
+            "symbol",
+            "folder",
+            "package",
+            "domain",
+            "layer",
+            "endpoint",
+            "flow",
+            "step",
+            "concept"
+          ]
         },
         "label": { "type": "string" }
       }
@@ -93,7 +104,13 @@
             "tests",
             "contains",
             "extends",
-            "implements"
+            "implements",
+            "belongs_to_domain",
+            "in_layer",
+            "exposes_endpoint",
+            "implements_flow",
+            "flow_step",
+            "cross_domain"
           ]
         }
       }

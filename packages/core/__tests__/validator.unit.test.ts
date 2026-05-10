@@ -65,6 +65,16 @@ const validFixtures: Record<SchemaName, unknown> = {
       { from: "file:src/a.ts", to: "symbol:src/a.ts#foo", type: "defines" }
     ]
   },
+  "graph-subset": {
+    schemaVersion: SCHEMA_VERSIONS.graphSubset,
+    changeId: "demo-change",
+    generatedAt: NOW,
+    graphRef: ".contextforge/graph.json",
+    focus: ["src/a.ts"],
+    stats: { nodesTotal: 1, edgesTotal: 0, depth: 1 },
+    nodes: [{ id: "file:src/a.ts", type: "file", label: "a.ts" }],
+    edges: []
+  },
   "context-pack": {
     schemaVersion: SCHEMA_VERSIONS.contextPack,
     task: "fix scanner ignore",
@@ -122,6 +132,152 @@ describe("validate (positive cases)", () => {
       expect(result.errors).toEqual([]);
     });
   }
+
+  it("accepts a graph payload enriched with the semantic layer (Pass 5)", () => {
+    const enriched = {
+      schemaVersion: SCHEMA_VERSIONS.graph,
+      project: { name: "demo", root: "." },
+      generatedAt: NOW,
+      semanticEnabled: true,
+      nodes: [
+        {
+          id: "file:src/auth/login.controller.ts",
+          type: "file",
+          label: "login.controller.ts",
+          path: "src/auth/login.controller.ts"
+        },
+        {
+          id: "domain:auth",
+          type: "domain",
+          label: "auth",
+          files: 5,
+          kinds: { code: 4, test: 1 }
+        },
+        {
+          id: "layer:controller",
+          type: "layer",
+          label: "controller",
+          kind: "backend"
+        },
+        {
+          id: "endpoint:POST:/api/auth/login",
+          type: "endpoint",
+          label: "POST /api/auth/login",
+          method: "POST",
+          path: "/api/auth/login",
+          framework: "nest"
+        },
+        {
+          id: "flow:auth/login-with-password",
+          type: "flow",
+          label: "login with password",
+          domain: "auth",
+          entryFile: "src/auth/login.controller.ts",
+          stepCount: 3
+        },
+        {
+          id: "step:flow:auth/login-with-password#1",
+          type: "step",
+          label: "login.controller.ts",
+          order: 1,
+          stepFile: "src/auth/login.controller.ts",
+          stepLayer: "controller"
+        },
+        {
+          id: "concept:auth/jwt-handling",
+          type: "concept",
+          label: "jwt-handling",
+          domain: "auth",
+          headSymbol: "symbol:src/auth/jwt.service.ts#JwtService",
+          modularity: 0.42
+        }
+      ],
+      edges: [
+        {
+          from: "file:src/auth/login.controller.ts",
+          to: "domain:auth",
+          type: "belongs_to_domain"
+        },
+        {
+          from: "file:src/auth/login.controller.ts",
+          to: "layer:controller",
+          type: "in_layer"
+        },
+        {
+          from: "file:src/auth/login.controller.ts",
+          to: "endpoint:POST:/api/auth/login",
+          type: "exposes_endpoint"
+        },
+        {
+          from: "file:src/auth/login.controller.ts",
+          to: "flow:auth/login-with-password",
+          type: "implements_flow"
+        },
+        {
+          from: "flow:auth/login-with-password",
+          to: "step:flow:auth/login-with-password#1",
+          type: "flow_step"
+        },
+        {
+          from: "domain:auth",
+          to: "domain:billing",
+          type: "cross_domain",
+          weight: 3
+        }
+      ]
+    };
+    const result = validate("graph", enriched);
+    expect(result.valid, JSON.stringify(result.errors, null, 2)).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("accepts a graph-subset payload that carries semantic-layer nodes", () => {
+    const enrichedSubset = {
+      schemaVersion: SCHEMA_VERSIONS.graphSubset,
+      changeId: "auth-refactor",
+      generatedAt: NOW,
+      graphRef: ".contextforge/graph.json",
+      focus: ["src/auth/login.controller.ts"],
+      stats: { nodesTotal: 3, edgesTotal: 2, depth: 1 },
+      nodes: [
+        {
+          id: "file:src/auth/login.controller.ts",
+          type: "file",
+          label: "login.controller.ts"
+        },
+        { id: "domain:auth", type: "domain", label: "auth" },
+        { id: "layer:controller", type: "layer", label: "controller" }
+      ],
+      edges: [
+        {
+          from: "file:src/auth/login.controller.ts",
+          to: "domain:auth",
+          type: "belongs_to_domain"
+        },
+        {
+          from: "file:src/auth/login.controller.ts",
+          to: "layer:controller",
+          type: "in_layer"
+        }
+      ]
+    };
+    const result = validate("graph-subset", enrichedSubset);
+    expect(result.valid, JSON.stringify(result.errors, null, 2)).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("rejects a graph node with an invalid semantic id prefix", () => {
+    const broken = JSON.parse(JSON.stringify(validFixtures.graph)) as {
+      nodes: Array<Record<string, unknown>>;
+    };
+    broken.nodes.push({
+      id: "fictional:something",
+      type: "domain",
+      label: "x"
+    });
+    const result = validate("graph", broken);
+    expect(result.valid).toBe(false);
+  });
 });
 
 afterEach(async () => {

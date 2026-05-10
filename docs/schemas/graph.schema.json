@@ -67,6 +67,10 @@
         }
       }
     },
+    "semanticEnabled": {
+      "type": "boolean",
+      "description": "true cuando el grafo incluye la capa semantica (Pass 5: domain/layer/endpoint/flow/step/concept). Ausente o false significa que solo hay nodos estructurales."
+    },
     "nodes": {
       "type": "array",
       "items": { "$ref": "#/$defs/node" }
@@ -84,17 +88,28 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "ID estable. Convencion: 'file:<path>' para files, 'symbol:<path>#<name>' para simbolos.",
-          "pattern": "^(file|symbol|folder|package):.+"
+          "description": "ID estable. Convencion: 'file:<path>' para files, 'symbol:<path>#<name>' para simbolos. Capa semantica usa 'domain:<slug>', 'layer:<name>', 'endpoint:<METHOD>:<path>', 'flow:<domain>/<slug>', 'step:<flow_id>#<order>', 'concept:<domain>/<slug>'.",
+          "pattern": "^(file|symbol|folder|package|domain|layer|endpoint|flow|step|concept):.+"
         },
         "type": {
           "type": "string",
-          "enum": ["file", "symbol", "folder", "package"]
+          "enum": [
+            "file",
+            "symbol",
+            "folder",
+            "package",
+            "domain",
+            "layer",
+            "endpoint",
+            "flow",
+            "step",
+            "concept"
+          ]
         },
         "label": { "type": "string" },
         "path": {
           "type": "string",
-          "description": "Ruta relativa cuando aplica (file/symbol)."
+          "description": "Para file/symbol: ruta relativa. Para endpoint: ruta HTTP/CLI (ej: '/api/auth/login' o 'forge graph')."
         },
         "hash": {
           "type": "string",
@@ -102,7 +117,7 @@
         },
         "kind": {
           "type": "string",
-          "description": "Para file: scan kind. Para symbol: 'function'|'class'|'method'|'interface'|'type'|'const'|'var'|'enum'."
+          "description": "Para file: scan kind. Para symbol: 'function'|'class'|'method'|'interface'|'type'|'const'|'var'|'enum'. Para layer: 'backend'|'frontend'|'shared'."
         },
         "lang": { "type": "string" },
         "exported": {
@@ -136,6 +151,60 @@
           "type": "string",
           "description": "Solo con --enrich: complejidad inferida.",
           "enum": ["low", "medium", "high"]
+        },
+        "method": {
+          "type": "string",
+          "description": "Solo para endpoint: metodo HTTP ('GET'|'POST'|...) o 'CLI' para comandos."
+        },
+        "framework": {
+          "type": "string",
+          "description": "Solo para endpoint: framework de origen ('nest'|'express'|'fastapi'|'next-route'|'next-page'|'commander'|'yargs')."
+        },
+        "domain": {
+          "type": "string",
+          "description": "Solo para flow/concept: slug del dominio al que pertenecen."
+        },
+        "entryFile": {
+          "type": "string",
+          "description": "Solo para flow: archivo del primer step (entrada del caso de uso)."
+        },
+        "stepCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Solo para flow: numero de steps que componen el flujo."
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Solo para step: posicion ordinal dentro del flow padre."
+        },
+        "stepFile": {
+          "type": "string",
+          "description": "Solo para step: archivo que ejecuta este paso del flujo."
+        },
+        "stepLayer": {
+          "type": "string",
+          "description": "Solo para step: layer del archivo del step (denormalizado para evitar joins en lecturas rapidas)."
+        },
+        "headSymbol": {
+          "type": "string",
+          "description": "Solo para concept: symbol id del nodo mas referenciado del cluster (representa al concepto)."
+        },
+        "modularity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Solo para concept: score de modularidad del cluster Louvain (rango 0-1)."
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Solo para domain: cantidad de archivos asignados a este dominio."
+        },
+        "kinds": {
+          "type": "object",
+          "description": "Solo para domain: distribucion de scan kinds (code/test/config/...) en este dominio.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
         }
       }
     },
@@ -156,9 +225,15 @@
             "tests",
             "contains",
             "extends",
-            "implements"
+            "implements",
+            "belongs_to_domain",
+            "in_layer",
+            "exposes_endpoint",
+            "implements_flow",
+            "flow_step",
+            "cross_domain"
           ],
-          "description": "5 canonicos (defines/imports/calls/references/tests) + 3 estructurales/herencia opcionales."
+          "description": "8 estructurales (defines/imports/calls/references/tests/contains/extends/implements) + 6 semanticos (belongs_to_domain/in_layer/exposes_endpoint/implements_flow/flow_step/cross_domain)."
         },
         "weight": {
           "type": "number",

@@ -24,9 +24,21 @@ import {
   type TsconfigPaths
 } from "./tsconfigPaths.js";
 
+export type SemanticNodeType =
+  | "domain"
+  | "layer"
+  | "endpoint"
+  | "flow"
+  | "step"
+  | "concept";
+
+export type StructuralNodeType = "file" | "symbol" | "folder" | "package";
+
+export type NodeType = StructuralNodeType | SemanticNodeType;
+
 export interface GraphNode {
   id: string;
-  type: "file" | "symbol" | "folder" | "package";
+  type: NodeType;
   label: string;
   path?: string;
   hash?: string;
@@ -38,9 +50,23 @@ export interface GraphNode {
   summary?: string;
   tags?: string[];
   complexity?: "low" | "medium" | "high";
+  // Semantic-layer fields (Pass 5, opt-in via --with-semantic). All optional;
+  // populated only on nodes whose `type` belongs to SemanticNodeType.
+  method?: string;
+  framework?: string;
+  domain?: string;
+  entryFile?: string;
+  stepCount?: number;
+  order?: number;
+  stepFile?: string;
+  stepLayer?: string;
+  headSymbol?: string;
+  modularity?: number;
+  files?: number;
+  kinds?: Record<string, number>;
 }
 
-export type EdgeType =
+export type StructuralEdgeType =
   | "defines"
   | "imports"
   | "calls"
@@ -49,6 +75,16 @@ export type EdgeType =
   | "contains"
   | "extends"
   | "implements";
+
+export type SemanticEdgeType =
+  | "belongs_to_domain"
+  | "in_layer"
+  | "exposes_endpoint"
+  | "implements_flow"
+  | "flow_step"
+  | "cross_domain";
+
+export type EdgeType = StructuralEdgeType | SemanticEdgeType;
 
 export interface GraphEdge {
   from: string;
@@ -90,7 +126,15 @@ const EDGE_WEIGHTS: Record<EdgeType, number> = {
   tests: 1.2,
   contains: 0.5,
   extends: 0.9,
-  implements: 0.9
+  implements: 0.9,
+  // Semantic layer (Pass 5). cross_domain weight is variable: callers should
+  // override based on import count between the two domains.
+  belongs_to_domain: 1.0,
+  in_layer: 0.7,
+  exposes_endpoint: 1.2,
+  implements_flow: 1.0,
+  flow_step: 1.0,
+  cross_domain: 0.5
 };
 
 async function buildWorkspaceAliases(

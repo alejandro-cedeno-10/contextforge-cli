@@ -47,7 +47,8 @@ _Crea archivos en `reference/`._
 
 Documentos discursivos que explican el _por qué_ del diseño.
 
-_Crea archivos en `explanation/`._
+- [`contextforge-and-openspec.md`](./explanation/contextforge-and-openspec.md) — Tres roles separados (ContextForge, OpenSpec, agente) y cuánto ahorras combinándolos.
+- [`contextforge-vs-understand-anything.md`](./explanation/contextforge-vs-understand-anything.md) — Review senior comparativa: por qué son complementarios y no sustitutos.
 
 ## 🧱 ADR (decisiones)
 
@@ -59,6 +60,7 @@ _Crea ADRs numerados (`0001-titulo.md`, `0002-titulo.md`)._
 ## 🗺️ Architecture (diagramas y mapas)
 
 - [`module-relationships.md`](./architecture/module-relationships.md) — Grafo de dependencias entre módulos (generado por `forge docs`).
+- [`semantic-graph-layer.md`](./architecture/semantic-graph-layer.md) — Diseño Pass 5 determinista que enriquece graph.json con capa semántica (domain/layer/endpoint/flow/step/concept).
 
 ## ✍️ Convenciones de docs
 

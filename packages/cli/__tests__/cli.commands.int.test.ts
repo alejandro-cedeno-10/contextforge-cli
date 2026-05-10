@@ -6,7 +6,10 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SchemaValidationError } from "@anai-raia-alex/contextforge-core";
+import {
+  SchemaValidationError,
+  SCHEMA_VERSIONS
+} from "@anai-raia-alex/contextforge-core";
 
 const workspaces: string[] = [];
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -157,7 +160,7 @@ describe("forge commands", () => {
     expect(scan.hashAlgorithm).toBe("blake3");
     expect(scan.files.length).toBeGreaterThan(0);
 
-    expect(graph.schemaVersion).toBe("0.2.0");
+    expect(graph.schemaVersion).toBe(SCHEMA_VERSIONS.graph);
     const fileNodes = graph.nodes.filter((n) => n.type === "file");
     expect(fileNodes.length).toBe(scan.files.length);
     expect(graph.nodes.length).toBeGreaterThanOrEqual(scan.files.length);
@@ -206,7 +209,7 @@ describe("forge commands", () => {
       nodes: Array<{ id: string }>;
       edges: unknown[];
     };
-    expect(subgraph.schemaVersion).toBe("1.0.0");
+    expect(subgraph.schemaVersion).toBe(SCHEMA_VERSIONS.graphSubset);
     expect(subgraph.changeId).toBe("change-1");
     expect(subgraph.graphRef).toBe(".contextforge/graph.json");
     expect(subgraph.stats.mode).toBe("compact");
