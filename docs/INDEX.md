@@ -50,6 +50,8 @@ Documentos discursivos que explican el _por qué_ del diseño.
 
 - [`contextforge-and-openspec.md`](./explanation/contextforge-and-openspec.md) — Tres roles separados (ContextForge, OpenSpec, agente) y cuánto ahorras combinándolos.
 - [`contextforge-vs-understand-anything.md`](./explanation/contextforge-vs-understand-anything.md) — Review senior comparativa: por qué son complementarios y no sustitutos.
+- [`linkedin.md`](./linkedin.md) — Pitch técnico para post de LinkedIn / charla rápida (resumen ejecutivo del proyecto).
+- [`article-medium.md`](./article-medium.md) — Artículo largo formato Medium con la historia completa.
 
 ## 🧱 ADR (decisiones)
 
