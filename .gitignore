@@ -39,3 +39,4 @@ openspec/changes/change-1/
 
 CLAUDE.local.md
 .claude/settings.local.json
+.claude/worktrees/
