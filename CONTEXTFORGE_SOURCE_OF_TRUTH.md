@@ -2,19 +2,26 @@
 
 ## Estado
 
-- Version: `v0.2-draft`
-- Fecha: `2026-05-06`
-- Reemplaza: `v0.1-draft` (2026-05-06)
+- Version: `v0.3-draft`
+- Fecha: `2026-05-11`
+- Reemplaza: `v0.2-draft` (2026-05-06)
+- Release actual: `v0.3.10` (paquetes en npmjs.com bajo `@anai-raia-alex`, imagen MCP en GHCR)
 - Alcance de runtime: `outputs agnostic; OpenCode = integrador de referencia`
 - Politica de implementacion: `plan_only` por defecto
 
-### Cambios respecto a v0.1
+### Cambios respecto a v0.2
 
-1. DV-01 reformulada: outputs son tool-agnostic; OpenCode pasa de "alcance unico" a "primer integrador".
-2. Anadidas 5 secciones criticas: Medicion de tokens, Algoritmo de seleccion, Interop OpenSpec, Analisis competitivo, Estrategia incremental.
-3. Stack tecnico fijado: `web-tree-sitter` + `graphology` + BLAKE3 + Anthropic `count_tokens`.
-4. Schemas referenciados desde `docs/schemas/`.
-5. Sprints reescritos con entregables verificables (archivos, tests, criterios).
+1. Sprints S1–S14 completados. Suite: 341/341 tests.
+2. Capa semantica (Pass-5): detectores de dominios, capas, endpoints, flujos, conceptos Louvain. Vue + Nuxt soportados.
+3. MCP server con 14 tools: `forge_status`, `forge_context`, `forge_neighbors`, `forge_domain_map`, `forge_semantic_map`, `forge_flow`, `forge_check`, `forge_rebuild_graph`, `forge_implement`, `forge_spec`, `forge_archive_change`, `forge_change_context`, `forge_change_manifest`, `forge_change_subgraph`.
+4. Flujo OpenSpec completo desde MCP: context → spec → implement → check → archive. Sin shell, sin pnpm.
+5. Skills auto-generadas por dominio (`contextforge-domain-*`) + skill de flujo SDD completo.
+6. `forge manifest` produce `agent-manifest.json` con seleccion de skills por tarea.
+7. `forge_change_subgraph` + `graph.subset.json`: subgrafo congelado por change para navegacion barata.
+8. `forge_archive_change` auto-rebuild grafo padre y refresca subgrafos de changes activos.
+9. `forge sync --refresh-subgraphs`: equivalente CLI de archive sin MCP.
+10. DV-13 nueva: MCP-first workflow como patron de referencia para agentes.
+11. `agent-context.md` creado en `.contextforge/` como punto de entrada obligatorio para agentes.
 
 ---
 
@@ -86,14 +93,15 @@ Propuesta central:
 | DV-02 | Estrategia base: `deterministic-first`                                                                               | Vigente                 |
 | DV-03 | Contratos de salida: `JSON Schema 2020-12 obligatorio`                                                               | Vigente                 |
 | DV-04 | Objetivo primario: `token efficiency con calidad tecnica`                                                            | Vigente                 |
-| DV-05 | Parser: `web-tree-sitter` (WASM, portable, sin native build)                                                         | **Nueva**               |
-| DV-06 | Grafo: `graphology` + `graphology-metrics/centrality/pagerank`                                                       | **Nueva**               |
-| DV-07 | Hash: `BLAKE3` (npm `@noble/hashes/blake3`) para fingerprinting                                                      | **Nueva**               |
-| DV-08 | Tokenizer canonico: Anthropic `messages.count_tokens` con fallback `js-tiktoken` (`o200k_base`)                      | **Nueva**               |
-| DV-09 | Edge types canonicos: `defines`, `imports`, `calls`, `references`, `tests`                                           | **Nueva**               |
-| DV-10 | Algoritmo seleccion: Personalized PageRank + BFS depth=2 + greedy budget pack                                        | **Nueva**               |
-| DV-11 | Interop: `forge spec` puede emitir estructura OpenSpec (`changes/<id>/{proposal,design,tasks}.md` + delta specs)     | **Nueva**               |
-| DV-12 | CPG (Code Property Graph) deferred indefinidamente. Symbol-level reference graph cubre 80% del valor a 5% del costo. | **Nueva**               |
+| DV-05 | Parser: `web-tree-sitter` (WASM, portable, sin native build)                                                         | Vigente                 |
+| DV-06 | Grafo: `graphology` + `graphology-metrics/centrality/pagerank`                                                       | Vigente                 |
+| DV-07 | Hash: `BLAKE3` (npm `@noble/hashes/blake3`) para fingerprinting                                                      | Vigente                 |
+| DV-08 | Tokenizer canonico: Anthropic `messages.count_tokens` con fallback `js-tiktoken` (`o200k_base`)                      | Vigente                 |
+| DV-09 | Edge types canonicos: `defines`, `imports`, `calls`, `references`, `tests`                                           | Vigente                 |
+| DV-10 | Algoritmo seleccion: Personalized PageRank + BFS depth=2 + greedy budget pack                                        | Vigente                 |
+| DV-11 | Interop: `forge spec` emite estructura OpenSpec (`changes/<id>/`) con subgrafo congelado + context.md                | **Expandida en v0.3**   |
+| DV-12 | CPG (Code Property Graph) deferred indefinidamente. Symbol-level reference graph cubre 80% del valor a 5% del costo. | Vigente                 |
+| DV-13 | MCP-first como patron de referencia: flujo completo sin shell/pnpm via 14 tools (`forge_status` → `forge_archive_change`) | **Nueva en v0.3**  |
 
 ---
 
@@ -414,21 +422,21 @@ Si excede budget:
 
 ## Roadmap por fases
 
-### Fase 1 - Hardening del baseline (Sprint 1-2)
+### Fase 1 - Hardening del baseline (Sprint 1-2) ✅
 
 - Validacion JSON Schema obligatoria en todos los comandos.
 - Migrar SHA-256 a BLAKE3 en scanner.
 - Cache por hash de scan.json (skip si no hay cambios).
 - Mensajeria CLI clara para cache hit/miss.
 
-### Fase 2 - Grafo real (Sprint 3)
+### Fase 2 - Grafo real (Sprint 3) ✅
 
 - Integrar `web-tree-sitter` para TS/JS, Python, Go, Rust, Java.
 - Extraer simbolos y referencias deterministicamente.
 - Emitir nodos `symbol:` y 5 edge types canonicos.
 - Test de cobertura: grafo no vacio para repo de muestra.
 
-### Fase 3 - Context selector v1 (Sprint 4)
+### Fase 3 - Context selector v1 (Sprint 4) ✅
 
 - Personalized PageRank via graphology.
 - BFS depth=2 + scoring + greedy pack.
@@ -436,24 +444,44 @@ Si excede budget:
 - Token ledger generado.
 - Acceptance: context-pack <= budget en repo de referencia, savings > 80% vs full_repo_dump.
 
-### Fase 4 - Spec evidence-backed (Sprint 5)
+### Fase 4 - Spec evidence-backed (Sprint 5) ✅
 
 - Plantilla SDD con inyeccion de evidencia (paths, simbolos, criterios verificables).
 - Modo `--emit openspec` con estructura `changes/<id>/`.
 - Delta specs con secciones ADDED/MODIFIED/REMOVED.
 
-### Fase 5 - Implement-plan con guardrails (Sprint 6)
+### Fase 5 - Implement-plan con guardrails (Sprint 6) ✅
 
 - `implement-plan.json` con `allowed_files`, `forbidden_paths`, `max_loc_delta`, `required_tests`.
 - Validacion de plan contra schema obligatoria.
 - Comando `forge implement --check` que valida plan sin ejecutar.
 
-### Fase 6 - Integradores adicionales (post-MVP)
+### Fase 6 - Integradores adicionales (Sprints 7-9) ✅
 
-- Adaptador Claude Code (slash command + skill).
-- Adaptador Codex (skill + permisos).
-- Adaptador Cursor (custom rule + import context-pack).
-- Soporte Spec-Kit como segundo target.
+- Adaptador Claude Code (skills + `.claude/` directory).
+- Adaptador Cursor (`.cursor/rules/`).
+- `forge viz`: grafo HTML interactivo con grupos de dominios.
+- MCP server v1 (`forge_context`, `forge_neighbors`, `forge_domain_map`, `forge_check`, `forge_status`).
+- `forge docs`: scaffolding Diátaxis.
+- `forge skills` / `forge manifest`: skills auto-generadas por dominio + agent-manifest.
+
+### Fase 7 - Publicacion y flujo SDD completo via MCP (Sprints 10-14) ✅
+
+- Publicacion npmjs.com (`@anai-raia-alex/contextforge-core`, `contextforge-cli`, `contextforge-mcp`) + Docker MCP en GHCR.
+- `forge sync` + `forge impact`.
+- MCP tools para el flujo SDD completo: `forge_spec`, `forge_implement`, `forge_rebuild_graph`, `forge_archive_change`, `forge_change_subgraph`, `forge_change_context`, `forge_change_manifest`.
+- Capa semantica Pass-5: detectors (layers, endpoints, flows, concepts Louvain, Vue/Nuxt).
+- `forge_semantic_map`, `forge_flow` MCP tools.
+- `forge sync --refresh-subgraphs` para refresh CLI sin MCP.
+- Subgrafos congelados por change (`graph.subset.json` + `context.md`).
+- Skills con prefijo unificado `contextforge-domain-*`.
+
+### Fase 8 - Post-v0.3 (pendiente)
+
+- Soporte Spec-Kit como segundo target (`--emit speckit`).
+- Adaptador Codex.
+- Embeddings como signal adicional via Reciprocal Rank Fusion (v0.5+).
+- Benchmark de ahorro de tokens publicado y reproducible en CI.
 
 ---
 
@@ -461,14 +489,22 @@ Si excede budget:
 
 Ver `docs/IMPLEMENTATION_TASKS.md` para breakdown detallado con archivos, dependencias npm, tests y criterios de aceptacion.
 
-| Sprint | Foco                      | Entregable principal                                     |
-| ------ | ------------------------- | -------------------------------------------------------- |
-| S1     | Schemas + validacion      | 5 schemas en `docs/schemas/`, validador en core, CI gate |
-| S2     | Cache + BLAKE3            | Cache hit/miss reportado, `scan` skip si no cambios      |
-| S3     | Grafo tree-sitter         | Edges reales para TS/JS/Python, nodos symbol             |
-| S4     | Context selector          | PageRank + BFS + budget pack + token ledger              |
-| S5     | Spec SDD evidence-backed  | `--emit openspec`, delta specs                           |
-| S6     | Implement-plan guardrails | allowed_files, max_loc_delta, validador                  |
+| Sprint | Foco                                      | Estado        | Entregable principal                                              |
+| ------ | ----------------------------------------- | ------------- | ----------------------------------------------------------------- |
+| S1     | Schemas + validacion                      | ✅ Completado | Validador en core, CI gate, exit code 2                           |
+| S2     | Cache + BLAKE3                            | ✅ Completado | Cache hit/miss reportado, `scan` skip si no cambios               |
+| S3     | Grafo tree-sitter                         | ✅ Completado | Edges reales TS/JS/Python, nodos symbol                           |
+| S4     | Context selector                          | ✅ Completado | PageRank + BFS + budget pack + token ledger                       |
+| S5     | Spec SDD evidence-backed                  | ✅ Completado | `--emit openspec`, delta specs, `forge spec` delega a OpenSpec    |
+| S6     | Implement-plan guardrails                 | ✅ Completado | allowed_files, max_loc_delta, validador, `forge implement --check` |
+| S7     | Grafo visual interactivo                  | ✅ Completado | `forge viz` HTML con grupos de dominios                           |
+| S8     | MCP Server                                | ✅ Completado | 5 tools iniciales: context, neighbors, domain_map, check, status  |
+| S9     | Diataxis docs + Claude skills             | ✅ Completado | `forge docs`, `forge skills`, `.claude/skills/`                   |
+| S10    | Publicacion GitHub Packages               | ✅ Completado | npmjs.com + Docker MCP en GHCR                                    |
+| S11    | forge sync + forge impact                 | ✅ Completado | Deteccion de drift, blast-radius, health check                    |
+| S12    | forge skills (auto-domain-skills)         | ✅ Completado | Skills por dominio auto-generadas desde el grafo                  |
+| S13    | agent-manifest + MCP tools SDD completo  | ✅ Completado | `forge manifest`, `forge_spec`, `forge_implement`, subgrafos       |
+| S14    | CI fix + capa semantica + archive tool   | ✅ Completado | Pass-5, 14 MCP tools, `forge_archive_change`, 341 tests           |
 
 ---
 
