@@ -1415,8 +1415,27 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     }
     const packFiles: PackFile[] = pack?.files ?? [];
 
+    // Subset-scoped allowedFiles: when openspec/changes/<id>/graph.subset.json
+    // exists, restrict the guardrail to files that are in the change's frozen
+    // focus set. This mirrors what the spec said the change would touch and
+    // makes forge_check stricter.
+    let subsetFocus: Set<string> | null = null;
+    try {
+      const subsetRaw = await fs.readFile(
+        path.join(root, "openspec", "changes", change_id, "graph.subset.json"),
+        "utf8"
+      );
+      const parsed = JSON.parse(subsetRaw) as { focus?: string[] };
+      if (Array.isArray(parsed.focus) && parsed.focus.length > 0) {
+        subsetFocus = new Set(parsed.focus);
+      }
+    } catch {
+      subsetFocus = null;
+    }
+
     const allowedFiles = packFiles
       .filter((f) => f.mode !== "summary")
+      .filter((f) => (subsetFocus ? subsetFocus.has(f.path) : true))
       .map((f) => f.path);
 
     const fileCount = packFiles.length;
@@ -1488,12 +1507,19 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     const lines: string[] = [
       `# forge_implement ${change_id}`,
       ``,
-      `✅ implement-plan.json (${tasks.length} task${tasks.length === 1 ? "" : "s"}, allowed ${allowedFiles.length} files, maxLocDelta ${maxLocDelta})`,
+      `✅ implement-plan.json (${tasks.length} task${tasks.length === 1 ? "" : "s"}, allowed ${allowedFiles.length} files, maxLocDelta ${maxLocDelta})`
+    ];
+    if (subsetFocus) {
+      lines.push(
+        `   guardrails scoped to graph.subset.json focus (${subsetFocus.size} files)`
+      );
+    }
+    lines.push(
       ``,
       `Next:`,
       `  1. Implement the change.`,
       `  2. Call forge_check before committing to validate the diff against the guardrails.`
-    ];
+    );
     if (!pack) {
       lines.push(
         ``,
@@ -1572,21 +1598,10 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
       };
     }
 
-    // 3. Build & write spec-input.json.
-    const specInput = buildSpecInput({
-      changeId: change_id,
-      contextPack: { task, files: affectedFiles, budget: pack.budget },
-      graph: { nodes: graph.nodes, edges: graph.edges }
-    });
-    validateOrThrow("spec-input", specInput);
-    await fs.writeFile(
-      artifactPath("spec-input.json"),
-      `${JSON.stringify(specInput, null, 2)}\n`,
-      "utf8"
-    );
-    lines.push(`✅ spec-input.json (${affectedFiles.length} affected files)`);
-
-    // 4. Build the change subgraph (compact mode).
+    // 3. Build the change subgraph FIRST. The subset becomes the single
+    //    source of truth for everything that lands inside the change dir
+    //    (spec-input.architecture, spec-prompt scope block, change-scoped
+    //    manifest in commit B). Compact mode keeps token cost down.
     const subset = extractChangeSubgraph(
       { nodes: graph.nodes, edges: graph.edges },
       {
@@ -1594,6 +1609,29 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
         depth: 1,
         mode: "compact"
       }
+    );
+    lines.push(
+      `✅ subset: ${subset.stats.nodesTotal} nodes, ${subset.stats.edgesTotal} edges (depth=${subset.stats.depth}, mode=${subset.stats.mode})`
+    );
+
+    // 4. Build & write spec-input.json — architecture derived from the
+    //    subset, NOT the global graph. cross-domain deps still come from
+    //    the global graph (it's the only place that knows about edges
+    //    leaving the focus set).
+    const specInput = buildSpecInput({
+      changeId: change_id,
+      contextPack: { task, files: affectedFiles, budget: pack.budget },
+      graph: { nodes: graph.nodes, edges: graph.edges },
+      subgraph: { nodes: subset.nodes, edges: subset.edges }
+    });
+    validateOrThrow("spec-input", specInput);
+    await fs.writeFile(
+      artifactPath("spec-input.json"),
+      `${JSON.stringify(specInput, null, 2)}\n`,
+      "utf8"
+    );
+    lines.push(
+      `✅ spec-input.json (${affectedFiles.length} affected files, scoped to subset)`
     );
 
     const changeDir = path.join(root, "openspec", "changes", change_id);
@@ -1651,13 +1689,22 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
       );
     }
 
-    // 6. spec-prompt.md — copy-pastable for an agent.
+    // 6. spec-prompt.md — copy-pastable for an agent. Carries the subset
+    //    stats so the prompt explicitly tells the agent NOT to call
+    //    forge_neighbors / forge_context (they hit the global graph and
+    //    duplicate what's already inlined here).
     const promptBody = renderSpecPrompt({
       specInput,
-      openSpecInstructions: ""
+      openSpecInstructions: "",
+      subset: {
+        nodesTotal: subset.stats.nodesTotal,
+        edgesTotal: subset.stats.edgesTotal,
+        depth: subset.stats.depth,
+        focusFilesCount: subset.focus.length
+      }
     });
     await fs.writeFile(artifactPath("spec-prompt.md"), promptBody, "utf8");
-    lines.push(`✅ spec-prompt.md`);
+    lines.push(`✅ spec-prompt.md (scope-aware)`);
 
     // 7. graph.subset.json + context.md inside the change dir.
     const generatedAt = new Date().toISOString();

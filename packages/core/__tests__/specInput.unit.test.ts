@@ -180,6 +180,53 @@ describe("buildSpecInput", () => {
     expect(() => validateOrThrow("spec-input", result)).not.toThrow();
   });
 
+  it("derives architecture from subgraph when provided (subset-first)", () => {
+    // Build a wide global graph with TWO domains (auth, billing). The
+    // subgraph passed into buildSpecInput contains only the auth slice.
+    // The architecture block must reflect ONLY auth — proves the function
+    // honored `subgraph` over `graph`.
+    const globalNodes: GraphNode[] = [
+      fileNode("src/auth/login.ts"),
+      fileNode("src/billing/invoice.ts"),
+      { id: "domain:auth", type: "domain", label: "auth" },
+      { id: "domain:billing", type: "domain", label: "billing" }
+    ];
+    const globalEdges: GraphEdge[] = [
+      {
+        from: "file:src/auth/login.ts",
+        to: "domain:auth",
+        type: "belongs_to_domain"
+      },
+      {
+        from: "file:src/billing/invoice.ts",
+        to: "domain:billing",
+        type: "belongs_to_domain"
+      }
+    ];
+    const subset = {
+      nodes: [
+        fileNode("src/auth/login.ts"),
+        { id: "domain:auth", type: "domain" as const, label: "auth" }
+      ],
+      edges: [
+        {
+          from: "file:src/auth/login.ts",
+          to: "domain:auth",
+          type: "belongs_to_domain" as const
+        }
+      ]
+    };
+    const result = buildSpecInput({
+      changeId: "ship-login",
+      contextPack: pack("ship login", [{ path: "src/auth/login.ts" }]),
+      graph: { nodes: globalNodes, edges: globalEdges },
+      subgraph: subset,
+      generatedAt: FIXED_AT
+    });
+    expect(result.architecture?.domains).toEqual(["auth"]);
+    expect(result.architecture?.domains).not.toContain("billing");
+  });
+
   it("emits architecture (domains/endpoints/flows) for affected files", () => {
     const nodes: GraphNode[] = [
       fileNode("src/users/users.controller.ts"),

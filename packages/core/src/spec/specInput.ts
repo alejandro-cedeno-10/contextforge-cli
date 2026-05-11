@@ -23,6 +23,15 @@ export interface SpecInputOptions {
   changeId: string;
   contextPack: ContextPackInput;
   graph?: GraphInput | null;
+  /**
+   * Pre-computed change subgraph (focus + 1 hop). When provided, the
+   * `architecture` block is derived from THIS subset rather than from
+   * `graph`. This is the subset-first path used by `forge_spec`: the
+   * subset is the single source of truth for everything that ends up
+   * inside `openspec/changes/<id>/`. Falling back to `graph` keeps
+   * backwards compatibility with callers that only have the global graph.
+   */
+  subgraph?: GraphInput | null;
   contextPackRef?: string;
   graphRef?: string;
   generatedAt?: string;
@@ -260,8 +269,12 @@ export function buildSpecInput(opts: SpecInputOptions): SpecInput {
   const crossDomainDeps = computeCrossDomainDeps(opts.graph ?? null, domain);
   const tokenBudget = opts.contextPack.budget?.maxInputTokens ?? 12000;
   const estimatedTokens = opts.contextPack.budget?.estimatedTokens ?? 0;
+  // Subset-first: when a pre-computed subgraph is passed, derive the
+  // architecture block from it. Otherwise fall back to filtering the
+  // global graph (legacy path, byte-equivalent for files in scope).
+  const architectureSource = opts.subgraph ?? opts.graph ?? null;
   const architecture = computeArchitecture(
-    opts.graph ?? null,
+    architectureSource,
     new Set(affected.map((f) => f.path))
   );
 

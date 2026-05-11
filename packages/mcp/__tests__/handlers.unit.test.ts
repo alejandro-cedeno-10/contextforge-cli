@@ -1035,6 +1035,47 @@ describe("forgeImplement", () => {
     expect(plan.guardrails.allowedFiles).toEqual([]);
   });
 
+  it("scopes allowedFiles to graph.subset.json focus when present", async () => {
+    const root = await newWorkspace();
+    const cfDir = path.join(root, ".contextforge");
+    await mkdir(cfDir, { recursive: true });
+    await writeFile(
+      path.join(cfDir, "context-pack.json"),
+      JSON.stringify({
+        task: "ship login flow",
+        files: [
+          // in pack AND in subset → should be allowed
+          { path: "src/auth/login.ts", reason: "seed", mode: "full" },
+          // in pack BUT NOT in subset → should be filtered out
+          { path: "src/billing/invoice.ts", reason: "transitive", mode: "full" }
+        ]
+      }),
+      "utf8"
+    );
+    // Write a subset that only focuses on login.ts.
+    const changeDir = path.join(root, "openspec", "changes", "ship-login");
+    await mkdir(changeDir, { recursive: true });
+    await writeFile(
+      path.join(changeDir, "graph.subset.json"),
+      JSON.stringify({
+        focus: ["src/auth/login.ts"],
+        stats: { mode: "compact" }
+      }),
+      "utf8"
+    );
+
+    const { forgeImplement } = createHandlers(root);
+    const result = await forgeImplement({ change_id: "ship-login" });
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).toContain("scoped to graph.subset.json");
+
+    const fsp = await import("node:fs/promises");
+    const plan = JSON.parse(
+      await fsp.readFile(path.join(cfDir, "implement-plan.json"), "utf8")
+    );
+    expect(plan.guardrails.allowedFiles).toEqual(["src/auth/login.ts"]);
+  });
+
   it("derives tasks + guardrails from the context-pack", async () => {
     const root = await newWorkspace();
     const cfDir = path.join(root, ".contextforge");

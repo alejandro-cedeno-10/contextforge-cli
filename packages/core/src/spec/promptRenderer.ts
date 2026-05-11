@@ -7,6 +7,18 @@ export interface SpecPromptOptions {
    * or a free-form markdown blob when running in fallback. Empty string is OK.
    */
   openSpecInstructions: string;
+  /**
+   * Optional snapshot of the change subgraph the spec was scoped to.
+   * When provided, the prompt prints a "Scope congelado (subset)" block
+   * telling the agent that everything it needs is in the change directory
+   * and not in the global graph.
+   */
+  subset?: {
+    nodesTotal: number;
+    edgesTotal: number;
+    depth: number;
+    focusFilesCount: number;
+  };
 }
 
 function escapeFencedBlock(content: string): string {
@@ -125,7 +137,19 @@ ${
   renderArchitecture(s)
     ? `\n### Contexto arquitectónico (capa semántica)\n\n${renderArchitecture(s)}\n`
     : ""
-}
+}${
+    opts.subset
+      ? `
+### Scope congelado (subset)
+
+Este prompt fue construido **desde el subgrafo congelado del change**, no del grafo global. Todo lo que necesitas para redactar la propuesta está en esta sección o en \`openspec/changes/${s.changeId}/\`.
+
+- Subset: **${opts.subset.nodesTotal} nodos**, ${opts.subset.edgesTotal} aristas, depth=${opts.subset.depth}
+- Focus files: **${opts.subset.focusFilesCount}** (ver lista en \`./graph.subset.json:focus\`)
+- **No llames \`forge_neighbors\` ni \`forge_context\`** durante la redacción — usan el grafo global y duplican lo que ya tienes aquí. Si necesitas más, usa \`forge_change_subgraph({ change_id: "${s.changeId}" })\`.
+`
+      : ""
+  }
 ### Evidencia (paths trazables)
 
 - Context-pack: \`${s.evidence.contextPackRef}\`

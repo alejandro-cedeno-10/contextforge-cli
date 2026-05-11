@@ -112,4 +112,31 @@ describe("renderSpecPrompt", () => {
     });
     expect(a).toBe(b);
   });
+
+  it("omits the Scope block when no subset is provided", () => {
+    const md = renderSpecPrompt({
+      specInput: sample,
+      openSpecInstructions: ""
+    });
+    expect(md).not.toContain("Scope congelado");
+  });
+
+  it("renders the Scope block (subset stats + don't-call-neighbors warning)", () => {
+    const md = renderSpecPrompt({
+      specInput: sample,
+      openSpecInstructions: "",
+      subset: {
+        nodesTotal: 47,
+        edgesTotal: 23,
+        depth: 1,
+        focusFilesCount: 8
+      }
+    });
+    expect(md).toContain("Scope congelado (subset)");
+    expect(md).toContain("47 nodos");
+    expect(md).toContain("23 aristas");
+    expect(md).toContain("Focus files: **8**");
+    expect(md).toContain("No llames `forge_neighbors` ni `forge_context`");
+    expect(md).toContain("forge_change_subgraph");
+  });
 });
