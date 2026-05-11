@@ -949,6 +949,158 @@ describe("forgeSpec", () => {
   });
 });
 
+describe("forgeChangeManifest", () => {
+  async function writeChangeWithSubset(
+    root: string,
+    changeId: string,
+    focus: string[]
+  ): Promise<void> {
+    const changeDir = path.join(root, "openspec", "changes", changeId);
+    await mkdir(changeDir, { recursive: true });
+    await writeFile(
+      path.join(changeDir, "graph.subset.json"),
+      JSON.stringify({ focus, stats: { mode: "compact" } }),
+      "utf8"
+    );
+  }
+
+  async function writeSkill(
+    root: string,
+    name: string,
+    domains: string[]
+  ): Promise<void> {
+    const dir = path.join(root, ".claude", "skills");
+    await mkdir(dir, { recursive: true });
+    const fm =
+      domains.length > 0
+        ? `---\nname: ${name}\ndomains: [${domains.map((d) => `"${d}"`).join(", ")}]\n---`
+        : `---\nname: ${name}\n---`;
+    await writeFile(path.join(dir, `${name}.md`), `${fm}\n# ${name}\n`, "utf8");
+  }
+
+  it("rejects unsafe change_id", async () => {
+    const root = await newWorkspace();
+    const { forgeChangeManifest } = createHandlers(root);
+    const result = await forgeChangeManifest({ change_id: "../etc/passwd" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("errors when subset is missing", async () => {
+    const root = await newWorkspace();
+    const { forgeChangeManifest } = createHandlers(root);
+    const result = await forgeChangeManifest({ change_id: "no-such" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("graph.subset.json");
+  });
+
+  it("filters skills by domains touched by the subset focus", async () => {
+    const root = await newWorkspace();
+    await writeChangeWithSubset(root, "ship-login", [
+      "packages/core/src/auth/login.ts"
+    ]);
+    // Skill 1 declares packages/core → in scope. Skill 2 declares
+    // packages/billing → out of scope. Skill 3 declares no domains →
+    // dropped (no overlap).
+    await writeSkill(root, "core-helper", ["packages/core"]);
+    await writeSkill(root, "billing-helper", ["packages/billing"]);
+    await writeSkill(root, "no-domains", []);
+
+    const { forgeChangeManifest } = createHandlers(root);
+    const result = await forgeChangeManifest({
+      change_id: "ship-login",
+      task: "ship login flow"
+    });
+    expect(result.isError).toBeFalsy();
+
+    const fsp = await import("node:fs/promises");
+    const written = JSON.parse(
+      await fsp.readFile(
+        path.join(
+          root,
+          "openspec",
+          "changes",
+          "ship-login",
+          "agent-manifest.json"
+        ),
+        "utf8"
+      )
+    );
+    const keptNames = written.skills.map((s: { name: string }) => s.name);
+    expect(keptNames).toContain("core-helper");
+    expect(keptNames).not.toContain("billing-helper");
+    const skippedNames = written.skipped.skills.map(
+      (s: { name: string }) => s.name
+    );
+    expect(skippedNames).toContain("billing-helper");
+  });
+});
+
+describe("forgeSpec — calls forgeChangeManifest internally", () => {
+  it("writes openspec/changes/<id>/agent-manifest.json", async () => {
+    const root = await newWorkspace();
+    const cfDir = path.join(root, ".contextforge");
+    await mkdir(cfDir, { recursive: true });
+    await writeFile(
+      path.join(cfDir, "graph.json"),
+      JSON.stringify({
+        schemaVersion: "0.3.0",
+        project: { name: "demo", root: "." },
+        generatedAt: "2026-01-01T00:00:00Z",
+        nodes: [
+          {
+            id: "file:packages/core/src/auth/login.ts",
+            type: "file",
+            label: "login.ts",
+            path: "packages/core/src/auth/login.ts",
+            kind: "code"
+          }
+        ],
+        edges: []
+      }),
+      "utf8"
+    );
+    await writeFile(
+      path.join(cfDir, "context-pack.json"),
+      JSON.stringify({
+        task: "ship login flow",
+        files: [
+          {
+            path: "packages/core/src/auth/login.ts",
+            reason: "seed",
+            mode: "full"
+          }
+        ],
+        budget: { maxInputTokens: 12000, estimatedTokens: 1500 }
+      }),
+      "utf8"
+    );
+
+    const { forgeSpec } = createHandlers(root);
+    const result = await forgeSpec({
+      change_id: "ship-login",
+      skip_openspec_cli: true
+    });
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).toContain("agent-manifest.json");
+    expect(result.content[0].text).toContain("scoped to subset");
+
+    const fsp = await import("node:fs/promises");
+    const manifestRaw = await fsp.readFile(
+      path.join(
+        root,
+        "openspec",
+        "changes",
+        "ship-login",
+        "agent-manifest.json"
+      ),
+      "utf8"
+    );
+    const manifest = JSON.parse(manifestRaw);
+    expect(manifest.task).toBe("ship login flow");
+    expect(manifest.schemaVersion).toBe("1.0.0");
+  });
+});
+
 describe("forgeRebuildGraph", () => {
   it("scans + builds + writes graph.json from disk", async () => {
     const root = await newWorkspace();

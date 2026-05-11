@@ -71,16 +71,17 @@ Solo si necesitas más allá del subgrafo del change:
 ## Vía MCP (preferido para agentes)
 
 \`\`\`jsonc
-// Primario — todo lo que necesitas vive aquí:
+// Primario — todo lo que necesitas vive aquí (scoped al change):
 { "tool": "forge_change_subgraph", "arguments": { "change_id": "${changeId}" } }
 { "tool": "forge_change_context",  "arguments": { "change_id": "${changeId}" } }
+{ "tool": "forge_change_manifest", "arguments": { "change_id": "${changeId}" } }
 
 // Solo si el subgrafo demuestra ser insuficiente para tu pregunta:
 { "tool": "forge_neighbors",       "arguments": { "file_path": "<path>" } }
 { "tool": "forge_context",         "arguments": { "task": "<refinamiento>" } }
 \`\`\`
 
-> Los dos tools de la primera caja están **scoped a este change** y son los únicos que necesitas para redactar/implementar el spec. Los de la segunda usan el grafo global y suelen duplicar lo que ya tienes en \`./graph.subset.json\`.
+> Los tres tools de la primera caja están **scoped a este change** y son los únicos que necesitas para redactar/implementar el spec. \`forge_change_manifest\` te dice qué skills/rules son relevantes a los archivos del subset (descartando todo lo demás del manifest global). Los de la segunda caja usan el grafo global y suelen duplicar lo que ya tienes en \`./graph.subset.json\`.
 
 ## Focus files (semilla del subgrafo)
 

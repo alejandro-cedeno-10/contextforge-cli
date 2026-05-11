@@ -1010,6 +1010,113 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     };
   }
 
+  // ── forge_change_manifest ────────────────────────────────────────────────────
+
+  async function forgeChangeManifest({
+    change_id,
+    task: taskOverride
+  }: {
+    change_id: string;
+    task?: string;
+  }): Promise<ToolResult> {
+    if (!/^[a-zA-Z0-9._-]+$/.test(change_id)) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Invalid change_id: ${change_id}. Allowed: [a-zA-Z0-9._-]`
+          }
+        ],
+        isError: true
+      };
+    }
+
+    const changeDir = path.join(root, "openspec", "changes", change_id);
+    const subsetPath = path.join(changeDir, "graph.subset.json");
+
+    let subset: { focus?: string[] } | null = null;
+    try {
+      subset = JSON.parse(await fs.readFile(subsetPath, "utf8")) as {
+        focus?: string[];
+      };
+    } catch {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `No graph.subset.json found at ${path.relative(root, subsetPath).replace(/\\/g, "/")}. Run forge_spec first to scaffold the change with its frozen subgraph.`
+          }
+        ],
+        isError: true
+      };
+    }
+
+    const focus = Array.isArray(subset?.focus) ? subset!.focus! : [];
+    if (focus.length === 0) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `graph.subset.json for ${change_id} has empty focus. Re-run forge_spec to regenerate it.`
+          }
+        ],
+        isError: true
+      };
+    }
+
+    // Reuse the task that originated the change when available — same source
+    // forge_spec wrote, lives in .contextforge/spec-input.json.
+    let task = taskOverride ?? "";
+    if (!task) {
+      try {
+        const specInputRaw = await fs.readFile(
+          artifactPath("spec-input.json"),
+          "utf8"
+        );
+        const parsed = JSON.parse(specInputRaw) as { task?: string };
+        task = parsed.task ?? "";
+      } catch {
+        task = `Change ${change_id}`;
+      }
+    }
+
+    const skillsDir = path.join(root, ".claude", "skills");
+    const rulesDir = path.join(root, ".cursor", "rules");
+    const skills = await loadSkillEntries(skillsDir);
+    const rules = await loadRuleEntries(rulesDir);
+
+    // packedFiles = the change's focus. buildAgentManifest derives
+    // domainsTouched from these paths and keeps only skills/rules whose
+    // declared `domains:` intersect — anything else is dropped.
+    const manifest = buildAgentManifest({
+      task,
+      packedFiles: focus.map((p) => ({ path: p })),
+      skills,
+      rules
+    });
+    validateOrThrow("agent-manifest", manifest);
+    await fs.writeFile(
+      path.join(changeDir, "agent-manifest.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8"
+    );
+
+    const lines: string[] = [
+      `# forge_change_manifest ${change_id}`,
+      ``,
+      `✅ openspec/changes/${change_id}/agent-manifest.json`,
+      `   domains touched: ${manifest.domainsTouched.join(", ") || "(none)"}`,
+      `   skills kept: ${manifest.skills.length}, dropped: ${manifest.skipped.skills.length}`,
+      `   rules kept: ${manifest.rules.length}, dropped: ${manifest.skipped.rules.length}`,
+      ``,
+      `JSON:`,
+      "```json",
+      JSON.stringify(manifest, null, 2),
+      "```"
+    ];
+    return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
+
   async function forgeChangeSubgraph({
     change_id
   }: {
@@ -1738,6 +1845,28 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     await fs.writeFile(path.join(changeDir, "context.md"), contextMd, "utf8");
     lines.push(`✅ context.md`);
 
+    // 8. Change-scoped agent manifest. Filters skills/rules by the
+    //    domains that the subset actually touches — only the relevant
+    //    ones get loaded into the agent's prompt.
+    try {
+      const manifestResult = await forgeChangeManifest({
+        change_id,
+        task
+      });
+      if (!manifestResult.isError) {
+        lines.push(
+          `✅ openspec/changes/${change_id}/agent-manifest.json (skills scoped to subset)`
+        );
+      } else {
+        lines.push(
+          `⚠️ change-scoped manifest failed: ${manifestResult.content[0].text.split("\n")[0]}`
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lines.push(`⚠️ change-scoped manifest crashed: ${msg}`);
+    }
+
     lines.push(
       ``,
       `Next:`,
@@ -1764,6 +1893,7 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
     selectAgentContext,
     forgeChangeSubgraph,
     forgeChangeContext,
+    forgeChangeManifest,
     forgeArchiveChange
   };
 }

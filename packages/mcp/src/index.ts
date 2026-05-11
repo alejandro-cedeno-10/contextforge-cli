@@ -240,6 +240,26 @@ server.tool(
 );
 
 server.tool(
+  "forge_change_manifest",
+  "Returns the change-scoped agent manifest: skills/rules kept ONLY when their declared `domains:` intersect what graph.subset.json focus actually touches. Writes openspec/changes/<id>/agent-manifest.json so an agent that opens the change directory loads only the relevant skills, not the global manifest. forge_spec calls this automatically; call it manually when the subset has been refreshed (e.g. after `forge sync --refresh-subgraph`).",
+  {
+    change_id: z
+      .string()
+      .min(1)
+      .describe(
+        "OpenSpec change identifier (the directory name under openspec/changes/)."
+      ),
+    task: z
+      .string()
+      .optional()
+      .describe(
+        "Optional task override. Defaults to the task recorded in .contextforge/spec-input.json."
+      )
+  },
+  handlers.forgeChangeManifest
+);
+
+server.tool(
   "forge_change_subgraph",
   'PRIMARY tool when working on an OpenSpec change. Returns the frozen subgraph stored at openspec/changes/<id>/graph.subset.json — exactly the files, symbols, packages and dependencies that were in scope when the spec was authored. Always call this BEFORE forge_context / forge_neighbors when implementing or reviewing a change: it is one cheap call that already answers "what does this change touch and what does it depend on?". The companion artefacts in the same directory (proposal.md, design.md, tasks.md, specs/<domain>/spec.md, context.md, graph.subset.html) are the canonical reading order — see context.md for the map.',
   {

@@ -55,7 +55,7 @@ Como el output es **byte-estable** (nodos/edges ordenados, sin `generatedAt` cam
 
 3 iteraciones de un feature: **$1.96 → $0.07 = ÷28× costo**.
 
-## Loop agéntico cerrado — 15 MCP tools, cero `pnpm` en el loop
+## Loop agéntico cerrado — 16 MCP tools, cero `pnpm` en el loop
 
 Después de `pnpm forge init` (bootstrap, una sola vez), el flujo agéntico vive 100 % en MCP:
 
@@ -69,7 +69,9 @@ Después de `pnpm forge init` (bootstrap, una sola vez), el flujo agéntico vive
 { "tool": "forge_archive_change", "arguments": { "change_id": "ship-login" } }
 ```
 
-Más herramientas de navegación: `forge_neighbors`, `forge_domain_map`, `forge_semantic_map(domain?)`, `forge_flow(flow_id)`, `forge_change_subgraph`, `forge_change_context`, `forge_status`, `get_agent_manifest`, `select_agent_context`.
+**Subset-first dentro del change**: `forge_spec` ahora calcula el subgrafo congelado **primero**, y desde él deriva spec-input, spec-prompt y `agent-manifest.json` scoped (skills/rules filtradas por los dominios que el subset realmente toca). Resultado: cuando el agente abre `openspec/changes/<id>/`, todo lo que necesita está ahí — sin llamar más MCP tools al grafo global.
+
+Más herramientas de navegación: `forge_neighbors`, `forge_domain_map`, `forge_semantic_map(domain?)`, `forge_flow(flow_id)`, `forge_change_subgraph`, `forge_change_context`, **`forge_change_manifest(change_id)`**, `forge_status`, `get_agent_manifest`, `select_agent_context`.
 
 ## Diferenciador vs Aider / Repomix / Continue / Cursor / Cody
 

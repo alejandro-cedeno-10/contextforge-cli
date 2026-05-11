@@ -158,6 +158,27 @@ Steps ordenados de un flow. Acepta `flow:auth/login` o solo `auth/login`:
 - **`forge_neighbors`** — ahora muestra `same_domain`, `same_layer`, `exposes_endpoint`, `flows_participating` cuando aplica.
 - **`forge_domain_map`** — usa los nodos `domain` reales en vez del fallback `getDomain()` cuando la capa está activa. Marca el origen (`Pass-5 semantic layer`) en el output.
 
+### Subset-first dentro del change
+
+Desde v0.4.1, todo lo que `forge_spec` deja en `openspec/changes/<id>/` se deriva del **subgrafo congelado** del change (no del grafo global). El orden interno de `forge_spec` es:
+
+1. construir el subset (`extractChangeSubgraph` desde los `affectedFiles`)
+2. computar `spec-input.architecture` desde ESE subset
+3. renderizar `spec-prompt.md` con un bloque "Scope congelado (subset)" que le dice al agente: **no llames `forge_neighbors` ni `forge_context`** — usan el grafo global y duplican lo inlined.
+4. invocar `forge_change_manifest` automáticamente para escribir `openspec/changes/<id>/agent-manifest.json` filtrado por los dominios del subset.
+
+Resultado: cuando el agente abre la carpeta del change, todo lo que necesita está ahí — subgrafo, manifest scoped, context.md como mapa. El grafo global queda como fallback ("solo si el subset demuestra ser insuficiente").
+
+### `forge_change_manifest(change_id, task?)`
+
+Devuelve y escribe el `agent-manifest.json` scoped al change. Filtra skills/rules globales por los dominios que `graph.subset.json:focus` realmente toca:
+
+```jsonc
+{ "tool": "forge_change_manifest", "arguments": { "change_id": "ship-login" } }
+```
+
+`forge_spec` lo dispara automáticamente. Llámalo manualmente cuando refresques el subset (p.ej. después de `forge_archive_change` que cambia el grafo padre).
+
 ### `forge_spec(change_id, skip_openspec_cli?)`
 
 Crea un change OpenSpec desde el flujo agéntico — sin shell, sin `pnpm`. Toma el `.contextforge/context-pack.json` actual y escribe:
