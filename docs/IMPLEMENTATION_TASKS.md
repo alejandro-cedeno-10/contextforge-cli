@@ -1,29 +1,29 @@
-# ContextForge - Implementation Tasks (v0.3)
+# ContextForge - Implementation Tasks (v0.2)
 
 Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a anadir, tests a escribir, criterios de aceptacion verificables. Disenado para que un agente (Claude Code, OpenCode, Codex) pueda tomar una task y ejecutarla con minimo contexto adicional.
 
-## Estado actual (2026-05-11)
+## Estado actual (2026-05-07)
 
-| Sprint | Foco                                                                           | Estado        |
-| ------ | ------------------------------------------------------------------------------ | ------------- |
-| S1     | Schemas + validacion JSON                                                      | ✅ Completado |
-| S2     | Cache + BLAKE3                                                                 | ✅ Completado |
-| S3     | Grafo tree-sitter                                                               | ✅ Completado |
-| S4     | Context selector PageRank                                                      | ✅ Completado |
-| S5     | Spec OpenSpec (default)                                                        | ✅ Completado |
-| S6     | Implement-plan guardrails                                                      | ✅ Completado |
-| S7     | Grafo visual interactivo                                                        | ✅ Completado |
-| S8     | MCP Server                                                                     | ✅ Completado |
-| S9     | Diátaxis docs scaffolder + Claude skills                                        | ✅ Completado |
-| S10    | GitHub Packages publish workflow                                               | ✅ Completado |
-| S11    | forge sync + forge impact (Aspens-inspired)                                    | ✅ Completado |
-| S12    | forge skills (domain skills auto-gen)                                          | ✅ Completado |
-| S13    | agent-manifest + forge_spec/forge_implement MCP + subgrafos por change        | ✅ Completado |
-| S14    | Capa semántica Pass-5 + 14 MCP tools + forge_archive_change + prefix unif.    | ✅ Completado |
+| Sprint | Foco                                                                | Estado        |
+| ------ | ------------------------------------------------------------------- | ------------- |
+| S1     | Schemas + validacion JSON                                           | ✅ Completado |
+| S2     | Cache + BLAKE3                                                      | ✅ Completado |
+| S3     | Grafo tree-sitter                                                   | ✅ Completado |
+| S4     | Context selector PageRank                                           | ✅ Completado |
+| S5     | Spec OpenSpec (default)                                             | ✅ Completado |
+| S6     | Implement-plan guardrails                                           | ✅ Completado |
+| S7     | Grafo visual interactivo                                            | ✅ Completado |
+| S8     | MCP Server                                                          | ✅ Completado |
+| S9     | Diátaxis docs scaffolder + Claude skills                            | ✅ Completado |
+| S10    | GitHub Packages publish workflow                                    | ✅ Completado |
+| S11    | forge sync + forge impact (Aspens-inspired)                         | ✅ Completado |
+| S12    | forge skills (domain skills auto-gen)                               | ✅ Completado |
+| S13    | agent-manifest (per-task selection) + 2 MCP tools + auto en context | ✅ Completado |
+| S14    | CI fix (tipos explícitos + serial build + typecheck step)           | ✅ Completado |
 
-**Suite de tests**: 341/341 pasando (28 archivos). **Coverage**: ≥ 80 % global · módulo `manifest/` ≥ 95 %.
+**Suite de tests**: 202/202 pasando (20 archivos). **Coverage**: ≥ 80 % global · módulo `manifest/` ≥ 95 %.
 **Ahorro tokens verificado**: 94.4 % (11 988 / 214 606), ratio de compresión 17.9×.
-**Release**: v0.3.10 (paquetes públicos en npmjs.com bajo `@anai-raia-alex` + imagen Docker MCP en `ghcr.io/alejandro-cedeno-10/contextforge-mcp`).
+**Release**: v0.2.4 (paquetes públicos en npmjs.com bajo `@anai-raia-alex` + imagen Docker MCP en `ghcr.io/alejandro-cedeno-10/contextforge-mcp`).
 
 **Convenciones**:
 
@@ -601,94 +601,6 @@ Breakdown ejecutable por sprint. Cada task incluye: archivos a tocar, deps a ana
 - **Criterios**:
   - [x] README documenta el comando con ejemplo de frontmatter.
   - [x] `forge --help` (sin args) lista `pnpm forge skills [--force]`.
-
----
-
-## Sprint 13 - agent-manifest + MCP tools SDD + subgrafos ✅ COMPLETADO
-
-**Objetivo**: Cerrar el loop agente completo desde MCP sin shell. Subgrafo congelado por change para contexto barato.
-
-### S13.T1 - forge manifest + agent-manifest.json ✅
-
-- **Archivos tocados**: `packages/core/src/manifest/agentManifest.ts`, `packages/cli/src/index.ts` (`cmdManifest`), `packages/core/src/schema/` (nuevo schema `agent-manifest`).
-- **Implementacion**: Lee `graph.json` + skills disponibles; selecciona skills cuyo `domains:` intersecta dominios del grafo; escribe `agent-manifest.json` validado.
-- **Criterios**:
-  - [x] `forge manifest` produce `agent-manifest.json` valido.
-  - [x] `forge context` adjunta el manifest automaticamente.
-
-### S13.T2 - MCP tools forge_spec + forge_implement ✅
-
-- **Archivos tocados**: `packages/mcp/src/index.ts`, `packages/mcp/src/handlers.ts`.
-- **Implementacion**: `forge_spec` llama al core sin shell (delega a `openspec` si esta en PATH, fallback propio); `forge_implement` genera `implement-plan.json` desde `context-pack`.
-- **Criterios**:
-  - [x] `forge_spec({ change_id })` produce `openspec/changes/<id>/` con `proposal/design/tasks + graph.subset.json + context.md`.
-  - [x] `forge_implement()` produce `implement-plan.json` valido.
-
-### S13.T3 - Subgrafos congelados por change ✅
-
-- **Archivos tocados**: `packages/core/src/graph/subset.ts`, `packages/cli/src/index.ts`, `packages/mcp/src/handlers.ts`.
-- **Implementacion**: `extractChangeSubgraph` produce `graph.subset.json` + `graph.subset.html` + `context.md` dentro del directorio del change. `forge_change_subgraph` lo retorna sin recomputo.
-- **Criterios**:
-  - [x] `forge_change_subgraph({ change_id })` retorna el subgrafo en una llamada barata.
-  - [x] Schema `graph-subset` valida el artefacto.
-
-### S13.T4 - forge_change_manifest ✅
-
-- **Archivos tocados**: `packages/mcp/src/handlers.ts`.
-- **Implementacion**: Filtra el manifest global a solo las skills cuyos `domains:` intersectan el `focus[]` del `graph.subset.json` del change. Escribe `openspec/changes/<id>/agent-manifest.json`.
-- **Criterios**:
-  - [x] `forge_change_manifest({ change_id })` produce manifest scoped.
-  - [x] `forge_spec` lo llama automaticamente al crear el scaffold.
-
----
-
-## Sprint 14 - Capa semántica + archive tool + prefix unification ✅ COMPLETADO
-
-**Objetivo**: Capa semantica Pass-5 completa, flujo archive sin stale graph, nombres de skills unificados.
-
-### S14.T1 - Capa semantica Pass-5 ✅
-
-- **Archivos tocados**: `packages/core/src/graph/semantic/` (domain, layer, endpoint, flow, concept, pass5), `packages/core/src/graph/builder.ts`.
-- **Implementacion**: 6 detectores + Louvain concept detection. Vue + Nuxt soportados. `--with-semantic` opt-in.
-- **Criterios**:
-  - [x] `forge graph --with-semantic` emite nodos `domain:`, `layer:`, `endpoint:`, `flow:`, `concept:`.
-  - [x] 36 tests en `semanticPass.unit.test.ts`.
-
-### S14.T2 - MCP tools forge_semantic_map + forge_flow ✅
-
-- **Archivos tocados**: `packages/mcp/src/index.ts`, `packages/mcp/src/handlers.ts`.
-- **Implementacion**: `forge_semantic_map` retorna resumen de capas/endpoints/flows; `forge_flow` detalla un flow especifico.
-- **Criterios**:
-  - [x] Ambos tools retornan markdown estructurado.
-
-### S14.T3 - forge_rebuild_graph MCP tool ✅
-
-- **Archivos tocados**: `packages/mcp/src/handlers.ts`.
-- **Implementacion**: Re-corre `scan + buildGraph` en memoria sin proceso hijo. Soporte `with_semantic`, `with_concepts`.
-- **Criterios**:
-  - [x] `forge_rebuild_graph()` actualiza `scan.json + graph.json` y retorna stats.
-
-### S14.T4 - forge_archive_change + forge sync --refresh-subgraphs ✅
-
-- **Archivos tocados**: `packages/mcp/src/handlers.ts`, `packages/cli/src/index.ts`.
-- **Implementacion**: `forge_archive_change` wrappea `openspec archive` y auto-rebuilds graph padre + refresca subgrafos activos. `forge sync --refresh-subgraphs` hace lo mismo desde CLI.
-- **Criterios**:
-  - [x] Un solo `forge_archive_change` cierra el change, rebuild graph, refresca subgrafos.
-  - [x] Path-traversal rechazado.
-
-### S14.T5 - Unificacion de prefijos de skills ✅
-
-- **Archivos tocados**: `.claude/skills/ctx-*.md` renombrados a `contextforge-domain-*.md`.
-- **Implementacion**: `agentManifest` mantiene retrocompatibilidad con `ctx-*` legacy.
-- **Criterios**:
-  - [x] Todos los skills auto-generados usan prefijo `contextforge-domain-*`.
-
-### S14.T6 - forge_change_context MCP tool ✅
-
-- **Archivos tocados**: `packages/mcp/src/handlers.ts`.
-- **Implementacion**: Retorna `openspec/changes/<id>/context.md` crudo.
-- **Criterios**:
-  - [x] Par con `forge_change_subgraph` para data + guia de navegacion.
 
 ---
 
