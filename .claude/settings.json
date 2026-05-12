@@ -1,5 +1,62 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enabledMcpjsonServers": ["contextforge"],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "contextforge",
+            "tool": "forge_status",
+            "input": {},
+            "statusMessage": "Cargando estado ContextForge..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "contextforge",
+            "tool": "select_agent_context",
+            "input": { "task": "${prompt}" },
+            "statusMessage": "Seleccionando contexto para la tarea..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash(openspec *)",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "contextforge",
+            "tool": "forge_rebuild_graph",
+            "input": {},
+            "async": true,
+            "statusMessage": "Reconstruyendo grafo post-openspec..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit *)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/forge-pre-commit.mjs",
+            "statusMessage": "Validando guardrails pre-commit..."
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "defaultMode": "default",
     "allow": [

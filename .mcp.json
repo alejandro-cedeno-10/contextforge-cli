@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "contextforge": {
+      "command": "node",
+      "args": ["node_modules/tsx/dist/cli.mjs", "packages/mcp/src/index.ts"]
+    }
+  }
+}
