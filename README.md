@@ -90,12 +90,12 @@ Agente corre  openspec archive mi-feature
 
 **OpenSpec** es el framework de specs. **Claude Code / Cursor / OpenCode** son los agentes IA que lo usan. ContextForge le da a los agentes el contexto correcto para que OpenSpec reciba datos reales del código, no inventados.
 
-| OpenSpec hace | ContextForge aporta |
-|---|---|
-| Valida formato `Requirement:` + `Scenario:` | El contexto correcto para escribir la spec |
-| Archiva y mueve specs a `openspec/specs/` | El subgrafo frozen que dice qué archivos aplican |
+| OpenSpec hace                               | ContextForge aporta                                        |
+| ------------------------------------------- | ---------------------------------------------------------- |
+| Valida formato `Requirement:` + `Scenario:` | El contexto correcto para escribir la spec                 |
+| Archiva y mueve specs a `openspec/specs/`   | El subgrafo frozen que dice qué archivos aplican           |
 | `openspec validate` chequea Given/When/Then | `forge_check` chequea que el código respete los guardrails |
-| Historial de specs por feature | `forge_status` muestra qué changes tienen subgrafo activo |
+| Historial de specs por feature              | `forge_status` muestra qué changes tienen subgrafo activo  |
 
 ---
 

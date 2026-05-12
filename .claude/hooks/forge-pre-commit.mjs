@@ -10,7 +10,11 @@ import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
-const planPath = path.join(process.cwd(), ".contextforge", "implement-plan.json");
+const planPath = path.join(
+  process.cwd(),
+  ".contextforge",
+  "implement-plan.json"
+);
 if (!existsSync(planPath)) {
   process.exit(0);
 }
@@ -27,5 +31,7 @@ if (result.status === 0) {
 
 console.error("");
 console.error("=== ContextForge guardrail check FAILED ===");
-console.error("Fix violations before committing. Run: pnpm forge implement --check");
+console.error(
+  "Fix violations before committing. Run: pnpm forge implement --check"
+);
 process.exit(2);

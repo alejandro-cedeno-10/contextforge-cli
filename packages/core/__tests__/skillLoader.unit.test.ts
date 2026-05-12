@@ -46,7 +46,7 @@ describe("parseFrontmatter", () => {
   it("strips quotes from domain entries", () => {
     const content = [
       "---",
-      'domains: ["packages/core", \'packages/cli\']',
+      "domains: [\"packages/core\", 'packages/cli']",
       "---"
     ].join("\n");
     expect(parseFrontmatter(content).domains).toEqual([
@@ -59,7 +59,7 @@ describe("parseFrontmatter", () => {
     const plain = ["---", "description: Hello world", "---"].join("\n");
     expect(parseFrontmatter(plain).description).toBe("Hello world");
 
-    const dq = ['---', 'description: "Quoted hint"', "---"].join("\n");
+    const dq = ["---", 'description: "Quoted hint"', "---"].join("\n");
     expect(parseFrontmatter(dq).description).toBe("Quoted hint");
 
     const sq = ["---", "description: 'Single quoted'", "---"].join("\n");
