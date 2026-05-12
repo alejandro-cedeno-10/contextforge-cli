@@ -20,6 +20,8 @@ import {
   extractChangeSubgraph,
   getDomain,
   loadGraphCache,
+  loadRuleEntries,
+  loadSkillEntries,
   renderClaude,
   renderCursor,
   renderOpenCode,
@@ -36,8 +38,6 @@ import {
   type GraphEdge,
   type GraphNode,
   type ScanResult,
-  type SkillEntry,
-  type RuleEntry,
   validateOrThrow
 } from "@anai-raia-alex/contextforge-core";
 
@@ -1182,87 +1182,6 @@ async function cmdSkills(args: string[] = []): Promise<void> {
   }
 }
 
-function parseFrontmatterFields(content: string): {
-  name?: string;
-  domains?: string[];
-  alwaysApply?: boolean;
-} {
-  const match = /^---\n([\s\S]*?)\n---/.exec(content);
-  if (!match) return {};
-  const block = match[1];
-  const result: { name?: string; domains?: string[]; alwaysApply?: boolean } =
-    {};
-  const nameLine = /^name:\s*(.+)$/m.exec(block);
-  if (nameLine) result.name = nameLine[1].trim();
-  const alwaysLine = /^alwaysApply:\s*(true|false)$/m.exec(block);
-  if (alwaysLine) result.alwaysApply = alwaysLine[1] === "true";
-  const domainsLine = /^domains:\s*\[([^\]]*)\]$/m.exec(block);
-  if (domainsLine) {
-    result.domains = domainsLine[1]
-      .split(",")
-      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
-      .filter(Boolean);
-  }
-  return result;
-}
-
-async function loadSkillsFromDir(dir: string): Promise<SkillEntry[]> {
-  const result: SkillEntry[] = [];
-  try {
-    const entries = await fs.readdir(dir);
-    for (const entry of entries) {
-      if (!entry.endsWith(".md")) continue;
-      const fullPath = path.join(dir, entry);
-      const relPath = `.claude/skills/${entry}`;
-      try {
-        const content = await fs.readFile(fullPath, "utf8");
-        const fm = parseFrontmatterFields(content);
-        result.push({
-          path: relPath,
-          name: fm.name ?? entry.replace(".md", ""),
-          domains: fm.domains ?? [],
-          alwaysApply: fm.alwaysApply
-        });
-      } catch {
-        result.push({
-          path: relPath,
-          name: entry.replace(".md", ""),
-          domains: []
-        });
-      }
-    }
-  } catch {
-    // dir doesn't exist
-  }
-  return result;
-}
-
-async function loadRulesFromDir(dir: string): Promise<RuleEntry[]> {
-  const result: RuleEntry[] = [];
-  try {
-    const entries = await fs.readdir(dir);
-    for (const entry of entries) {
-      if (!entry.endsWith(".mdc") && !entry.endsWith(".md")) continue;
-      const fullPath = path.join(dir, entry);
-      const relPath = `.cursor/rules/${entry}`;
-      try {
-        const content = await fs.readFile(fullPath, "utf8");
-        const fm = parseFrontmatterFields(content);
-        result.push({
-          path: relPath,
-          domains: fm.domains ?? [],
-          alwaysApply: fm.alwaysApply
-        });
-      } catch {
-        result.push({ path: relPath, domains: [] });
-      }
-    }
-  } catch {
-    // dir doesn't exist
-  }
-  return result;
-}
-
 interface GenerateManifestOptions {
   task: string;
   packedFiles: { path: string }[];
@@ -1279,8 +1198,8 @@ async function generateAgentManifest(
   const skillsDir = path.join(process.cwd(), ".claude", "skills");
   const rulesDir = path.join(process.cwd(), ".cursor", "rules");
   const [skills, rules] = await Promise.all([
-    loadSkillsFromDir(skillsDir),
-    loadRulesFromDir(rulesDir)
+    loadSkillEntries(skillsDir),
+    loadRuleEntries(rulesDir)
   ]);
 
   const manifest = buildAgentManifest({

@@ -219,6 +219,12 @@ export {
 } from "./manifest/agentManifest.js";
 
 export {
+  parseFrontmatter,
+  loadSkillEntries,
+  loadRuleEntries
+} from "./manifest/skillLoader.js";
+
+export {
   renderClaude,
   renderCursor,
   renderOpenCode,
