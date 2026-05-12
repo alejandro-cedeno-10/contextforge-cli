@@ -10,15 +10,125 @@
 
 ---
 
-## El problema en una frase
+## El problema que resuelve
 
-Cada vez que tu agente IA empieza una sesión, **carga todo el repo o lee a ciegas**. Y cuando le pides un PRD/spec, lo escribe sobre arena: cita archivos que no existen, repite trabajo, se inventa cross-references. Tres puntos de fricción:
+Cada vez que un agente IA (Claude Code, Cursor, OpenCode) abría el repo tenía que:
 
-1. **Contexto disperso** — el agente no sabe qué archivos importan a tu tarea.
-2. **Specs desconectados del código** — escritos a mano se desactualizan; escritos por el agente se inventan referencias.
-3. **Sin validación estructural** — cada PR tiene un spec con formato distinto.
+1. **Leer TODO** para entender qué existe
+2. **Recordar correr `pnpm forge context` manualmente** antes de cada tarea
+3. **Adivinar qué archivos tocar** sin contexto del grafo
+4. **No había gate pre-commit** — specs y guardrails se saltaban fácil
 
-ContextForge ataca los tres con tres capas determinísticas (cero LLM) **que se apoyan en OpenSpec, no lo reemplazan**.
+**Ahora todo eso es automático** vía MCP + hooks.
+
+---
+
+## Cómo encaja cada pieza
+
+```
+Dev / Agente (Claude Code · Cursor · OpenCode) escribe tarea
+        │
+        ▼
+[Hook UserPromptSubmit]  ← automático, sin hacer nada
+  → MCP: select_agent_context(task)
+  → Agente recibe: skills relevantes + domains tocados
+        │
+        ▼
+Agente llama forge_context(task)  ← MCP tool, sin pnpm, sin disco
+  → ~20 archivos rankeados por PageRank + BFS
+  → sabe exactamente qué leer, no el repo entero
+        │
+        ▼
+Agente llama forge_spec("mi-feature")  ← MCP tool
+  → escribe openspec/changes/mi-feature/
+      ├── proposal.md        ← motivación y alcance
+      ├── design.md          ← decisiones técnicas
+      ├── tasks.md           ← lista de tareas
+      ├── specs/             ← Requirements + Scenarios (Given/When/Then)
+      ├── graph.subset.json  ← subgrafo FROZEN de los archivos relevantes
+      ├── context.md         ← mapa de lectura para el agente
+      └── agent-manifest.json ← skills filtradas SOLO para este change
+        │
+        ▼
+Agente/Dev llena proposal.md + specs/*.md
+  openspec validate mi-feature  ← verifica formato Requirement + Scenario
+        │
+        ▼
+Agente llama forge_implement("mi-feature")  ← MCP tool
+  → .contextforge/implement-plan.json
+      allowedFiles: [solo los del context-pack]
+      maxLocDelta: estimado del pack
+        │
+        ▼
+Agente implementa código
+        │
+        ▼
+Agente intenta  git commit
+        │
+        ▼
+[Hook PreToolUse]  ← automático, bloquea si hay violaciones
+  → node .claude/hooks/forge-pre-commit.mjs
+  → forge implement --check valida git diff vs guardrails
+  → archivo fuera de allowedFiles → exit 2 → COMMIT BLOQUEADO
+  → Agente recibe lista de violaciones y corrige antes de reintentar
+        │
+        ▼
+Commit pasa → merge
+        │
+        ▼
+Agente corre  openspec archive mi-feature
+        │
+        ▼
+[Hook PostToolUse(openspec)]  ← automático, en background
+  → forge_rebuild_graph async
+  → grafo fresco para la próxima tarea
+```
+
+---
+
+## ContextForge no reemplaza OpenSpec — lo alimenta
+
+**OpenSpec** es el framework de specs. **Claude Code / Cursor / OpenCode** son los agentes IA que lo usan. ContextForge le da a los agentes el contexto correcto para que OpenSpec reciba datos reales del código, no inventados.
+
+| OpenSpec hace | ContextForge aporta |
+|---|---|
+| Valida formato `Requirement:` + `Scenario:` | El contexto correcto para escribir la spec |
+| Archiva y mueve specs a `openspec/specs/` | El subgrafo frozen que dice qué archivos aplican |
+| `openspec validate` chequea Given/When/Then | `forge_check` chequea que el código respete los guardrails |
+| Historial de specs por feature | `forge_status` muestra qué changes tienen subgrafo activo |
+
+---
+
+## Antes vs ahora
+
+**Sin hooks ni MCP** — el dev recordaba (o no) cada paso:
+
+```bash
+pnpm forge scan
+pnpm forge graph
+pnpm forge context "mi tarea"
+pnpm forge spec mi-feature
+# llenar docs...
+pnpm forge implement mi-feature
+# codear...
+pnpm forge implement --check  # se olvidaba frecuentemente
+git commit
+openspec archive mi-feature
+pnpm forge scan && pnpm forge graph  # se olvidaba siempre
+```
+
+**Ahora** — los hooks y MCP tools hacen el trabajo:
+
+```bash
+# Agente recibe contexto automático al escribir el prompt (hook)
+# Llama forge_context → forge_spec → forge_implement via MCP (sin pnpm)
+# Dev/agente llena las specs → openspec validate confirma formato
+# Agente codea
+git commit              # → hook bloquea si hay violaciones, las explica
+openspec archive mi-feature  # → hook reconstruye grafo en background
+```
+
+`pnpm forge` manual solo para bootstrap (`forge init`) o forzar reconstrucción (`forge graph --force`).
 
 ---
 
@@ -570,40 +680,6 @@ Eso instala las **instrucciones canónicas de OpenSpec** para los 3 agentes (las
 **Política**: ningún comando llama a un LLM por defecto. Todo es derivable, reproducible, auditable.
 
 (¹) `forge graph --enrich` es la **única excepción opt-in** — agrega `summary`/`tags`/`complexity` a símbolos exportados vía Anthropic API. Requiere `ANTHROPIC_API_KEY`. Sin la flag, el pipeline sigue 100 % determinista.
-
----
-
-## Workflows recomendados
-
-### A) Bug fix puntual
-
-```bash
-pnpm forge context "fix <descripción del bug>"
-# El agente ya tiene el contexto correcto en .claude/agent-manifest.md
-# y el pack en .contextforge/context-pack.json
-pnpm forge implement --check    # antes de commit
-```
-
-### B) Feature nueva con SDD completo
-
-```bash
-pnpm forge context "implement <feature>"
-pnpm forge spec mi-feature-id            # spec-input + handoff/fallback
-# El agente recibe spec-prompt.md y llena los .md
-openspec validate mi-feature-id          # validación oficial
-pnpm forge implement mi-feature-id       # plan con guardrails
-# (el agente implementa)
-pnpm forge implement --check             # gate pre-commit
-openspec archive mi-feature-id -y        # al mergear
-```
-
-### C) Auditoría / health check
-
-```bash
-pnpm forge sync --since main             # delta vs main
-pnpm forge impact                        # cobertura de skills + estado
-openspec list                            # changes activos en SDD
-```
 
 ---
 
