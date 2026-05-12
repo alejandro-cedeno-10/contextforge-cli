@@ -3,6 +3,7 @@ import { getDomain } from "../graph/domain.js";
 export interface SkillEntry {
   path: string;
   name: string;
+  description?: string;
   domains: string[];
   alwaysApply?: boolean;
 }
@@ -28,12 +29,14 @@ export interface ManifestSkill {
   name: string;
   reason: string;
   matchType: MatchType;
+  hint?: string;
 }
 
 export interface ManifestRule {
   path: string;
   reason: string;
   matchType: MatchType;
+  hint?: string;
   suggestedGlobs?: string[];
 }
 
@@ -41,6 +44,7 @@ export interface AgentManifestResult {
   schemaVersion: string;
   task: string;
   domainsTouched: string[];
+  instruction: string;
   skills: ManifestSkill[];
   rules: ManifestRule[];
   skipped: {
@@ -49,7 +53,27 @@ export interface AgentManifestResult {
   };
 }
 
-const SCHEMA_VERSION = "1.0.0";
+const SCHEMA_VERSION = "1.1.0";
+
+function renderInstruction(
+  skillCount: number,
+  ruleCount: number,
+  domainsTouched: string[]
+): string {
+  if (skillCount === 0 && ruleCount === 0) {
+    return "No skills or rules matched this task. Proceed using the context-pack only.";
+  }
+  const domainsPart =
+    domainsTouched.length > 0
+      ? ` Domains touched: ${domainsTouched.join(", ")}.`
+      : "";
+  return (
+    "Load ONLY the entries listed in `skills[]` and `rules[]`. " +
+    "Each `hint` (when present) describes when that entry applies — use it to decide whether to apply the entry to the current sub-task. " +
+    "Entries under `skipped` were filtered out as not relevant; do not load them." +
+    domainsPart
+  );
+}
 
 function deslugify(slug: string): string {
   return slug.replace(/-/g, "/");
@@ -125,12 +149,16 @@ export function buildAgentManifest(
       skill.name
     );
     if (res.match) {
-      skills.push({
+      const entry: ManifestSkill = {
         path: skill.path,
         name: skill.name,
         reason: res.reason,
         matchType: res.matchType
-      });
+      };
+      if (skill.description && skill.description.trim().length > 0) {
+        entry.hint = skill.description.trim();
+      }
+      skills.push(entry);
     } else {
       skippedSkills.push({ name: skill.name, reason: "domain not touched" });
     }
@@ -154,6 +182,9 @@ export function buildAgentManifest(
         reason: res.reason,
         matchType: res.matchType
       };
+      if (rule.description && rule.description.trim().length > 0) {
+        entry.hint = rule.description.trim();
+      }
       if (res.matchType === "domain" && rule.domains.length > 0) {
         const globs = rule.domains
           .filter((d) => domainsTouchedSet.has(d))
@@ -171,6 +202,7 @@ export function buildAgentManifest(
     schemaVersion: SCHEMA_VERSION,
     task: opts.task,
     domainsTouched,
+    instruction: renderInstruction(skills.length, rules.length, domainsTouched),
     skills,
     rules,
     skipped: { skills: skippedSkills, rules: skippedRules }

@@ -1097,7 +1097,9 @@ describe("forgeSpec — calls forgeChangeManifest internally", () => {
     );
     const manifest = JSON.parse(manifestRaw);
     expect(manifest.task).toBe("ship login flow");
-    expect(manifest.schemaVersion).toBe("1.0.0");
+    expect(manifest.schemaVersion).toBe("1.1.0");
+    expect(typeof manifest.instruction).toBe("string");
+    expect(manifest.instruction.length).toBeGreaterThan(0);
   });
 });
 

@@ -10,17 +10,30 @@ import {
 function skill(
   name: string,
   domains: string[] = [],
-  alwaysApply?: boolean
+  alwaysApply?: boolean,
+  description?: string
 ): SkillEntry {
-  return { path: `.claude/skills/${name}.md`, name, domains, alwaysApply };
+  return {
+    path: `.claude/skills/${name}.md`,
+    name,
+    domains,
+    alwaysApply,
+    ...(description ? { description } : {})
+  };
 }
 
 function rule(
   path: string,
   domains: string[] = [],
-  alwaysApply?: boolean
+  alwaysApply?: boolean,
+  description?: string
 ): RuleEntry {
-  return { path, domains, alwaysApply };
+  return {
+    path,
+    domains,
+    alwaysApply,
+    ...(description ? { description } : {})
+  };
 }
 
 describe("buildAgentManifest", () => {
@@ -195,13 +208,122 @@ describe("buildAgentManifest", () => {
     expect(JSON.stringify(r1)).toBe(JSON.stringify(r2));
   });
 
-  it("schemaVersion is always 1.0.0", () => {
+  it("schemaVersion is 1.1.0", () => {
     const result = buildAgentManifest({
       task: "t",
       packedFiles: [],
       skills: [],
       rules: []
     });
-    expect(result.schemaVersion).toBe("1.0.0");
+    expect(result.schemaVersion).toBe("1.1.0");
+  });
+
+  it("instruction is present and non-empty for empty match (degenerate prompt)", () => {
+    const result = buildAgentManifest({
+      task: "t",
+      packedFiles: [],
+      skills: [],
+      rules: []
+    });
+    expect(result.instruction.length).toBeGreaterThan(0);
+    expect(result.instruction).toMatch(/No skills or rules matched/);
+  });
+
+  it("instruction lists domainsTouched when skills matched", () => {
+    const result = buildAgentManifest({
+      task: "fix core",
+      packedFiles: [{ path: "packages/core/src/a.ts" }],
+      skills: [skill("my-skill", ["packages/core"])],
+      rules: []
+    });
+    expect(result.instruction).toMatch(/Load ONLY/);
+    expect(result.instruction).toContain("packages/core");
+  });
+
+  it("hint is populated from description on matched skill", () => {
+    const result = buildAgentManifest({
+      task: "fix core",
+      packedFiles: [{ path: "packages/core/src/a.ts" }],
+      skills: [
+        skill(
+          "my-skill",
+          ["packages/core"],
+          false,
+          "Use when editing scanner or graph builder"
+        )
+      ],
+      rules: []
+    });
+    expect(result.skills[0].hint).toBe(
+      "Use when editing scanner or graph builder"
+    );
+  });
+
+  it("hint is absent when description not provided", () => {
+    const result = buildAgentManifest({
+      task: "fix core",
+      packedFiles: [{ path: "packages/core/src/a.ts" }],
+      skills: [skill("my-skill", ["packages/core"])],
+      rules: []
+    });
+    expect(result.skills[0].hint).toBeUndefined();
+  });
+
+  it("hint is trimmed of surrounding whitespace", () => {
+    const result = buildAgentManifest({
+      task: "fix core",
+      packedFiles: [{ path: "packages/core/src/a.ts" }],
+      skills: [skill("my-skill", ["packages/core"], false, "  spaced hint  ")],
+      rules: []
+    });
+    expect(result.skills[0].hint).toBe("spaced hint");
+  });
+
+  it("hint is omitted when description is whitespace-only", () => {
+    const result = buildAgentManifest({
+      task: "fix core",
+      packedFiles: [{ path: "packages/core/src/a.ts" }],
+      skills: [skill("my-skill", ["packages/core"], false, "   ")],
+      rules: []
+    });
+    expect(result.skills[0].hint).toBeUndefined();
+  });
+
+  it("rule with description propagates to hint", () => {
+    const result = buildAgentManifest({
+      task: "fix core",
+      packedFiles: [{ path: "packages/core/src/a.ts" }],
+      skills: [],
+      rules: [
+        rule(
+          ".cursor/rules/r.mdc",
+          ["packages/core"],
+          false,
+          "Lint rule for graph package"
+        )
+      ]
+    });
+    expect(result.rules[0].hint).toBe("Lint rule for graph package");
+  });
+
+  it("skipped entries do not carry hint (kept compact)", () => {
+    const result = buildAgentManifest({
+      task: "fix cli",
+      packedFiles: [{ path: "packages/cli/src/index.ts" }],
+      skills: [
+        skill(
+          "contextforge-domain-packages-mcp",
+          [],
+          false,
+          "Use for MCP changes"
+        )
+      ],
+      rules: []
+    });
+    expect(result.skipped.skills).toHaveLength(1);
+    // Skipped is { name, reason } only — no hint field.
+    expect(
+      Object.prototype.hasOwnProperty.call(result.skipped.skills[0], "hint")
+    ).toBe(false);
   });
 });

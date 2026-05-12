@@ -867,9 +867,11 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
       [graph, scanData] = await Promise.all([loadGraph(), loadScan()]);
     } catch {
       const degraded: AgentManifestResult = {
-        schemaVersion: "1.0.0",
+        schemaVersion: "1.1.0",
         task,
         domainsTouched: [],
+        instruction:
+          "scan/graph artifacts missing — no skill selection performed. Run `forge scan && forge graph` then retry.",
         skills: [],
         rules: [],
         skipped: { skills: [], rules: [] }
@@ -889,7 +891,8 @@ export function createHandlers(root: string, deps: HandlerDeps = {}) {
       nodes: graph.nodes as Parameters<typeof selectContext>[0]["nodes"],
       edges: graph.edges as Parameters<typeof selectContext>[0]["edges"],
       scanFiles: scanData.files,
-      seeds: []
+      seeds: [],
+      task
     }).files.map((f) => ({ path: f.path }));
 
     const skillsDir = path.join(root, ".claude", "skills");

@@ -5,7 +5,10 @@ export function renderCursor(manifest: AgentManifestResult): RenderedFile[] {
   const globs = manifest.domainsTouched.map((d) => `  - ${d}/**`).join("\n");
 
   const activeRules = manifest.rules
-    .map((r) => `- \`${r.path}\` — ${r.reason}`)
+    .map((r) => {
+      const hintPart = r.hint ? ` — _${r.hint}_` : "";
+      return `- \`${r.path}\` — ${r.reason}${hintPart}`;
+    })
     .join("\n");
 
   const content = `---
@@ -18,6 +21,10 @@ alwaysApply: false
 # Active task
 
 ${manifest.task}
+
+## Instruction
+
+${manifest.instruction}
 
 ## Domains touched
 

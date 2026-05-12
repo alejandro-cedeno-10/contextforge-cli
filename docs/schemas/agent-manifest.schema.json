@@ -8,6 +8,7 @@
     "schemaVersion",
     "task",
     "domainsTouched",
+    "instruction",
     "skills",
     "rules",
     "skipped"
@@ -16,7 +17,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "task": {
       "type": "string",
@@ -27,6 +28,11 @@
       "type": "array",
       "items": { "type": "string" },
       "description": "Dominios derivados de los archivos del context-pack, ordenados y deduplicados."
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Directiva textual para el LLM que consume el manifiesto: como usar skills/rules y skipped."
     },
     "skills": {
       "type": "array",
@@ -41,6 +47,10 @@
           "matchType": {
             "type": "string",
             "enum": ["domain", "alwaysApply", "explicit"]
+          },
+          "hint": {
+            "type": "string",
+            "description": "Descripcion corta (de frontmatter) que indica al LLM cuando aplicar esta skill."
           }
         }
       }
@@ -57,6 +67,10 @@
           "matchType": {
             "type": "string",
             "enum": ["domain", "alwaysApply", "explicit"]
+          },
+          "hint": {
+            "type": "string",
+            "description": "Descripcion corta (de frontmatter) que indica al LLM cuando aplicar esta rule."
           },
           "suggestedGlobs": {
             "type": "array",

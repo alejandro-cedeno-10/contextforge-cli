@@ -54,6 +54,22 @@ describe("parseFrontmatter", () => {
       "packages/cli"
     ]);
   });
+
+  it("parses single-line description and strips surrounding quotes", () => {
+    const plain = ["---", "description: Hello world", "---"].join("\n");
+    expect(parseFrontmatter(plain).description).toBe("Hello world");
+
+    const dq = ['---', 'description: "Quoted hint"', "---"].join("\n");
+    expect(parseFrontmatter(dq).description).toBe("Quoted hint");
+
+    const sq = ["---", "description: 'Single quoted'", "---"].join("\n");
+    expect(parseFrontmatter(sq).description).toBe("Single quoted");
+  });
+
+  it("description is undefined when value is whitespace-only", () => {
+    const content = ["---", "description:    ", "---"].join("\n");
+    expect(parseFrontmatter(content).description).toBeUndefined();
+  });
 });
 
 describe("loadSkillEntries", () => {
@@ -78,6 +94,7 @@ describe("loadSkillEntries", () => {
       [
         "---",
         "name: skill-a",
+        "description: Editing the scanner module",
         "domains: [packages/core]",
         "alwaysApply: true",
         "---",
@@ -99,12 +116,14 @@ describe("loadSkillEntries", () => {
     expect(byPath.get(".claude/skills/a.md")).toEqual({
       path: ".claude/skills/a.md",
       name: "skill-a",
+      description: "Editing the scanner module",
       domains: ["packages/core"],
       alwaysApply: true
     });
     expect(byPath.get(".claude/skills/b.md")).toEqual({
       path: ".claude/skills/b.md",
       name: "b",
+      description: undefined,
       domains: [],
       alwaysApply: undefined
     });
@@ -132,6 +151,7 @@ describe("loadRuleEntries", () => {
       path.join(workDir, "rule-a.mdc"),
       [
         "---",
+        "description: CLI commands convention",
         "domains: [packages/cli]",
         "alwaysApply: false",
         "---",
@@ -152,7 +172,7 @@ describe("loadRuleEntries", () => {
     expect(result).toHaveLength(2);
     expect(byPath.get(".cursor/rules/rule-a.mdc")).toEqual({
       path: ".cursor/rules/rule-a.mdc",
-      description: undefined,
+      description: "CLI commands convention",
       domains: ["packages/cli"],
       alwaysApply: false
     });

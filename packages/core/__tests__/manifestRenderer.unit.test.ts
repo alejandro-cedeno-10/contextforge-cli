@@ -6,15 +6,18 @@ import { renderCursor } from "../src/manifest/renderers/cursor";
 import { renderOpenCode } from "../src/manifest/renderers/opencode";
 
 const sampleManifest: AgentManifestResult = {
-  schemaVersion: "1.0.0",
+  schemaVersion: "1.1.0",
   task: "fix race in tokenLedger",
   domainsTouched: ["packages/cli", "packages/core"],
+  instruction:
+    "Load ONLY the entries listed in `skills[]` and `rules[]`. Domains touched: packages/cli, packages/core.",
   skills: [
     {
       path: ".claude/skills/ctx-packages-core.md",
       name: "ctx-packages-core",
       reason: "task touches packages/core",
-      matchType: "domain"
+      matchType: "domain",
+      hint: "Use when editing scanner or graph"
     },
     {
       path: ".claude/skills/global.md",
@@ -27,7 +30,8 @@ const sampleManifest: AgentManifestResult = {
     {
       path: ".cursor/rules/contextforge.mdc",
       reason: "skill marked alwaysApply",
-      matchType: "alwaysApply"
+      matchType: "alwaysApply",
+      hint: "General forge conventions"
     }
   ],
   skipped: {
@@ -37,9 +41,11 @@ const sampleManifest: AgentManifestResult = {
 };
 
 const emptyManifest: AgentManifestResult = {
-  schemaVersion: "1.0.0",
+  schemaVersion: "1.1.0",
   task: "empty task",
   domainsTouched: [],
+  instruction:
+    "No skills or rules matched this task. Proceed using the context-pack only.",
   skills: [],
   rules: [],
   skipped: { skills: [], rules: [] }
@@ -65,9 +71,20 @@ describe("renderClaude", () => {
   it("contains required headings", () => {
     const { content } = renderClaude(sampleManifest)[0];
     expect(content).toContain("# Tarea:");
+    expect(content).toContain("## Instrucción para el LLM");
     expect(content).toContain("## Dominios tocados");
     expect(content).toContain("## Skills sugeridas");
     expect(content).toContain("## Skills omitidas");
+  });
+
+  it("renders skill hint inline when present", () => {
+    const { content } = renderClaude(sampleManifest)[0];
+    expect(content).toContain("Use when editing scanner or graph");
+  });
+
+  it("renders instruction text", () => {
+    const { content } = renderClaude(sampleManifest)[0];
+    expect(content).toContain("Load ONLY the entries");
   });
 
   it("lists suggested skills with reason", () => {
@@ -112,6 +129,16 @@ describe("renderCursor", () => {
     expect(content).toContain("packages/core/**");
   });
 
+  it("renders rule hint inline when present", () => {
+    const { content } = renderCursor(sampleManifest)[0];
+    expect(content).toContain("General forge conventions");
+  });
+
+  it("renders instruction section", () => {
+    const { content } = renderCursor(sampleManifest)[0];
+    expect(content).toContain("## Instruction");
+  });
+
   it("empty domainsTouched produces empty globs section", () => {
     const { content } = renderCursor(emptyManifest)[0];
     expect(content).toContain("alwaysApply: false");
@@ -145,6 +172,16 @@ describe("renderOpenCode", () => {
   it("lists suggested skills", () => {
     const { content } = renderOpenCode(sampleManifest)[0];
     expect(content).toContain("ctx-packages-core");
+  });
+
+  it("renders skill hint inline when present", () => {
+    const { content } = renderOpenCode(sampleManifest)[0];
+    expect(content).toContain("Use when editing scanner or graph");
+  });
+
+  it("renders instruction section", () => {
+    const { content } = renderOpenCode(sampleManifest)[0];
+    expect(content).toContain("## Instruction");
   });
 
   it("is deterministic", () => {

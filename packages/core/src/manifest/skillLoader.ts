@@ -7,6 +7,7 @@ import type { RuleEntry, SkillEntry } from "./agentManifest.js";
 
 interface FrontmatterFields {
   name?: string;
+  description?: string;
   domains?: string[];
   alwaysApply?: boolean;
 }
@@ -19,6 +20,15 @@ export function parseFrontmatter(content: string): FrontmatterFields {
 
   const nameLine = /^name:\s*(.+)$/m.exec(block);
   if (nameLine) fields.name = nameLine[1].trim();
+
+  // Single-line description only. Strip optional surrounding quotes.
+  // Multi-line YAML folded scalars are intentionally not supported — keep skills'
+  // descriptions short and one-liner so they're cheap to inject as hints.
+  const descLine = /^description:\s*(.+)$/m.exec(block);
+  if (descLine) {
+    const raw = descLine[1].trim();
+    fields.description = raw.replace(/^["']|["']$/g, "").trim() || undefined;
+  }
 
   const alwaysLine = /^alwaysApply:\s*(true|false)$/m.exec(block);
   if (alwaysLine) fields.alwaysApply = alwaysLine[1] === "true";
@@ -48,6 +58,7 @@ export async function loadSkillEntries(dir: string): Promise<SkillEntry[]> {
         result.push({
           path: relPath,
           name: fm.name ?? entry.replace(".md", ""),
+          description: fm.description,
           domains: fm.domains ?? [],
           alwaysApply: fm.alwaysApply
         });
@@ -78,7 +89,7 @@ export async function loadRuleEntries(dir: string): Promise<RuleEntry[]> {
         const fm = parseFrontmatter(content);
         result.push({
           path: relPath,
-          description: undefined,
+          description: fm.description,
           domains: fm.domains ?? [],
           alwaysApply: fm.alwaysApply
         });

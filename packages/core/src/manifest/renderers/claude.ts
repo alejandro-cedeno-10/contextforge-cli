@@ -7,7 +7,10 @@ export interface RenderedFile {
 
 export function renderClaude(manifest: AgentManifestResult): RenderedFile[] {
   const skillLines = manifest.skills
-    .map((s) => `- \`${s.name}\` — ${s.reason}`)
+    .map((s) => {
+      const hintPart = s.hint ? ` — _${s.hint}_` : "";
+      return `- \`${s.name}\` — ${s.reason}${hintPart}`;
+    })
     .join("\n");
 
   const skippedLines = manifest.skipped.skills
@@ -25,6 +28,10 @@ description: ${manifest.task}
 ---
 
 # Tarea: ${manifest.task}
+
+## Instrucción para el LLM
+
+${manifest.instruction}
 
 ## Dominios tocados
 
