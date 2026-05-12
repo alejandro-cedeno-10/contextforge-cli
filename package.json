@@ -23,16 +23,28 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "forge": "tsx packages/cli/src/index.ts"
+    "forge": "tsx packages/cli/src/index.ts",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
+    "@vitest/coverage-v8": "^3.2.4",
     "ajv-cli": "^5.0.0",
     "ajv-formats": "^3.0.1",
-    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.39.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.4",
     "prettier": "^3.6.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
