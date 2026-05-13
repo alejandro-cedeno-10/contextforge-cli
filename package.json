@@ -24,7 +24,9 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "forge": "tsx packages/cli/src/index.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postinstall": "node scripts/forge-rebuild.mjs",
+    "graph:rebuild": "node scripts/forge-rebuild.mjs --verbose"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,tsx}": [
