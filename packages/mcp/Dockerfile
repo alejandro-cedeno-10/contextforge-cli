@@ -13,9 +13,14 @@ COPY packages/core/package.json packages/core/
 COPY packages/cli/package.json packages/cli/
 COPY packages/mcp/package.json packages/mcp/
 
+# Root postinstall runs `node scripts/forge-rebuild.mjs` (dev-only graph
+# refresh). Copy the script so the hook resolves, then short-circuit it via
+# CONTEXTFORGE_SKIP_REBUILD=1 — the Docker image never needs a graph rebuild.
+COPY scripts ./scripts
+
 # Install everything (incl. dev deps for tsc); ignore lockfile drift since we
 # may build off a tag where the lockfile was last regenerated locally.
-RUN pnpm install --no-frozen-lockfile
+RUN CONTEXTFORGE_SKIP_REBUILD=1 pnpm install --no-frozen-lockfile
 
 # Source layer
 COPY packages/core/tsconfig.json packages/core/
@@ -53,8 +58,10 @@ COPY --from=builder /workspace/pnpm-lock.yaml /app/pnpm-lock.yaml
 COPY --from=builder /workspace/pnpm-workspace.yaml /app/pnpm-workspace.yaml
 COPY --from=builder /workspace/packages/cli/package.json /app/packages/cli/package.json
 
+# `--ignore-scripts` skips the root postinstall (graph rebuild) which is a
+# dev-only hook and depends on files not present in this stage.
 RUN corepack enable && corepack prepare pnpm@10.0.0 --activate \
- && pnpm install --prod --no-frozen-lockfile --filter @anai-raia-alex/contextforge-mcp... \
+ && pnpm install --prod --no-frozen-lockfile --ignore-scripts --filter @anai-raia-alex/contextforge-mcp... \
  && pnpm store prune
 
 # Runtime config: default to /project as the working repo (mount with -v)
