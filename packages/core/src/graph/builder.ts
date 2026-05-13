@@ -33,7 +33,12 @@ export type SemanticNodeType =
   | "step"
   | "concept";
 
-export type StructuralNodeType = "file" | "symbol" | "folder" | "package";
+export type StructuralNodeType =
+  | "file"
+  | "symbol"
+  | "folder"
+  | "package"
+  | "external-symbol";
 
 export type NodeType = StructuralNodeType | SemanticNodeType;
 
@@ -393,6 +398,7 @@ export async function buildGraph(options: {
   const tsconfigPaths = await loadTsconfigPaths(root);
   const seenEdges = new Set<string>();
   const seenPackages = new Set<string>();
+  const seenExternalSymbols = new Set<string>();
 
   function addEdge(edge: GraphEdge): void {
     const key = `${edge.from}|${edge.to}|${edge.type}`;
@@ -510,6 +516,32 @@ export async function buildGraph(options: {
           to: pkgId,
           type: "imports"
         });
+
+        // Surface named/default specifiers as external-symbol nodes so the
+        // LLM can see *which* exports of the library are actually used.
+        // Namespace imports (`* as ns`) are intentionally skipped — they
+        // already collapse to the whole package.
+        for (const spec of imp.specifiers ?? []) {
+          if (spec.kind === "namespace") continue;
+          const exportedName =
+            spec.kind === "default" ? "default" : (spec.imported ?? spec.name);
+          const symbolId = `external-symbol:${pkgName}#${exportedName}`;
+          if (!seenExternalSymbols.has(symbolId)) {
+            seenExternalSymbols.add(symbolId);
+            nodes.push({
+              id: symbolId,
+              type: "external-symbol",
+              label: exportedName,
+              kind: spec.kind,
+              path: pkgName
+            });
+          }
+          addEdge({
+            from: `file:${file.path}`,
+            to: symbolId,
+            type: "imports"
+          });
+        }
       }
     }
     importedFilesByFile.set(file.path, importedSet);

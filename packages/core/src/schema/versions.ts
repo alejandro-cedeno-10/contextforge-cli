@@ -5,7 +5,7 @@
  */
 export const SCHEMA_VERSIONS = {
   scan: "0.2.0",
-  graph: "0.3.0",
+  graph: "0.4.0",
   contextPack: "0.2.0",
   implementPlan: "0.2.0",
   tokenLedger: "0.2.0",

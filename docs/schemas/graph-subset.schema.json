@@ -67,7 +67,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^(file|symbol|folder|package|domain|layer|endpoint|flow|step|concept):.+"
+          "pattern": "^(file|symbol|folder|package|external-symbol|domain|layer|endpoint|flow|step|concept):.+"
         },
         "type": {
           "type": "string",
@@ -76,6 +76,7 @@
             "symbol",
             "folder",
             "package",
+            "external-symbol",
             "domain",
             "layer",
             "endpoint",

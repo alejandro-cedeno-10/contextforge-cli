@@ -23,9 +23,26 @@ export interface ParserCapture {
   exported: boolean;
 }
 
+export type ImportSpecifierKind = "named" | "default" | "namespace";
+
+export interface ImportSpecifier {
+  /** "named" | "default" | "namespace" — how the symbol was imported. */
+  kind: ImportSpecifierKind;
+  /** Local binding name. For aliased imports, this is the alias. */
+  name: string;
+  /** Original exported name when aliased ("foo" in `import { foo as bar }`). */
+  imported?: string;
+}
+
 export interface ImportStatement {
   source: string;
   line: number;
+  /**
+   * Parsed specifiers when the heuristic could recover them (single-line JS/TS
+   * imports only). Absent for side-effect imports, multi-line imports, and
+   * non-JS languages.
+   */
+  specifiers?: ImportSpecifier[];
 }
 
 export type HeritageKind = "extends" | "implements";
@@ -59,7 +76,7 @@ export interface ParseFileResult {
   fallbackReason?: FallbackReason;
 }
 
-export const PARSER_VERSION = "heuristic-3";
+export const PARSER_VERSION = "heuristic-4";
 
 const CALL_RESERVED = new Set([
   "if",
@@ -538,6 +555,50 @@ function heuristicCaptures(
   return { captures, heritage };
 }
 
+function parseImportClause(rawClause: string): ImportSpecifier[] {
+  const specs: ImportSpecifier[] = [];
+  const clause = rawClause.replace(/^\s*type\s+/, "").trim();
+  if (!clause) return specs;
+
+  // Namespace: `* as Foo`
+  const ns = clause.match(/^\*\s+as\s+([\w$]+)$/);
+  if (ns?.[1]) return [{ kind: "namespace", name: ns[1] }];
+
+  let defaultPart = clause;
+  let namedPart = "";
+  const braceIdx = clause.indexOf("{");
+  if (braceIdx >= 0) {
+    defaultPart = clause.slice(0, braceIdx).replace(/,\s*$/, "").trim();
+    const closeIdx = clause.indexOf("}", braceIdx);
+    namedPart = clause
+      .slice(braceIdx + 1, closeIdx >= 0 ? closeIdx : clause.length)
+      .trim();
+  }
+
+  if (defaultPart && /^[\w$]+$/.test(defaultPart)) {
+    specs.push({ kind: "default", name: defaultPart });
+  }
+
+  if (namedPart) {
+    for (const piece of namedPart.split(",")) {
+      const token = piece.replace(/^\s*type\s+/, "").trim();
+      if (!token) continue;
+      const aliased = token.match(/^([\w$]+)\s+as\s+([\w$]+)$/);
+      if (aliased?.[1] && aliased[2]) {
+        specs.push({
+          kind: "named",
+          name: aliased[2],
+          imported: aliased[1]
+        });
+      } else if (/^[\w$]+$/.test(token)) {
+        specs.push({ kind: "named", name: token });
+      }
+    }
+  }
+
+  return specs;
+}
+
 function extractHeuristicImports(
   source: string,
   language: ParserLanguage
@@ -552,10 +613,13 @@ function extractHeuristicImports(
 
       // Single-line: import ... from 'src'
       const single = line.match(
-        /^\s*import\s+(?:type\s+)?[^'"]*\s+from\s+['"]([^'"]+)['"]/
+        /^\s*import\s+(?:type\s+)?([^'"]*?)\s+from\s+['"]([^'"]+)['"]/
       );
-      if (single?.[1]) {
-        imports.push({ source: single[1], line: lineNum });
+      if (single?.[2]) {
+        const specifiers = parseImportClause(single[1] ?? "");
+        const entry: ImportStatement = { source: single[2], line: lineNum };
+        if (specifiers.length > 0) entry.specifiers = specifiers;
+        imports.push(entry);
         continue;
       }
 

@@ -88,8 +88,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "ID estable. Convencion: 'file:<path>' para files, 'symbol:<path>#<name>' para simbolos. Capa semantica usa 'domain:<slug>', 'layer:<name>', 'endpoint:<METHOD>:<path>', 'flow:<domain>/<slug>', 'step:<flow_id>#<order>', 'concept:<domain>/<slug>'.",
-          "pattern": "^(file|symbol|folder|package|domain|layer|endpoint|flow|step|concept):.+"
+          "description": "ID estable. Convencion: 'file:<path>' para files, 'symbol:<path>#<name>' para simbolos, 'package:<name>' para libs externas, 'external-symbol:<pkg>#<exportedName>' para imports nombrados de libs (orientacion para el LLM). Capa semantica usa 'domain:<slug>', 'layer:<name>', 'endpoint:<METHOD>:<path>', 'flow:<domain>/<slug>', 'step:<flow_id>#<order>', 'concept:<domain>/<slug>'.",
+          "pattern": "^(file|symbol|folder|package|external-symbol|domain|layer|endpoint|flow|step|concept):.+"
         },
         "type": {
           "type": "string",
@@ -98,6 +98,7 @@
             "symbol",
             "folder",
             "package",
+            "external-symbol",
             "domain",
             "layer",
             "endpoint",
@@ -117,7 +118,7 @@
         },
         "kind": {
           "type": "string",
-          "description": "Para file: scan kind. Para symbol: 'function'|'class'|'method'|'interface'|'type'|'const'|'var'|'enum'. Para layer: 'backend'|'frontend'|'shared'."
+          "description": "Para file: scan kind. Para symbol: 'function'|'class'|'method'|'interface'|'type'|'const'|'var'|'enum'. Para external-symbol: 'named'|'default' (namespace imports se agregan solo como package). Para layer: 'backend'|'frontend'|'shared'."
         },
         "lang": { "type": "string" },
         "exported": {
