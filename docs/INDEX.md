@@ -42,7 +42,7 @@ Recetas enfocadas en una sola tarea, asumiendo conocimiento básico del repo.
 
 Información factual de consulta rápida.
 
-_Crea archivos en `reference/`._
+- [`reference/operational-status.md`](./reference/operational-status.md) — Lo que está verificado (parser, MCP, OpenSpec interop, hooks, schemas), condiciones de uso (Node 22, openspec en PATH), riesgos residuales y checklist de verificación manual. Refrescado por release.
 
 ## 💡 Explanation (entender)
 
