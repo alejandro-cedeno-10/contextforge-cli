@@ -136,6 +136,9 @@ async function cmdInit(): Promise<void> {
   console.log("\nGenerando skills por dominio...");
   await cmdSkills(["--force"]);
 
+  console.log("\nInstalando skill orquestador ContextForge × OpenSpec...");
+  await writeOrchestratorSkill(true);
+
   console.log("\nGenerando context-pack inicial...");
   await cmdContext(projectName + " — initial overview");
 
@@ -143,6 +146,139 @@ async function cmdInit(): Promise<void> {
   await cmdViz();
   console.log(
     "Listo. Abre .contextforge/graph.html para ver el grafo del proyecto."
+  );
+}
+
+// Static skill that forces Claude to follow the ContextForge × OpenSpec
+// pipeline whenever the user asks for a change, refactor, bug fix or asks
+// to start working on the repo. Written to .claude/skills/ during `forge
+// init`. Idempotent — re-runs only overwrite when force=true.
+const CONTEXTFORGE_OPENSPEC_SKILL_MD = `---
+name: contextforge-openspec
+description: ALWAYS use this when the user asks for a new change, feature, refactor, bug fix, spec, OpenSpec workflow, archive a change, or starts a fresh session on this repo. It forces the ContextForge MCP pipeline (forge_status → forge_rebuild_graph → forge_context → forge_spec → forge_change_subgraph → forge_implement → forge_check → forge_archive_change) so the agent works on a deterministic frozen subgraph and OpenSpec changes get graph.subset.json + context.md generated automatically. Never call \`openspec archive\` via Bash — always use forge_archive_change.
+domains: [spec, change, openspec, refactor, feature, bugfix, onboarding, archive]
+alwaysApply: false
+---
+
+# ContextForge × OpenSpec — orchestration skill
+
+This repo uses **ContextForge** (MCP) **on top of OpenSpec** (CLI). Never
+replace OpenSpec — \`forge_spec\` calls \`openspec new change\` under the
+hood, and \`forge_archive_change\` calls \`openspec archive\`. ContextForge
+only adds graph.subset.json, context.md and a scoped agent-manifest inside
+each \`openspec/changes/<id>/\`.
+
+## When this skill activates
+
+Trigger phrases (Spanish + English):
+- "arranca un change", "nuevo change", "new change", "openspec change"
+- "feature", "refactor", "bug", "fix", "arreglo", "implementar"
+- "spec para X", "spec for X"
+- "terminamos", "archive", "cerrar change"
+- "arranco a trabajar", "qué hay acá", "what's in this repo"
+
+## Pre-flight (every session, before any change work)
+
+1. \`forge_status\` — see what artifacts exist.
+2. If \`scan.json\` / \`graph.json\` missing or stale → \`forge_rebuild_graph\`.
+3. If \`forge_status\` lists an active OpenSpec change the user wants to
+   continue → jump to "Existing change" below.
+
+## Onboarding ("arranco a trabajar acá")
+
+After pre-flight:
+4. \`forge_domain_map\` — show the user the top domains + cross-domain edges.
+5. \`get_agent_manifest\` — confirm which skills are loaded for this session.
+6. Wait for the user's actual task before scaffolding anything.
+
+## New change ("hacé X feature / refactor / bug fix")
+
+After pre-flight:
+4. \`forge_context({ task: "<user intent verbatim>" })\` — selects the
+   PageRank pack scoped to the task.
+5. \`forge_spec({ change_id: "<kebab-case>" })\` — delegates to
+   \`openspec new change <id>\` (the openspec CLI is invoked from
+   packages/mcp/src/handlers.ts via execSync), then writes
+   \`openspec/changes/<id>/{graph.subset.json,context.md,agent-manifest.json}\`.
+   Use kebab-case slugs (e.g. \`auth-pkce-flow\`, \`fix-login-race\`).
+6. \`forge_change_subgraph({ change_id })\` — read the frozen subgraph.
+7. \`forge_change_context({ change_id })\` — read the navigation map.
+
+## During implementation
+
+8. Edit **only** files listed in \`graph.subset.json#focus\`. Touching
+   anything outside means the subgraph is wrong — refresh with
+   \`forge_change_subgraph({ change_id, refresh: true })\` and explain the
+   scope change to the user before continuing.
+9. \`forge_implement({ change_id })\` — emit the guardrail plan.
+10. Before claiming done: \`forge_check\`. If it reports violations, fix and
+    re-check. Do not commit through violations.
+
+## Bug fixes
+
+Same as "New change" but use a slug starting with \`fix-\` (e.g.
+\`fix-auth-token-race\`). Bug fixes also go through OpenSpec — they get
+proposal + scenarios + tests like any other change. Skipping the OpenSpec
+flow for "small bugs" defeats the determinism.
+
+## Closing the change ("ya terminamos", "archive")
+
+11. \`forge_archive_change({ change_id })\` — this:
+    - Calls \`openspec archive <id>\` (your real OpenSpec CLI).
+    - Rebuilds \`.contextforge/graph.json\` so the parent graph reflects
+      post-archive code.
+    - Refreshes the \`graph.subset.json\` of every other active change.
+
+**NEVER call \`openspec archive\` directly via Bash.** Bare archive leaves
+the parent graph stale and silently breaks \`forge_neighbors\`,
+\`forge_context\` and other changes' subgraphs.
+
+## Failure modes
+
+- \`forge_spec\` reports "openspec CLI unavailable" → the deterministic
+  fallback still emits valid OpenSpec format. Tell the user openspec is
+  not on PATH so they install it: \`npm i -g @fission-ai/openspec\`.
+- \`forge_check\` reports violations → fix before commit. The husky
+  pre-commit hook also enforces formatting.
+- Schema validation error on an artifact → \`forge_rebuild_graph\` to
+  regenerate from source.
+- User asks to skip the pipeline ("just edit X") → push back once: explain
+  the determinism cost. If they insist, comply but flag the risk.
+
+## Tools reference (13)
+
+\`forge_status\`, \`forge_rebuild_graph\`, \`forge_context\`,
+\`forge_neighbors\`, \`forge_domain_map\`, \`forge_semantic_map\`,
+\`forge_flow\`, \`forge_spec\`, \`forge_implement\`, \`forge_check\`,
+\`forge_archive_change\`, \`forge_change_subgraph\`, \`forge_change_context\`,
+\`forge_change_manifest\`, \`select_agent_context\`, \`get_agent_manifest\`.
+
+All MCP. No shell required.
+`;
+
+async function writeOrchestratorSkill(force: boolean): Promise<void> {
+  const target = path.join(
+    process.cwd(),
+    ".claude",
+    "skills",
+    "contextforge-openspec.md"
+  );
+  let exists = false;
+  try {
+    await fs.access(target);
+    exists = true;
+  } catch {
+    exists = false;
+  }
+  if (exists && !force) {
+    console.log(
+      `[skip] ${path.relative(process.cwd(), target).replace(/\\/g, "/")} already exists (use --force to overwrite)`
+    );
+    return;
+  }
+  await writeText(target, CONTEXTFORGE_OPENSPEC_SKILL_MD);
+  console.log(
+    `Escrito ${path.relative(process.cwd(), target).replace(/\\/g, "/")}`
   );
 }
 
@@ -1647,6 +1783,7 @@ function printUsage(): void {
   pnpm forge implement --approve
   pnpm forge docs [--force]
   pnpm forge skills [--force]
+  pnpm forge install-skill [--force]
   pnpm forge manifest [--agents=claude,cursor,opencode] [--force]
   pnpm forge viz
   pnpm forge sync [--since HEAD~1] [--rebuild] [--refresh-subgraphs]
@@ -1684,6 +1821,9 @@ export async function runCommand(
       break;
     case "skills":
       await cmdSkills(args);
+      break;
+    case "install-skill":
+      await writeOrchestratorSkill(parseFlags(args).flags["force"] === true);
       break;
     case "manifest":
       await cmdManifest(args);
